@@ -1,0 +1,57 @@
+# Visual Studio C++ specific
+
+# Build results
+[Bb]in/
+[Oo]bj/
+ipch/                 # Intermediate precompiled headers
+*.iobj
+*.ipdb
+*.tlog
+*.log
+*.pdb                # Program database
+*.ilk                # Incremental linker file
+
+# Visual Studio user-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.vcxproj.user
+*.VC.db
+*.VC.opendb
+
+# Auto-generated files
+*.cache
+*.ncb
+*.aps
+*.sdf
+*.opensdf
+
+# VS Code workspace settings
+.vscode/
+
+# Temporary files
+*.tmp
+*.bak
+
+# Test results
+TestResults/
+*.coverage
+*.coveragexml
+*.codecoverage
+
+# Publish output
+*.publish/
+
+# Local history for VS
+.vs/
+
+# Others
+Thumbs.db
+.DS_Store
+
+# Build output folders
+x64/
+x86/
+Debug/
+Release/
