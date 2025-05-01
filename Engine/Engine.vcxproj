@@ -19,17 +19,17 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ApplicationClass.cpp" />
-    <ClCompile Include="D3DClass.cpp" />
-    <ClCompile Include="InputClass.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="SystemClass.cpp" />
+    <ClCompile Include="src\Core\ApplicationClass.cpp" />
+    <ClCompile Include="src\Core\InputClass.cpp" />
+    <ClCompile Include="src\Core\SystemClass.cpp" />
+    <ClCompile Include="src\Graphics\D3DClass.cpp" />
+    <ClCompile Include="src\Main\main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ApplicationClass.h" />
-    <ClInclude Include="D3DClass.h" />
-    <ClInclude Include="InputClass.h" />
-    <ClInclude Include="SystemClass.h" />
+    <ClInclude Include="src\Core\ApplicationClass.h" />
+    <ClInclude Include="src\Core\InputClass.h" />
+    <ClInclude Include="src\Core\SystemClass.h" />
+    <ClInclude Include="src\Graphics\D3DClass.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
