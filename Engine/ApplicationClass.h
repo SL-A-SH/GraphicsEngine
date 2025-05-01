@@ -1,7 +1,7 @@
 #ifndef _APPLICATIONCLASS_H_
 #define _APPLICATIONCLASS_H_
 
-#include <windows.h>
+#include "d3dclass.h"
 
 /////////////
 // GLOBALS //
@@ -26,7 +26,7 @@ private:
 	bool Render();
 
 private:
-
+	D3DClass* m_Direct3D;
 };
 
 #endif
