@@ -4,7 +4,7 @@
 #include "../Graphics/D3DClass.h"
 #include "../Graphics/CameraClass.h"
 #include "../Graphics/ModelClass.h"
-#include "../Graphics/Shaders/ShaderClasses/ColorShaderClass.h"
+#include "../Graphics/Shaders/ShaderClasses/TextureShaderClass.h"
 
 /////////////
 // GLOBALS //
@@ -32,7 +32,7 @@ private:
 	D3DClass* m_Direct3D;
 	CameraClass* m_Camera;
 	ModelClass* m_Model;
-	ColorShaderClass* m_ColorShader;
+	TextureShaderClass* m_TextureShader;
 };
 
 #endif
