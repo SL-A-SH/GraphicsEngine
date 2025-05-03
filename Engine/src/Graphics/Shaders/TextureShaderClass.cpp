@@ -26,14 +26,14 @@ bool TextureShaderClass::Initialize(ID3D11Device* device, HWND hwnd)
 	int error;
 
 	// Set the filename of the vertex shader.
-	error = wcscpy_s(vsFilename, 128, L"../Engine/src/Graphics/Shaders/TextureVertexShader.hlsl");
+	error = wcscpy_s(vsFilename, 128, L"../Engine/assets/shaders/TextureVertexShader.hlsl");
 	if (error != 0)
 	{
 		return false;
 	}
 
 	// Set the filename of the pixel shader.
-	error = wcscpy_s(psFilename, 128, L"../Engine/src/Graphics/Shaders/TexturePixelShader.hlsl");
+	error = wcscpy_s(psFilename, 128, L"../Engine/assets/shaders/TexturePixelShader.hlsl");
 	if (error != 0)
 	{
 		return false;
