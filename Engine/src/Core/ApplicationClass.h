@@ -4,7 +4,8 @@
 #include "../Graphics/D3DClass.h"
 #include "../Graphics/CameraClass.h"
 #include "../Graphics/ModelClass.h"
-#include "../Graphics/Shaders/TextureShaderClass.h"
+#include "../Graphics/Shaders/LightShaderClass.h"
+#include "../Graphics/LightClass.h"
 
 /////////////
 // GLOBALS //
@@ -26,13 +27,14 @@ public:
 	bool Frame();
 
 private:
-	bool Render();
+	bool Render(float);
 
 private:
 	D3DClass* m_Direct3D;
 	CameraClass* m_Camera;
 	ModelClass* m_Model;
-	TextureShaderClass* m_TextureShader;
+	LightShaderClass* m_LightShader;
+	LightClass* m_Light;
 };
 
 #endif
