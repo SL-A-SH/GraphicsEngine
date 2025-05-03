@@ -25,7 +25,7 @@
     <ClCompile Include="src\Graphics\CameraClass.cpp" />
     <ClCompile Include="src\Graphics\D3DClass.cpp" />
     <ClCompile Include="src\Graphics\ModelClass.cpp" />
-    <ClCompile Include="src\Graphics\Shaders\ColorShaderClass.cpp" />
+    <ClCompile Include="src\Graphics\Shaders\ShaderClasses\ColorShaderClass.cpp" />
     <ClCompile Include="src\Main\main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -35,7 +35,7 @@
     <ClInclude Include="src\Graphics\CameraClass.h" />
     <ClInclude Include="src\Graphics\D3DClass.h" />
     <ClInclude Include="src\Graphics\ModelClass.h" />
-    <ClInclude Include="src\Graphics\Shaders\ColorShaderClass.h" />
+    <ClInclude Include="src\Graphics\Shaders\ShaderClasses\ColorShaderClass.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="src\Graphics\Shaders\PixelShader.hlsl">

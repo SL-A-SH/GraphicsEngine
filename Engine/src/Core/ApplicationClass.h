@@ -4,7 +4,7 @@
 #include "../Graphics/D3DClass.h"
 #include "../Graphics/CameraClass.h"
 #include "../Graphics/ModelClass.h"
-#include "../Graphics/Shaders/ColorShaderClass.h"
+#include "../Graphics/Shaders/ShaderClasses/ColorShaderClass.h"
 
 /////////////
 // GLOBALS //
