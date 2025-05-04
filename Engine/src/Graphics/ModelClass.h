@@ -5,6 +5,7 @@
 #include <directxmath.h>
 #include <fstream>
 #include "textureclass.h"
+#include <fbxsdk.h>
 
 using namespace DirectX;
 using namespace std;
@@ -48,6 +49,10 @@ private:
 	void ReleaseTexture();
 
 	bool LoadModel(char*);
+	bool LoadTextModel(char*);
+	bool LoadFBXModel(char*);
+	void ProcessNode(FbxNode* pNode);
+	void ProcessMesh(FbxNode* pNode);
 	void ReleaseModel();
 
 private:

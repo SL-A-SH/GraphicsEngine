@@ -1,4 +1,5 @@
 #include "modelclass.h"
+#include <vector>
 
 ModelClass::ModelClass()
 {
@@ -21,6 +22,7 @@ ModelClass::~ModelClass()
 bool ModelClass::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceContext, char* modelFilename, char* textureFilename)
 {
 	bool result;
+
 
 	// Load in the model data.
 	result = LoadModel(modelFilename);
@@ -235,10 +237,23 @@ void ModelClass::ReleaseTexture()
 
 bool ModelClass::LoadModel(char* filename)
 {
+	// Check if the file is an FBX file
+	std::string fileStr(filename);
+	if (fileStr.substr(fileStr.find_last_of(".") + 1) == "fbx")
+	{
+		return LoadFBXModel(filename);
+	}
+	else
+	{
+		return LoadTextModel(filename);
+	}
+}
+
+bool ModelClass::LoadTextModel(char* filename)
+{
 	ifstream fin;
 	char input;
 	int i;
-
 
 	// Open the model file.
 	fin.open(filename);
@@ -286,6 +301,174 @@ bool ModelClass::LoadModel(char* filename)
 	fin.close();
 
 	return true;
+}
+
+bool ModelClass::LoadFBXModel(char* filename)
+{
+	// Initialize the FBX SDK manager
+	FbxManager* lSdkManager = FbxManager::Create();
+	if (!lSdkManager)
+	{
+		return false;
+	}
+
+	// Create an IOSettings object
+	FbxIOSettings* ios = FbxIOSettings::Create(lSdkManager, IOSROOT);
+	lSdkManager->SetIOSettings(ios);
+
+	// Create an importer
+	FbxImporter* lImporter = FbxImporter::Create(lSdkManager, "");
+	if (!lImporter->Initialize(filename, -1, lSdkManager->GetIOSettings()))
+	{
+		lImporter->Destroy();
+		lSdkManager->Destroy();
+		return false;
+	}
+
+	// Create a new scene
+	FbxScene* lScene = FbxScene::Create(lSdkManager, "myScene");
+	if (!lScene)
+	{
+		lImporter->Destroy();
+		lSdkManager->Destroy();
+		return false;
+	}
+
+	// Import the scene
+	lImporter->Import(lScene);
+	lImporter->Destroy();
+
+	// Convert the scene to triangle meshes
+	FbxGeometryConverter lGeomConverter(lSdkManager);
+	lGeomConverter.Triangulate(lScene, true);
+
+	// Get the root node
+	FbxNode* lRootNode = lScene->GetRootNode();
+	if (!lRootNode)
+	{
+		lScene->Destroy();
+		lSdkManager->Destroy();
+		return false;
+	}
+
+	// Process the scene
+	ProcessNode(lRootNode);
+
+	// Clean up
+	lScene->Destroy();
+	lSdkManager->Destroy();
+
+	return true;
+}
+
+void ModelClass::ProcessNode(FbxNode* pNode)
+{
+	if (!pNode)
+	{
+		return;
+	}
+
+	// Process the node's mesh if it has one
+	FbxNodeAttribute* lNodeAttribute = pNode->GetNodeAttribute();
+	if (lNodeAttribute && lNodeAttribute->GetAttributeType() == FbxNodeAttribute::eMesh)
+	{
+		ProcessMesh(pNode);
+	}
+
+	// Process all child nodes
+	for (int i = 0; i < pNode->GetChildCount(); i++)
+	{
+		ProcessNode(pNode->GetChild(i));
+	}
+}
+
+void ModelClass::ProcessMesh(FbxNode* pNode)
+{
+	FbxMesh* lMesh = pNode->GetMesh();
+	if (!lMesh)
+	{
+		return;
+	}
+
+	// Temporary storage for all vertices and indices
+	static std::vector<ModelType> vertices;
+	static std::vector<unsigned long> indices;
+
+	// Get the control points (positions)
+	FbxVector4* lControlPoints = lMesh->GetControlPoints();
+
+	// Get the first UV set name
+	FbxStringList lUVSetNameList;
+	lMesh->GetUVSetNames(lUVSetNameList);
+	const char* uvSetName = lUVSetNameList.GetCount() > 0 ? lUVSetNameList.GetStringAt(0) : nullptr;
+
+	int polygonCount = lMesh->GetPolygonCount();
+	for (int polyIdx = 0; polyIdx < polygonCount; ++polyIdx)
+	{
+		int polySize = lMesh->GetPolygonSize(polyIdx);
+		// Triangulated, so should always be 3
+		for (int vertIdx = 0; vertIdx < polySize; ++vertIdx)
+		{
+			ModelType v = {};
+			int ctrlPointIdx = lMesh->GetPolygonVertex(polyIdx, vertIdx);
+			FbxVector4 pos = lControlPoints[ctrlPointIdx];
+			v.x = (float)pos[0];
+			v.y = (float)pos[1];
+			v.z = (float)pos[2];
+
+			// Normal (per polygon-vertex)
+			FbxVector4 normal;
+			lMesh->GetPolygonVertexNormal(polyIdx, vertIdx, normal);
+			v.nx = (float)normal[0];
+			v.ny = (float)normal[1];
+			v.nz = (float)normal[2];
+
+			// UV (per polygon-vertex)
+			v.tu = 0.0f;
+			v.tv = 0.0f;
+			if (uvSetName)
+			{
+				FbxVector2 uv;
+				bool unmapped;
+				if (lMesh->GetPolygonVertexUV(polyIdx, vertIdx, uvSetName, uv, unmapped))
+				{
+					v.tu = (float)uv[0];
+					v.tv = (float)uv[1];
+				}
+			}
+
+			// Add vertex and index
+			vertices.push_back(v);
+			indices.push_back((unsigned long)vertices.size() - 1);
+		}
+	}
+
+	// After all meshes are processed, copy to m_model (do this only once, after all ProcessMesh calls)
+	// We'll do this in LoadFBXModel after ProcessNode
+	m_vertexCount = (int)vertices.size();
+	m_indexCount = (int)indices.size();
+
+	if (m_model)
+	{
+		delete[] m_model;
+	}
+
+	m_model = new ModelType[m_vertexCount];
+	for (int i = 0; i < m_vertexCount; ++i)
+	{
+		m_model[i] = vertices[i];
+	}
+		
+	// Optionally, you can store indices if you want to use them elsewhere
+	// But your InitializeBuffers currently assumes index = vertex order
+	// So this is fine for now
+
+	// Clear static vectors for next model load
+	if (pNode->GetParent() == nullptr) // root node, last call
+	{
+		vertices.clear();
+		indices.clear();
+	}
 }
 
 void ModelClass::ReleaseModel()

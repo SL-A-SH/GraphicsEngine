@@ -41,10 +41,10 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	m_Camera = new CameraClass;
 
 	// Set the initial position of the camera.
-	m_Camera->SetPosition(0.0f, 0.0f, -5.0f);
+	m_Camera->SetPosition(0.0f, 100.0f, -300.0f);
 
 	// Set the file name of the model.
-	strcpy_s(modelFilename, "../Engine/assets/models/cube.txt");
+	strcpy_s(modelFilename, "../Engine/assets/models/X Bot.fbx");
 
 	// Set the name of the texture file that we will be loading.
 	strcpy_s(textureFilename, "../Engine/assets/textures/stone01.tga");
