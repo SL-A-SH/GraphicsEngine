@@ -4,11 +4,17 @@
 #include <d3d11.h>
 #include <directxmath.h>
 #include <fstream>
+#include <string>
+#include <vector>
 #include "textureclass.h"
 #include <fbxsdk.h>
 
 using namespace DirectX;
 using namespace std;
+
+// FBX property names
+#define FBXSDK_CURRENTNAMESPACE fbxsdk
+#define FBXSDK_NAMESPACE_USE fbxsdk
 
 class ModelClass
 {
@@ -27,6 +33,16 @@ private:
 		float nx, ny, nz;
 	};
 
+	struct MaterialInfo
+	{
+		string diffuseTexturePath;
+		string normalTexturePath;
+		XMFLOAT4 diffuseColor;
+		XMFLOAT4 ambientColor;
+		XMFLOAT4 specularColor;
+		float shininess;
+	};
+
 public:
 	ModelClass();
 	ModelClass(const ModelClass&);
@@ -37,8 +53,8 @@ public:
 	void Render(ID3D11DeviceContext*);
 
 	int GetIndexCount();
-
 	ID3D11ShaderResourceView* GetTexture();
+	bool HasFBXMaterial() const { return m_hasFBXMaterial; }
 
 private:
 	bool InitializeBuffers(ID3D11Device*);
@@ -53,6 +69,9 @@ private:
 	bool LoadFBXModel(char*);
 	void ProcessNode(FbxNode* pNode);
 	void ProcessMesh(FbxNode* pNode);
+	void ProcessMaterials(FbxNode* pNode);
+	void ExtractMaterialInfo(FbxSurfaceMaterial* material);
+	string GetTexturePath(FbxProperty& property);
 	void ReleaseModel();
 
 private:
@@ -60,6 +79,8 @@ private:
 	int m_vertexCount, m_indexCount;
 	TextureClass* m_Texture;
 	ModelType* m_model;
+	MaterialInfo m_materialInfo;
+	bool m_hasFBXMaterial;
 };
 
 #endif

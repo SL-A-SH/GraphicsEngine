@@ -1,4 +1,8 @@
 #include "textureclass.h"
+#include <wincodec.h>
+#include <wrl/client.h>
+
+using Microsoft::WRL::ComPtr;
 
 TextureClass::TextureClass()
 {
@@ -26,8 +30,18 @@ bool TextureClass::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceC
 	unsigned int rowPitch;
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
 
-	// Load the targa image data into memory.
-	result = LoadTarga32Bit(filename);
+	// Check if the file is a PNG
+	std::string fileStr(filename);
+	if (fileStr.substr(fileStr.find_last_of(".") + 1) == "png")
+	{
+		result = LoadPNG(device, deviceContext, filename);
+	}
+	else
+	{
+		// Load the targa image data into memory.
+		result = LoadTarga32Bit(filename);
+	}
+
 	if (!result)
 	{
 		return false;
@@ -78,6 +92,75 @@ bool TextureClass::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceC
 	// Release the targa image data now that the image data has been loaded into the texture.
 	delete[] m_targaData;
 	m_targaData = 0;
+
+	return true;
+}
+
+bool TextureClass::LoadPNG(ID3D11Device* device, ID3D11DeviceContext* deviceContext, char* filename)
+{
+	// Convert filename to wide string
+	std::wstring wFilename(filename, filename + strlen(filename));
+
+	// Create WIC factory
+	ComPtr<IWICImagingFactory> wicFactory;
+	HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&wicFactory));
+	if (FAILED(hr))
+	{
+		return false;
+	}
+
+	// Create decoder
+	ComPtr<IWICBitmapDecoder> decoder;
+	hr = wicFactory->CreateDecoderFromFilename(wFilename.c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnLoad, &decoder);
+	if (FAILED(hr))
+	{
+		return false;
+	}
+
+	// Get the first frame
+	ComPtr<IWICBitmapFrameDecode> frame;
+	hr = decoder->GetFrame(0, &frame);
+	if (FAILED(hr))
+	{
+		return false;
+	}
+
+	// Get image dimensions
+	UINT width, height;
+	hr = frame->GetSize(&width, &height);
+	if (FAILED(hr))
+	{
+		return false;
+	}
+
+	// Create format converter
+	ComPtr<IWICFormatConverter> converter;
+	hr = wicFactory->CreateFormatConverter(&converter);
+	if (FAILED(hr))
+	{
+		return false;
+	}
+
+	// Convert to RGBA
+	hr = converter->Initialize(frame.Get(), GUID_WICPixelFormat32bppRGBA, WICBitmapDitherTypeNone, nullptr, 0.0f, WICBitmapPaletteTypeCustom);
+	if (FAILED(hr))
+	{
+		return false;
+	}
+
+	// Allocate memory for the image data
+	m_width = width;
+	m_height = height;
+	m_targaData = new unsigned char[width * height * 4];
+
+	// Copy the image data
+	hr = converter->CopyPixels(nullptr, width * 4, width * height * 4, m_targaData);
+	if (FAILED(hr))
+	{
+		delete[] m_targaData;
+		m_targaData = nullptr;
+		return false;
+	}
 
 	return true;
 }

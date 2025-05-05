@@ -91,4 +91,7 @@
     <FxCompile Include="assets\shaders\LightVertexShader.hlsl" />
     <FxCompile Include="assets\shaders\LightPixelShader.hlsl" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="FBX.props" />
+  </ItemGroup>
 </Project>

@@ -3,6 +3,9 @@
 
 #include <d3d11.h>
 #include <stdio.h>
+#include <string>
+
+using namespace std;
 
 class TextureClass
 {
@@ -31,6 +34,7 @@ public:
 
 private:
     bool LoadTarga32Bit(char*);
+    bool LoadPNG(ID3D11Device*, ID3D11DeviceContext*, char*);
 
 private:
     unsigned char* m_targaData;

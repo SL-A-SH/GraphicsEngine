@@ -41,12 +41,12 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	m_Camera = new CameraClass;
 
 	// Set the initial position of the camera.
-	m_Camera->SetPosition(30.0f, 100.0f, -300.0f);
+	m_Camera->SetPosition(0.0f, 100.0f, -250.0f);
 
 	// Set the file name of the model.
-	strcpy_s(modelFilename, "../Engine/assets/models/X Bot.fbx");
+	strcpy_s(modelFilename, "../Engine/assets/models/Praying.fbx");
 
-	// Set the name of the texture file that we will be loading.
+	// Set the name of the texture file that we will be loading (used as fallback if no FBX material)
 	strcpy_s(textureFilename, "../Engine/assets/textures/stone01.tga");
 
 	// Create and initialize the model object.
@@ -72,8 +72,20 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	// Create and initialize the light object.
 	m_Light = new LightClass;
 
-	m_Light->SetAmbientColor(0.15f, 0.15f, 0.15f, 1.0f);
-	m_Light->SetDiffuseColor(1.0f, 1.0f, 1.0f, 1.0f);
+	// If the model has FBX materials, we'll use those values
+	if (m_Model->HasFBXMaterial())
+	{
+		// Note: You'll need to add getters for these values in ModelClass
+		// For now, we'll use default values
+		m_Light->SetAmbientColor(0.15f, 0.15f, 0.15f, 1.0f);
+		m_Light->SetDiffuseColor(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+	else
+	{
+		m_Light->SetAmbientColor(0.15f, 0.15f, 0.15f, 1.0f);
+		m_Light->SetDiffuseColor(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+
 	m_Light->SetDirection(1.0f, 0.0f, 0.0f);
 
 	return true;
@@ -165,29 +177,10 @@ bool ApplicationClass::Render(float rotation)
 	m_Direct3D->GetProjectionMatrix(projectionMatrix);
 
 	rotateMatrix = XMMatrixRotationY(rotation);  // Build the rotation matrix.
-	translateMatrix = XMMatrixTranslation(-2.0f, 0.0f, 0.0f);  // Build the translation matrix.
+	translateMatrix = XMMatrixTranslation(0.0f, 0.0f, 0.0f);  // Build the translation matrix.
 
 	// Multiply them together to create the final world transformation matrix.
 	worldMatrix = XMMatrixMultiply(rotateMatrix, translateMatrix);
-
-	// Put the model vertex and index buffers on the graphics pipeline to prepare them for drawing.
-	m_Model->Render(m_Direct3D->GetDeviceContext());
-
-	// Render the model using the light shader.
-	result = m_LightShader->Render(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix, m_Model->GetTexture(),
-		m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor());
-	if (!result)
-	{
-		return false;
-	}
-
-	scaleMatrix = XMMatrixScaling(0.5f, 0.5f, 0.5f);  // Build the scaling matrix.
-	rotateMatrix = XMMatrixRotationY(rotation);  // Build the rotation matrix.
-	translateMatrix = XMMatrixTranslation(100.0f, 0.0f, 0.0f);  // Build the translation matrix.
-
-	// Multiply the scale, rotation, and translation matrices together to create the final world transformation matrix.
-	srMatrix = XMMatrixMultiply(scaleMatrix, rotateMatrix);
-	worldMatrix = XMMatrixMultiply(srMatrix, translateMatrix);
 
 	// Put the model vertex and index buffers on the graphics pipeline to prepare them for drawing.
 	m_Model->Render(m_Direct3D->GetDeviceContext());

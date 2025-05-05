@@ -1,5 +1,5 @@
 #include "modelclass.h"
-#include <vector>
+#include <algorithm>
 
 ModelClass::ModelClass()
 {
@@ -7,6 +7,11 @@ ModelClass::ModelClass()
 	m_indexBuffer = 0;
 	m_Texture = 0;
 	m_model = 0;
+	m_hasFBXMaterial = false;
+	m_materialInfo.diffuseColor = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	m_materialInfo.ambientColor = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
+	m_materialInfo.specularColor = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	m_materialInfo.shininess = 32.0f;
 }
 
 
@@ -23,7 +28,6 @@ bool ModelClass::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceCon
 {
 	bool result;
 
-
 	// Load in the model data.
 	result = LoadModel(modelFilename);
 	if (!result)
@@ -39,7 +43,37 @@ bool ModelClass::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceCon
 	}
 
 	// Load the texture for this model.
-	result = LoadTexture(device, deviceContext, textureFilename);
+	if (m_hasFBXMaterial && !m_materialInfo.diffuseTexturePath.empty())
+	{
+		OutputDebugStringA(("Using FBX texture: " + m_materialInfo.diffuseTexturePath + "\n").c_str());
+		
+		// Convert the texture path to a relative path if it's absolute
+		string texturePath = m_materialInfo.diffuseTexturePath;
+		size_t pos = texturePath.find("Engine\\assets\\");
+		if (pos != string::npos)
+		{
+			// Extract just the assets/models/... part
+			texturePath = "../" + texturePath.substr(pos);
+			// Replace backslashes with forward slashes
+			replace(texturePath.begin(), texturePath.end(), '\\', '/');
+			OutputDebugStringA(("Converted texture path: " + texturePath + "\n").c_str());
+		}
+
+		// Use the FBX texture path
+		result = LoadTexture(device, deviceContext, (char*)texturePath.c_str());
+		if (!result)
+		{
+			OutputDebugStringA("Failed to load FBX texture, falling back to default texture\n");
+			result = LoadTexture(device, deviceContext, textureFilename);
+		}
+	}
+	else
+	{
+		OutputDebugStringA(("Using fallback texture: " + std::string(textureFilename) + "\n").c_str());
+		// Use the provided texture
+		result = LoadTexture(device, deviceContext, textureFilename);
+	}
+
 	if (!result)
 	{
 		return false;
@@ -209,6 +243,19 @@ bool ModelClass::LoadTexture(ID3D11Device* device, ID3D11DeviceContext* deviceCo
 {
 	bool result;
 
+	// Debug output for texture loading
+	OutputDebugStringA(("Attempting to load texture: " + std::string(filename) + "\n").c_str());
+
+	// Check if file exists
+	FILE* file;
+	errno_t err = fopen_s(&file, filename, "rb");
+	if (err != 0)
+	{
+		OutputDebugStringA(("Failed to open texture file. Error code: " + std::to_string(err) + "\n").c_str());
+		return false;
+	}
+	fclose(file);
+	OutputDebugStringA("Texture file exists and is accessible\n");
 
 	// Create and initialize the texture object.
 	m_Texture = new TextureClass;
@@ -216,9 +263,11 @@ bool ModelClass::LoadTexture(ID3D11Device* device, ID3D11DeviceContext* deviceCo
 	result = m_Texture->Initialize(device, deviceContext, filename);
 	if (!result)
 	{
+		OutputDebugStringA("Failed to initialize texture object\n");
 		return false;
 	}
 
+	OutputDebugStringA("Texture loaded successfully\n");
 	return true;
 }
 
@@ -368,6 +417,9 @@ void ModelClass::ProcessNode(FbxNode* pNode)
 		return;
 	}
 
+	// Process materials first
+	ProcessMaterials(pNode);
+
 	// Process the node's mesh if it has one
 	FbxNodeAttribute* lNodeAttribute = pNode->GetNodeAttribute();
 	if (lNodeAttribute && lNodeAttribute->GetAttributeType() == FbxNodeAttribute::eMesh)
@@ -380,6 +432,123 @@ void ModelClass::ProcessNode(FbxNode* pNode)
 	{
 		ProcessNode(pNode->GetChild(i));
 	}
+}
+
+void ModelClass::ProcessMaterials(FbxNode* pNode)
+{
+	if (!pNode)
+		return;
+
+	// Get the number of materials
+	int materialCount = pNode->GetMaterialCount();
+	OutputDebugStringA(("Number of materials found: " + std::to_string(materialCount) + "\n").c_str());
+
+	if (materialCount > 0)
+	{
+		// Get the first material
+		FbxSurfaceMaterial* material = pNode->GetMaterial(0);
+		if (material)
+		{
+			OutputDebugStringA(("Material name: " + std::string(material->GetName()) + "\n").c_str());
+			ExtractMaterialInfo(material);
+			m_hasFBXMaterial = true;
+		}
+	}
+}
+
+void ModelClass::ExtractMaterialInfo(FbxSurfaceMaterial* material)
+{
+	if (!material)
+		return;
+
+	OutputDebugStringA("Extracting material info...\n");
+
+	// Get the material type
+	FbxSurfacePhong* phongMaterial = nullptr;
+	FbxSurfaceLambert* lambertMaterial = nullptr;
+
+	if (material->GetClassId().Is(FbxSurfacePhong::ClassId))
+	{
+		phongMaterial = (FbxSurfacePhong*)material;
+		OutputDebugStringA("Material type: Phong\n");
+	}
+	else if (material->GetClassId().Is(FbxSurfaceLambert::ClassId))
+	{
+		lambertMaterial = (FbxSurfaceLambert*)material;
+		OutputDebugStringA("Material type: Lambert\n");
+	}
+
+	// Extract diffuse color
+	if (phongMaterial)
+	{
+		FbxDouble3 diffuse = phongMaterial->Diffuse.Get();
+		m_materialInfo.diffuseColor = XMFLOAT4((float)diffuse[0], (float)diffuse[1], (float)diffuse[2], 1.0f);
+		OutputDebugStringA(("Diffuse color: " + std::to_string(diffuse[0]) + ", " + std::to_string(diffuse[1]) + ", " + std::to_string(diffuse[2]) + "\n").c_str());
+	}
+	else if (lambertMaterial)
+	{
+		FbxDouble3 diffuse = lambertMaterial->Diffuse.Get();
+		m_materialInfo.diffuseColor = XMFLOAT4((float)diffuse[0], (float)diffuse[1], (float)diffuse[2], 1.0f);
+		OutputDebugStringA(("Diffuse color: " + std::to_string(diffuse[0]) + ", " + std::to_string(diffuse[1]) + ", " + std::to_string(diffuse[2]) + "\n").c_str());
+	}
+
+	// Extract ambient color
+	if (phongMaterial)
+	{
+		FbxDouble3 ambient = phongMaterial->Ambient.Get();
+		m_materialInfo.ambientColor = XMFLOAT4((float)ambient[0], (float)ambient[1], (float)ambient[2], 1.0f);
+		OutputDebugStringA(("Ambient color: " + std::to_string(ambient[0]) + ", " + std::to_string(ambient[1]) + ", " + std::to_string(ambient[2]) + "\n").c_str());
+	}
+	else if (lambertMaterial)
+	{
+		FbxDouble3 ambient = lambertMaterial->Ambient.Get();
+		m_materialInfo.ambientColor = XMFLOAT4((float)ambient[0], (float)ambient[1], (float)ambient[2], 1.0f);
+		OutputDebugStringA(("Ambient color: " + std::to_string(ambient[0]) + ", " + std::to_string(ambient[1]) + ", " + std::to_string(ambient[2]) + "\n").c_str());
+	}
+
+	// Extract specular color and shininess (Phong only)
+	if (phongMaterial)
+	{
+		FbxDouble3 specular = phongMaterial->Specular.Get();
+		m_materialInfo.specularColor = XMFLOAT4((float)specular[0], (float)specular[1], (float)specular[2], 1.0f);
+		m_materialInfo.shininess = (float)phongMaterial->Shininess.Get();
+		OutputDebugStringA(("Specular color: " + std::to_string(specular[0]) + ", " + std::to_string(specular[1]) + ", " + std::to_string(specular[2]) + "\n").c_str());
+		OutputDebugStringA(("Shininess: " + std::to_string(m_materialInfo.shininess) + "\n").c_str());
+	}
+
+	// Extract textures
+	FbxProperty diffuseProperty = material->FindProperty("DiffuseColor");
+	m_materialInfo.diffuseTexturePath = GetTexturePath(diffuseProperty);
+	OutputDebugStringA(("Diffuse texture path: " + m_materialInfo.diffuseTexturePath + "\n").c_str());
+
+	FbxProperty normalProperty = material->FindProperty("NormalMap");
+	m_materialInfo.normalTexturePath = GetTexturePath(normalProperty);
+	OutputDebugStringA(("Normal texture path: " + m_materialInfo.normalTexturePath + "\n").c_str());
+}
+
+string ModelClass::GetTexturePath(FbxProperty& property)
+{
+	if (property.IsValid())
+	{
+		int textureCount = property.GetSrcObjectCount<FbxTexture>();
+		OutputDebugStringA(("Number of textures found for property: " + std::to_string(textureCount) + "\n").c_str());
+		
+		if (textureCount > 0)
+		{
+			FbxTexture* texture = property.GetSrcObject<FbxTexture>(0);
+			if (texture)
+			{
+				FbxFileTexture* fileTexture = FbxCast<FbxFileTexture>(texture);
+				if (fileTexture)
+				{
+					string texturePath = fileTexture->GetFileName();
+					OutputDebugStringA(("Found texture: " + texturePath + "\n").c_str());
+					return texturePath;
+				}
+			}
+		}
+	}
+	return "";
 }
 
 void ModelClass::ProcessMesh(FbxNode* pNode)
