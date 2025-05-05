@@ -41,10 +41,10 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	m_Camera = new CameraClass;
 
 	// Set the initial position of the camera.
-	m_Camera->SetPosition(0.0f, 100.0f, -250.0f);
+	m_Camera->SetPosition(0.0f, 100.0f, -280.0f);
 
 	// Set the file name of the model.
-	strcpy_s(modelFilename, "../Engine/assets/models/Praying.fbx");
+	strcpy_s(modelFilename, "../Engine/assets/models/Thriller.fbx");
 
 	// Set the name of the texture file that we will be loading (used as fallback if no FBX material)
 	strcpy_s(textureFilename, "../Engine/assets/textures/stone01.tga");
