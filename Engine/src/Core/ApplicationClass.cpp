@@ -7,7 +7,7 @@ ApplicationClass::ApplicationClass()
 	m_Camera = 0;
 	m_Model = 0;
 	m_LightShader = 0;
-	m_Lights = 0;
+	m_Light = 0;
 }
 
 
@@ -41,10 +41,10 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	m_Camera = new CameraClass;
 
 	// Set the initial position of the camera.
-	m_Camera->SetPosition(0.0f, 2.0f, -12.0f);
+	m_Camera->SetPosition(0.0f, 100.0f, -280.0f);
 
 	// Set the file name of the model.
-	strcpy_s(modelFilename, "../Engine/assets/models/plane.txt");
+	strcpy_s(modelFilename, "../Engine/assets/models/Thriller.fbx");
 
 	// Set the name of the texture file that we will be loading (used as fallback if no FBX material)
 	strcpy_s(textureFilename, "../Engine/assets/textures/stone01.tga");
@@ -69,39 +69,28 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 		return false;
 	}
 
-	// Set the number of lights we will use.
-	m_numLights = 4;
-
 	// Create and initialize the light object.
-	m_Lights = new LightClass[m_numLights];
+	m_Light = new LightClass;
 
 	// If the model has FBX materials, we'll use those values
 	if (m_Model->HasFBXMaterial())
 	{
 		// Note: You'll need to add getters for these values in ModelClass
 		// For now, we'll use default values
-		/*m_Light->SetAmbientColor(0.15f, 0.15f, 0.15f, 1.0f);
+		m_Light->SetAmbientColor(0.15f, 0.15f, 0.15f, 1.0f);
 		m_Light->SetDiffuseColor(1.0f, 1.0f, 1.0f, 1.0f);
 		m_Light->SetSpecularColor(1.0f, 1.0f, 1.0f, 1.0f);
-		m_Light->SetSpecularPower(32.0f);*/
+		m_Light->SetSpecularPower(32.0f);
 	}
 	else
 	{
-		// Manually set the color and position of each light.
-		m_Lights[0].SetDiffuseColor(1.0f, 0.0f, 0.0f, 1.0f);  // Red
-		m_Lights[0].SetPosition(-3.0f, 1.0f, 3.0f);
-
-		m_Lights[1].SetDiffuseColor(0.0f, 1.0f, 0.0f, 1.0f);  // Green
-		m_Lights[1].SetPosition(3.0f, 1.0f, 3.0f);
-
-		m_Lights[2].SetDiffuseColor(0.0f, 0.0f, 1.0f, 1.0f);  // Blue
-		m_Lights[2].SetPosition(-3.0f, 1.0f, -3.0f);
-
-		m_Lights[3].SetDiffuseColor(1.0f, 1.0f, 1.0f, 1.0f);  // White
-		m_Lights[3].SetPosition(3.0f, 1.0f, -3.0f);
+		m_Light->SetAmbientColor(0.15f, 0.15f, 0.15f, 1.0f);
+		m_Light->SetDiffuseColor(1.0f, 1.0f, 1.0f, 1.0f);
+		m_Light->SetSpecularColor(1.0f, 1.0f, 1.0f, 1.0f);
+		m_Light->SetSpecularPower(32.0f);
 	}
 
-	/*m_Light->SetDirection(1.0f, 0.0f, 0.0f);*/
+	m_Light->SetDirection(1.0f, 0.0f, 0.0f);
 
 	return true;
 }
@@ -109,11 +98,11 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 
 void ApplicationClass::Shutdown()
 {
-	// Release the light objects.
-	if (m_Lights)
+	// Release the light object.
+	if (m_Light)
 	{
-		delete[] m_Lights;
-		m_Lights = 0;
+		delete m_Light;
+		m_Light = 0;
 	}
 
 	// Release the light shader object.
@@ -176,10 +165,7 @@ bool ApplicationClass::Frame()
 
 bool ApplicationClass::Render(float rotation)
 {
-	/*XMMATRIX worldMatrix, viewMatrix, projectionMatrix, rotateMatrix, translateMatrix, scaleMatrix, srMatrix;*/
-	XMMATRIX worldMatrix, viewMatrix, projectionMatrix;
-	XMFLOAT4 diffuseColor[4], lightPosition[4];
-	int i;
+	XMMATRIX worldMatrix, viewMatrix, projectionMatrix, rotateMatrix, translateMatrix, scaleMatrix, srMatrix;
 	bool result;
 
 
@@ -194,36 +180,19 @@ bool ApplicationClass::Render(float rotation)
 	m_Camera->GetViewMatrix(viewMatrix);
 	m_Direct3D->GetProjectionMatrix(projectionMatrix);
 
-	// Get the light properties.
-	for (i = 0; i < m_numLights; i++)
-	{
-		// Create the diffuse color array from the four light colors.
-		diffuseColor[i] = m_Lights[i].GetDiffuseColor();
-
-		// Create the light position array from the four light positions.
-		lightPosition[i] = m_Lights[i].GetPosition();
-	}
-
-	//rotateMatrix = XMMatrixRotationY(rotation);  // Build the rotation matrix.
-	//translateMatrix = XMMatrixTranslation(0.0f, 0.0f, 0.0f);  // Build the translation matrix.
+	rotateMatrix = XMMatrixRotationY(rotation);  // Build the rotation matrix.
+	translateMatrix = XMMatrixTranslation(0.0f, 0.0f, 0.0f);  // Build the translation matrix.
 
 	// Multiply them together to create the final world transformation matrix.
-	/*worldMatrix = XMMatrixMultiply(rotateMatrix, translateMatrix);*/
+	worldMatrix = XMMatrixMultiply(rotateMatrix, translateMatrix);
 
 	// Put the model vertex and index buffers on the graphics pipeline to prepare them for drawing.
 	m_Model->Render(m_Direct3D->GetDeviceContext());
 
 	// Render the model using the light shader.
-	/*result = m_LightShader->Render(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix, m_Model->GetTexture(),
-		m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
-		m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());*/
-	// Render the model using the light shader.
 	result = m_LightShader->Render(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix, m_Model->GetTexture(),
-		diffuseColor, lightPosition);
-	if (!result)
-	{
-		return false;
-	}
+		m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
+		m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
 	if (!result)
 	{
 		return false;

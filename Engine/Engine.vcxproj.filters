@@ -90,8 +90,6 @@
   <ItemGroup>
     <FxCompile Include="assets\shaders\LightVertexShader.hlsl" />
     <FxCompile Include="assets\shaders\LightPixelShader.hlsl" />
-    <FxCompile Include="assets\shaders\PointLightPixelShader.hlsl" />
-    <FxCompile Include="assets\shaders\PointLightVertexShader.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="FBX.props" />
