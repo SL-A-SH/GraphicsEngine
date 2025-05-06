@@ -10,7 +10,7 @@
 /////////////
 // GLOBALS //
 /////////////
-const bool FULL_SCREEN = false;
+const bool FULL_SCREEN = true;
 const bool VSYNC_ENABLED = true;
 const float SCREEN_DEPTH = 1000.0f;
 const float SCREEN_NEAR = 0.3f;
@@ -34,7 +34,8 @@ private:
 	CameraClass* m_Camera;
 	ModelClass* m_Model;
 	LightShaderClass* m_LightShader;
-	LightClass* m_Light;
+	LightClass* m_Lights;
+	int m_numLights;
 };
 
 #endif
