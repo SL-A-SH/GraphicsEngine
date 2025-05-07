@@ -2,7 +2,7 @@
 #define _BITMAPCLASS_H_
 
 #include <directxmath.h>
-#include "textureclass.h"
+#include "../Resource/Texture.h"
 
 using namespace DirectX;
 

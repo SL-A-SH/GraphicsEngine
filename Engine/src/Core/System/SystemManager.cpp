@@ -1,4 +1,4 @@
-#include "systemclass.h"
+#include "systemmanager.h"
 
 SystemClass::SystemClass()
 {

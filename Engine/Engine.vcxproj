@@ -19,33 +19,33 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Core\ApplicationClass.cpp" />
-    <ClCompile Include="src\Core\InputClass.cpp" />
-    <ClCompile Include="src\Core\SystemClass.cpp" />
-    <ClCompile Include="src\Graphics\BitmapClass.cpp" />
-    <ClCompile Include="src\Graphics\CameraClass.cpp" />
-    <ClCompile Include="src\Graphics\D3DClass.cpp" />
-    <ClCompile Include="src\Graphics\LightClass.cpp" />
-    <ClCompile Include="src\Graphics\ModelClass.cpp" />
-    <ClCompile Include="src\Graphics\Shaders\ColorShaderClass.cpp" />
-    <ClCompile Include="src\Graphics\Shaders\LightShaderClass.cpp" />
-    <ClCompile Include="src\Graphics\Shaders\TextureShaderClass.cpp" />
-    <ClCompile Include="src\Graphics\TextureClass.cpp" />
+    <ClCompile Include="src\Core\Application\Application.cpp" />
+    <ClCompile Include="src\Core\Input\InputManager.cpp" />
+    <ClCompile Include="src\Core\System\SystemManager.cpp" />
+    <ClCompile Include="src\Graphics\Rendering\Bitmap.cpp" />
+    <ClCompile Include="src\Graphics\Rendering\Camera.cpp" />
+    <ClCompile Include="src\Graphics\D3D11\D3DClass.cpp" />
+    <ClCompile Include="src\Graphics\Rendering\Light.cpp" />
+    <ClCompile Include="src\Graphics\Resource\Model.cpp" />
+    <ClCompile Include="src\Graphics\Shaders\ColorShader.cpp" />
+    <ClCompile Include="src\Graphics\Shaders\LightShader.cpp" />
+    <ClCompile Include="src\Graphics\Shaders\TextureShader.cpp" />
+    <ClCompile Include="src\Graphics\Resource\Texture.cpp" />
     <ClCompile Include="src\Main\main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Core\ApplicationClass.h" />
-    <ClInclude Include="src\Core\InputClass.h" />
-    <ClInclude Include="src\Core\SystemClass.h" />
-    <ClInclude Include="src\Graphics\BitmapClass.h" />
-    <ClInclude Include="src\Graphics\CameraClass.h" />
-    <ClInclude Include="src\Graphics\D3DClass.h" />
-    <ClInclude Include="src\Graphics\LightClass.h" />
-    <ClInclude Include="src\Graphics\ModelClass.h" />
-    <ClInclude Include="src\Graphics\Shaders\ColorShaderClass.h" />
-    <ClInclude Include="src\Graphics\Shaders\LightShaderClass.h" />
-    <ClInclude Include="src\Graphics\Shaders\TextureShaderClass.h" />
-    <ClInclude Include="src\Graphics\TextureClass.h" />
+    <ClInclude Include="src\Core\Application\Application.h" />
+    <ClInclude Include="src\Core\Input\InputManager.h" />
+    <ClInclude Include="src\Core\System\SystemManager.h" />
+    <ClInclude Include="src\Graphics\Rendering\Bitmap.h" />
+    <ClInclude Include="src\Graphics\Rendering\Camera.h" />
+    <ClInclude Include="src\Graphics\D3D11\D3DClass.h" />
+    <ClInclude Include="src\Graphics\Rendering\Light.h" />
+    <ClInclude Include="src\Graphics\Resource\Model.h" />
+    <ClInclude Include="src\Graphics\Shaders\ColorShader.h" />
+    <ClInclude Include="src\Graphics\Shaders\LightShader.h" />
+    <ClInclude Include="src\Graphics\Shaders\TextureShader.h" />
+    <ClInclude Include="src\Graphics\Resource\Texture.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="assets\shaders\LightPixelShader.hlsl">

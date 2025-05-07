@@ -1,4 +1,4 @@
-#include "modelclass.h"
+#include "model.h"
 #include <algorithm>
 
 ModelClass::ModelClass()

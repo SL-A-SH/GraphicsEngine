@@ -1,4 +1,4 @@
-#include "textureshaderclass.h"
+#include "textureshader.h"
 
 TextureShaderClass::TextureShaderClass()
 {

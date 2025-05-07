@@ -1,4 +1,4 @@
-#include "colorshaderclass.h"
+#include "colorshader.h"
 
 ColorShaderClass::ColorShaderClass()
 {

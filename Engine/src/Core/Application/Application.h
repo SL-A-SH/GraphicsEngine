@@ -1,13 +1,13 @@
 #ifndef _APPLICATIONCLASS_H_
 #define _APPLICATIONCLASS_H_
 
-#include "../Graphics/D3DClass.h"
-#include "../Graphics/CameraClass.h"
-#include "../Graphics/ModelClass.h"
-#include "../Graphics/Shaders/LightShaderClass.h"
-#include "../Graphics/LightClass.h"
-#include "../Graphics/BitmapClass.h"
-#include "../Graphics/Shaders/TextureShaderClass.h"
+#include "../../Graphics/D3D11/D3DClass.h"
+#include "../../Graphics/Rendering/Camera.h"
+#include "../../Graphics/Rendering/Light.h"
+#include "../../Graphics/Rendering/Bitmap.h"
+#include "../../Graphics/Resource/Model.h"
+#include "../../Graphics/Shaders/LightShader.h"
+#include "../../Graphics/Shaders/TextureShader.h"
 
 /////////////
 // GLOBALS //

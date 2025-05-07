@@ -18,78 +18,78 @@
     <ClCompile Include="src\Main\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Core\ApplicationClass.cpp">
+    <ClCompile Include="src\Core\Application\Application.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Core\InputClass.cpp">
+    <ClCompile Include="src\Core\Input\InputManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Core\SystemClass.cpp">
+    <ClCompile Include="src\Core\System\SystemManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\D3DClass.cpp">
+    <ClCompile Include="src\Graphics\D3D11\D3DClass.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\ModelClass.cpp">
+    <ClCompile Include="src\Graphics\Resource\Model.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\CameraClass.cpp">
+    <ClCompile Include="src\Graphics\Rendering\Camera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\TextureClass.cpp">
+    <ClCompile Include="src\Graphics\Resource\Texture.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\Shaders\ColorShaderClass.cpp">
+    <ClCompile Include="src\Graphics\Shaders\ColorShader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\Shaders\TextureShaderClass.cpp">
+    <ClCompile Include="src\Graphics\Shaders\TextureShader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\Shaders\LightShaderClass.cpp">
+    <ClCompile Include="src\Graphics\Shaders\LightShader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\LightClass.cpp">
+    <ClCompile Include="src\Graphics\Rendering\Light.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\BitmapClass.cpp">
+    <ClCompile Include="src\Graphics\Rendering\Bitmap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Core\ApplicationClass.h">
+    <ClInclude Include="src\Core\Application\Application.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\InputClass.h">
+    <ClInclude Include="src\Core\Input\InputManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\SystemClass.h">
+    <ClInclude Include="src\Core\System\SystemManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Graphics\D3DClass.h">
+    <ClInclude Include="src\Graphics\D3D11\D3DClass.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Graphics\ModelClass.h">
+    <ClInclude Include="src\Graphics\Resource\Model.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Graphics\CameraClass.h">
+    <ClInclude Include="src\Graphics\Rendering\Camera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Graphics\TextureClass.h">
+    <ClInclude Include="src\Graphics\Resource\Texture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Graphics\Shaders\ColorShaderClass.h">
+    <ClInclude Include="src\Graphics\Shaders\ColorShader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Graphics\Shaders\TextureShaderClass.h">
+    <ClInclude Include="src\Graphics\Shaders\TextureShader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Graphics\Shaders\LightShaderClass.h">
+    <ClInclude Include="src\Graphics\Shaders\LightShader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Graphics\LightClass.h">
+    <ClInclude Include="src\Graphics\Rendering\Light.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Graphics\BitmapClass.h">
+    <ClInclude Include="src\Graphics\Rendering\Bitmap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

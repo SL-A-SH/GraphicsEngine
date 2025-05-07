@@ -1,4 +1,4 @@
-#include "textureclass.h"
+#include "texture.h"
 #include <wincodec.h>
 #include <wrl/client.h>
 

@@ -6,7 +6,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
-#include "textureclass.h"
+#include "./Texture.h"
 #include <fbxsdk.h>
 
 using namespace DirectX;

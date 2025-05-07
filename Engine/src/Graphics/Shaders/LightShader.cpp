@@ -1,4 +1,4 @@
-#include "lightshaderclass.h"
+#include "lightshader.h"
 
 
 LightShaderClass::LightShaderClass()

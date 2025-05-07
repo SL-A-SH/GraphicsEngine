@@ -1,4 +1,4 @@
-#include "inputclass.h"
+#include "inputmanager.h"
 
 
 InputClass::InputClass()

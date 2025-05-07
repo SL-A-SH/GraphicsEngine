@@ -5,8 +5,8 @@
 
 #include <windows.h>
 
-#include "inputclass.h"
-#include "applicationclass.h"
+#include "../Input/InputManager.h"
+#include "../Application/Application.h"
 
 class SystemClass
 {

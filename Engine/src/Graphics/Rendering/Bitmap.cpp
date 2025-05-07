@@ -1,4 +1,4 @@
-#include "bitmapclass.h"
+#include "bitmap.h"
 
 BitmapClass::BitmapClass()
 {
