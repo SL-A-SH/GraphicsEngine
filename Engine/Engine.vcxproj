@@ -22,6 +22,7 @@
     <ClCompile Include="src\Core\ApplicationClass.cpp" />
     <ClCompile Include="src\Core\InputClass.cpp" />
     <ClCompile Include="src\Core\SystemClass.cpp" />
+    <ClCompile Include="src\Graphics\BitmapClass.cpp" />
     <ClCompile Include="src\Graphics\CameraClass.cpp" />
     <ClCompile Include="src\Graphics\D3DClass.cpp" />
     <ClCompile Include="src\Graphics\LightClass.cpp" />
@@ -36,6 +37,7 @@
     <ClInclude Include="src\Core\ApplicationClass.h" />
     <ClInclude Include="src\Core\InputClass.h" />
     <ClInclude Include="src\Core\SystemClass.h" />
+    <ClInclude Include="src\Graphics\BitmapClass.h" />
     <ClInclude Include="src\Graphics\CameraClass.h" />
     <ClInclude Include="src\Graphics\D3DClass.h" />
     <ClInclude Include="src\Graphics\LightClass.h" />

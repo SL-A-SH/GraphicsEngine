@@ -6,11 +6,13 @@
 #include "../Graphics/ModelClass.h"
 #include "../Graphics/Shaders/LightShaderClass.h"
 #include "../Graphics/LightClass.h"
+#include "../Graphics/BitmapClass.h"
+#include "../Graphics/Shaders/TextureShaderClass.h"
 
 /////////////
 // GLOBALS //
 /////////////
-const bool FULL_SCREEN = false;
+const bool FULL_SCREEN = true;
 const bool VSYNC_ENABLED = true;
 const float SCREEN_DEPTH = 1000.0f;
 const float SCREEN_NEAR = 0.3f;
@@ -27,7 +29,7 @@ public:
 	bool Frame();
 
 private:
-	bool Render(float);
+	bool Render();
 
 private:
 	D3DClass* m_Direct3D;
@@ -35,6 +37,8 @@ private:
 	ModelClass* m_Model;
 	LightShaderClass* m_LightShader;
 	LightClass* m_Light;
+	BitmapClass* m_Bitmap;
+	TextureShaderClass* m_TextureShader;
 };
 
 #endif
