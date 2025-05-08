@@ -51,7 +51,10 @@
     <ClCompile Include="src\Graphics\Rendering\Light.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\Rendering\Bitmap.cpp">
+    <ClCompile Include="src\Core\System\Timer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Rendering\Sprite.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -89,10 +92,13 @@
     <ClInclude Include="src\Graphics\Rendering\Light.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Graphics\Rendering\Bitmap.h">
+    <ClInclude Include="src\Math\Transform.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Math\Transform.h">
+    <ClInclude Include="src\Core\System\Timer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Rendering\Sprite.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

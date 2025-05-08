@@ -4,9 +4,10 @@
 #include "../../Graphics/D3D11/D3DClass.h"
 #include "../../Graphics/Rendering/Camera.h"
 #include "../../Graphics/Rendering/Light.h"
-#include "../../Graphics/Rendering/Bitmap.h"
 #include "../../Graphics/Resource/Model.h"
 #include "../../Graphics/Shaders/LightShader.h"
+#include "../../Graphics/Rendering/Sprite.h"
+#include "../../Core/System/Timer.h"
 #include "../../Graphics/Shaders/TextureShader.h"
 
 /////////////
@@ -37,7 +38,8 @@ private:
 	ModelClass* m_Model;
 	LightShaderClass* m_LightShader;
 	LightClass* m_Light;
-	BitmapClass* m_Bitmap;
+	Sprite* m_Sprite;
+	Timer* m_Timer;
 	TextureShaderClass* m_TextureShader;
 };
 

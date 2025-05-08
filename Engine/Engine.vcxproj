@@ -22,10 +22,11 @@
     <ClCompile Include="src\Core\Application\Application.cpp" />
     <ClCompile Include="src\Core\Input\InputManager.cpp" />
     <ClCompile Include="src\Core\System\SystemManager.cpp" />
-    <ClCompile Include="src\Graphics\Rendering\Bitmap.cpp" />
+    <ClCompile Include="src\Core\System\Timer.cpp" />
     <ClCompile Include="src\Graphics\Rendering\Camera.cpp" />
     <ClCompile Include="src\Graphics\D3D11\D3DClass.cpp" />
     <ClCompile Include="src\Graphics\Rendering\Light.cpp" />
+    <ClCompile Include="src\Graphics\Rendering\Sprite.cpp" />
     <ClCompile Include="src\Graphics\Resource\Model.cpp" />
     <ClCompile Include="src\Graphics\Shaders\ColorShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\LightShader.cpp" />
@@ -37,10 +38,11 @@
     <ClInclude Include="src\Core\Application\Application.h" />
     <ClInclude Include="src\Core\Input\InputManager.h" />
     <ClInclude Include="src\Core\System\SystemManager.h" />
-    <ClInclude Include="src\Graphics\Rendering\Bitmap.h" />
+    <ClInclude Include="src\Core\System\Timer.h" />
     <ClInclude Include="src\Graphics\Rendering\Camera.h" />
     <ClInclude Include="src\Graphics\D3D11\D3DClass.h" />
     <ClInclude Include="src\Graphics\Rendering\Light.h" />
+    <ClInclude Include="src\Graphics\Rendering\Sprite.h" />
     <ClInclude Include="src\Graphics\Resource\Model.h" />
     <ClInclude Include="src\Graphics\Shaders\ColorShader.h" />
     <ClInclude Include="src\Graphics\Shaders\LightShader.h" />

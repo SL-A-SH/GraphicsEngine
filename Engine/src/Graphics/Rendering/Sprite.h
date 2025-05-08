@@ -1,12 +1,14 @@
-#ifndef _BITMAPCLASS_H_
-#define _BITMAPCLASS_H_
+#ifndef _SPRITE_H_
+#define _SPRITE_H_
 
 #include <directxmath.h>
+#include <fstream>
 #include "../Resource/Texture.h"
 
 using namespace DirectX;
+using namespace std;
 
-class BitmapClass
+class Sprite
 {
 private:
     struct VertexType
@@ -16,13 +18,14 @@ private:
     };
 
 public:
-    BitmapClass();
-    BitmapClass(const BitmapClass&);
-    ~BitmapClass();
+    Sprite();
+    Sprite(const Sprite&);
+    ~Sprite();
 
     bool Initialize(ID3D11Device*, ID3D11DeviceContext*, int, int, char*, int, int);
     void Shutdown();
     bool Render(ID3D11DeviceContext*);
+    void Update(float);
 
     int GetIndexCount();
     ID3D11ShaderResourceView* GetTexture();
@@ -35,13 +38,15 @@ private:
     bool UpdateBuffers(ID3D11DeviceContext*);
     void RenderBuffers(ID3D11DeviceContext*);
 
-    bool LoadTexture(ID3D11Device*, ID3D11DeviceContext*, char*);
-    void ReleaseTexture();
+    bool LoadTextures(ID3D11Device*, ID3D11DeviceContext*, char*);
+    void ReleaseTextures();
 
 private:
     ID3D11Buffer* m_vertexBuffer, * m_indexBuffer;
     int m_vertexCount, m_indexCount, m_screenWidth, m_screenHeight, m_bitmapWidth, m_bitmapHeight, m_renderX, m_renderY, m_prevPosX, m_prevPosY;
-    TextureClass* m_Texture;
+    TextureClass* m_Textures;
+    float m_frameTime, m_cycleTime;
+    int m_currentTexture, m_textureCount;
 };
 
 #endif

@@ -1,24 +1,24 @@
-#include "bitmap.h"
+#include "sprite.h"
 
-BitmapClass::BitmapClass()
+Sprite::Sprite()
 {
     m_vertexBuffer = 0;
     m_indexBuffer = 0;
-    m_Texture = 0;
+    m_Textures = 0;
 }
 
 
-BitmapClass::BitmapClass(const BitmapClass& other)
+Sprite::Sprite(const Sprite& other)
 {
 }
 
 
-BitmapClass::~BitmapClass()
+Sprite::~Sprite()
 {
 }
 
 
-bool BitmapClass::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceContext, int screenWidth, int screenHeight, char* textureFilename, int renderX, int renderY)
+bool Sprite::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceContext, int screenWidth, int screenHeight, char* spriteFilename, int renderX, int renderY)
 {
     bool result;
 
@@ -30,6 +30,9 @@ bool BitmapClass::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceCo
     m_renderX = renderX;
     m_renderY = renderY;
 
+    // Initialize the frame time for this sprite object.
+    m_frameTime = 0;
+
     // Initialize the vertex and index buffer that hold the geometry for the bitmap quad.
     result = InitializeBuffers(device);
     if (!result)
@@ -37,8 +40,8 @@ bool BitmapClass::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceCo
         return false;
     }
 
-    // Load the texture for this bitmap.
-    result = LoadTexture(device, deviceContext, textureFilename);
+    // Load the texture for this sprite.
+    result = LoadTextures(device, deviceContext, spriteFilename);
     if (!result)
     {
         return false;
@@ -47,10 +50,10 @@ bool BitmapClass::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceCo
     return true;
 }
 
-void BitmapClass::Shutdown()
+void Sprite::Shutdown()
 {
     // Release the bitmap texture.
-    ReleaseTexture();
+    ReleaseTextures();
 
     // Release the vertex and index buffers.
     ShutdownBuffers();
@@ -58,7 +61,7 @@ void BitmapClass::Shutdown()
     return;
 }
 
-bool BitmapClass::Render(ID3D11DeviceContext* deviceContext)
+bool Sprite::Render(ID3D11DeviceContext* deviceContext)
 {
     bool result;
 
@@ -76,17 +79,40 @@ bool BitmapClass::Render(ID3D11DeviceContext* deviceContext)
     return true;
 }
 
-int BitmapClass::GetIndexCount()
+void Sprite::Update(float frameTime)
+{
+    // Increment the frame time each frame.
+    m_frameTime += frameTime;
+
+    // Check if the frame time has reached the cycle time.
+    if (m_frameTime >= m_cycleTime)
+    {
+        // If it has then reset the frame time and cycle to the next sprite in the texture array.
+        m_frameTime -= m_cycleTime;
+
+        m_currentTexture++;
+
+        // If we are at the last sprite texture then go back to the beginning of the texture array to the first texture again.
+        if (m_currentTexture == m_textureCount)
+        {
+            m_currentTexture = 0;
+        }
+    }
+
+    return;
+}
+
+int Sprite::GetIndexCount()
 {
     return m_indexCount;
 }
 
-ID3D11ShaderResourceView* BitmapClass::GetTexture()
+ID3D11ShaderResourceView* Sprite::GetTexture()
 {
-    return m_Texture->GetTexture();
+    return m_Textures[m_currentTexture].GetTexture();
 }
 
-bool BitmapClass::InitializeBuffers(ID3D11Device* device)
+bool Sprite::InitializeBuffers(ID3D11Device* device)
 {
     VertexType* vertices;
     unsigned long* indices;
@@ -170,7 +196,7 @@ bool BitmapClass::InitializeBuffers(ID3D11Device* device)
     return true;
 }
 
-void BitmapClass::ShutdownBuffers()
+void Sprite::ShutdownBuffers()
 {
     // Release the index buffer.
     if (m_indexBuffer)
@@ -189,7 +215,7 @@ void BitmapClass::ShutdownBuffers()
     return;
 }
 
-bool BitmapClass::UpdateBuffers(ID3D11DeviceContext* deviceContent)
+bool Sprite::UpdateBuffers(ID3D11DeviceContext* deviceContent)
 {
     float left, right, top, bottom;
     VertexType* vertices;
@@ -269,7 +295,7 @@ bool BitmapClass::UpdateBuffers(ID3D11DeviceContext* deviceContent)
     return true;
 }
 
-void BitmapClass::RenderBuffers(ID3D11DeviceContext* deviceContext)
+void Sprite::RenderBuffers(ID3D11DeviceContext* deviceContext)
 {
     unsigned int stride;
     unsigned int offset;
@@ -291,41 +317,91 @@ void BitmapClass::RenderBuffers(ID3D11DeviceContext* deviceContext)
     return;
 }
 
-bool BitmapClass::LoadTexture(ID3D11Device* device, ID3D11DeviceContext* deviceContext, char* filename)
+bool Sprite::LoadTextures(ID3D11Device* device, ID3D11DeviceContext* deviceContext, char* filename)
 {
+    char textureFilename[128];
+    ifstream fin;
+    int i, j;
+    char input;
     bool result;
 
-
-    // Create and initialize the texture object.
-    m_Texture = new TextureClass;
-
-    result = m_Texture->Initialize(device, deviceContext, filename);
-    if (!result)
+    // Open the sprite info data file.
+    fin.open(filename);
+    if (fin.fail())
     {
         return false;
     }
 
-    // Store the size in pixels that this bitmap should be rendered at.
-    m_bitmapWidth = m_Texture->GetWidth();
-    m_bitmapHeight = m_Texture->GetHeight();
+    // Read in the number of textures.
+    fin >> m_textureCount;
+
+    // Create and initialize the texture object.
+    m_Textures = new TextureClass[m_textureCount];
+
+    // Read to start of next line.
+    fin.get(input);
+
+    // Read in each texture file name.
+    for (i = 0; i < m_textureCount; i++)
+    {
+        j = 0;
+        fin.get(input);
+        while (input != '\n')
+        {
+            textureFilename[j] = input;
+            j++;
+            fin.get(input);
+        }
+        textureFilename[j] = '\0';
+
+        // Once you have the filename then load the texture in the texture array.
+        result = m_Textures[i].Initialize(device, deviceContext, textureFilename);
+        if (!result)
+        {
+            return false;
+        }
+    }
+
+    // Read in the cycle time.
+    fin >> m_cycleTime;
+
+    // Convert the integer milliseconds to float representation.
+    m_cycleTime = m_cycleTime * 0.001f;
+
+    // Close the file.
+    fin.close();
+
+    // Get the dimensions of the first texture and use that as the dimensions of the 2D sprite images.
+    m_bitmapWidth = m_Textures[0].GetWidth();
+    m_bitmapHeight = m_Textures[0].GetHeight();
+
+    // Set the starting texture in the cycle to be the first one in the list.
+    m_currentTexture = 0;
 
     return true;
 }
 
-void BitmapClass::ReleaseTexture()
+void Sprite::ReleaseTextures()
 {
-    // Release the texture object.
-    if (m_Texture)
+    int i;
+
+
+    // Release the texture objects.
+    if (m_Textures)
     {
-        m_Texture->Shutdown();
-        delete m_Texture;
-        m_Texture = 0;
+        for (i = 0; i < m_textureCount; i++)
+        {
+            m_Textures[i].Shutdown();
+        }
+
+        delete[] m_Textures;
+        m_Textures = 0;
     }
 
     return;
 }
 
-void BitmapClass::SetRenderLocation(int x, int y)
+void Sprite::SetRenderLocation(int x, int y)
 {
     m_renderX = x;
     m_renderY = y;

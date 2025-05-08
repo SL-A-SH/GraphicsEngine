@@ -9,7 +9,8 @@ ApplicationClass::ApplicationClass()
 	m_LightShader = 0;
 	m_Light = 0;
 	m_TextureShader = 0;
-	m_Bitmap = 0;
+	m_Sprite = 0;
+	m_Timer = 0;
 }
 
 
@@ -27,7 +28,7 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 {
 	char modelFilename[128];
 	char textureFilename[128];
-	char bitmapFilename[128];
+	char spriteFilename[128];
 	bool result;
 
 	// Create and initialize the Direct3D object.
@@ -106,16 +107,26 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	}
 
 	// Set the file name of the bitmap file.
-	strcpy_s(bitmapFilename, "../Engine/assets/textures/stone01.tga");
+	strcpy_s(spriteFilename, "../Engine/assets/sprites/sprite_data_01.txt");
 
 	// Create and initialize the bitmap object.
-	m_Bitmap = new BitmapClass;
+	m_Sprite = new Sprite;
 
-	result = m_Bitmap->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, bitmapFilename, 20, screenHeight - 500);
+	result = m_Sprite->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, spriteFilename, 20, screenHeight - 500);
 	if (!result)
 	{
 		return false;
 	}
+
+	// Create and initialize the timer object.
+	m_Timer = new Timer;
+
+	result = m_Timer->Initialize();
+	if (!result)
+	{
+		return false;
+	}
+
 
 	return true;
 }
@@ -123,12 +134,19 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 
 void ApplicationClass::Shutdown()
 {
-	// Release the bitmap object.
-	if (m_Bitmap)
+	// Release the timer object.
+	if (m_Timer)
 	{
-		m_Bitmap->Shutdown();
-		delete m_Bitmap;
-		m_Bitmap = 0;
+		delete m_Timer;
+		m_Timer = 0;
+	}
+
+	// Release the sprite object.
+	if (m_Sprite)
+	{
+		m_Sprite->Shutdown();
+		delete m_Sprite;
+		m_Sprite = 0;
 	}
 
 	// Release the texture shader object.
@@ -183,8 +201,17 @@ void ApplicationClass::Shutdown()
 
 bool ApplicationClass::Frame()
 {
+	float frameTime;
 	bool result;
 
+	// Update the system stats.
+	m_Timer->Frame();
+
+	// Get the current frame time.
+	frameTime = m_Timer->GetTime();
+
+	// Update the sprite object using the frame time.
+	m_Sprite->Update(frameTime);
 
 	// Render the graphics scene.
 	result = Render();
@@ -230,19 +257,19 @@ bool ApplicationClass::Render()
 	// Turn off the Z buffer to begin all 2D rendering.
 	m_Direct3D->TurnZBufferOff();
 
-	scaleMatrix2D = XMMatrixScaling(0.5f, 0.5f, 0.5f);
-	worldMatrix = XMMatrixMultiply(scaleMatrix2D, worldMatrix);
+	/*scaleMatrix2D = XMMatrixScaling(0.5f, 0.5f, 0.5f);
+	worldMatrix = XMMatrixMultiply(scaleMatrix2D, worldMatrix);*/
 
 
 	// Put the bitmap vertex and index buffers on the graphics pipeline to prepare them for drawing.
-	result = m_Bitmap->Render(m_Direct3D->GetDeviceContext());
+	result = m_Sprite->Render(m_Direct3D->GetDeviceContext());
 	if (!result)
 	{
 		return false;
 	}
 
 	// Render the bitmap with the texture shader.
-	result = m_TextureShader->Render(m_Direct3D->GetDeviceContext(), m_Bitmap->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix, m_Bitmap->GetTexture());
+	result = m_TextureShader->Render(m_Direct3D->GetDeviceContext(), m_Sprite->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix, m_Sprite->GetTexture());
 	if (!result)
 	{
 		return false;
