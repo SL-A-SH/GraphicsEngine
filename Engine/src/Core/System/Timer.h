@@ -1,5 +1,5 @@
-#ifndef _TIMERCLASS_H_
-#define _TIMERCLASS_H_
+#ifndef _TIMER_H_
+#define _TIMER_H_
 
 #include <windows.h>
 

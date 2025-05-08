@@ -1,5 +1,5 @@
-#ifndef _TEXTURECLASS_H_
-#define _TEXTURECLASS_H_
+#ifndef _TEXTURE_H_
+#define _TEXTURE_H_
 
 #include <d3d11.h>
 #include <stdio.h>
@@ -7,7 +7,7 @@
 
 using namespace std;
 
-class TextureClass
+class Texture
 {
 private:
     struct TargaHeader
@@ -20,9 +20,9 @@ private:
     };
 
 public:
-    TextureClass();
-    TextureClass(const TextureClass&);
-    ~TextureClass();
+    Texture();
+    Texture(const Texture&);
+    ~Texture();
 
     bool Initialize(ID3D11Device*, ID3D11DeviceContext*, char*);
     void Shutdown();

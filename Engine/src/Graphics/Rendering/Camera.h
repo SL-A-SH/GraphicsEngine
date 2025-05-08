@@ -1,16 +1,16 @@
-#ifndef _CAMERACLASS_H_
-#define _CAMERACLASS_H_
+#ifndef _CAMERA_H_
+#define _CAMERA_H_
 
 #include <directxmath.h>
 
 using namespace DirectX;
 
-class CameraClass
+class Camera
 {
 public:
-	CameraClass();
-	CameraClass(const CameraClass&);
-	~CameraClass();
+	Camera();
+	Camera(const Camera&);
+	~Camera();
 
 	void SetPosition(float, float, float);
 	void SetRotation(float, float, float);

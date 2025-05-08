@@ -3,12 +3,12 @@
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pScmdline, int iCmdshow)
 {
-	SystemClass* System;
+	SystemManager* System;
 	bool result;
 
 
 	// Create the system object.
-	System = new SystemClass;
+	System = new SystemManager;
 
 	// Initialize and run the system object.
 	result = System->Initialize();

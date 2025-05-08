@@ -1,7 +1,7 @@
 #include "lightshader.h"
 
 
-LightShaderClass::LightShaderClass()
+LightShader::LightShader()
 {
     m_vertexShader = 0;
     m_pixelShader = 0;
@@ -13,17 +13,17 @@ LightShaderClass::LightShaderClass()
 }
 
 
-LightShaderClass::LightShaderClass(const LightShaderClass& other)
+LightShader::LightShader(const LightShader& other)
 {
 }
 
 
-LightShaderClass::~LightShaderClass()
+LightShader::~LightShader()
 {
 }
 
 
-bool LightShaderClass::Initialize(ID3D11Device* device, HWND hwnd)
+bool LightShader::Initialize(ID3D11Device* device, HWND hwnd)
 {
     wchar_t vsFilename[128];
     wchar_t psFilename[128];
@@ -54,7 +54,7 @@ bool LightShaderClass::Initialize(ID3D11Device* device, HWND hwnd)
     return true;
 }
 
-void LightShaderClass::Shutdown()
+void LightShader::Shutdown()
 {
     // Shutdown the vertex and pixel shaders as well as the related objects.
     ShutdownShader();
@@ -62,7 +62,7 @@ void LightShaderClass::Shutdown()
     return;
 }
 
-bool LightShaderClass::Render(ID3D11DeviceContext* deviceContext, int indexCount, XMMATRIX worldMatrix, XMMATRIX viewMatrix, XMMATRIX projectionMatrix,
+bool LightShader::Render(ID3D11DeviceContext* deviceContext, int indexCount, XMMATRIX worldMatrix, XMMATRIX viewMatrix, XMMATRIX projectionMatrix,
     ID3D11ShaderResourceView* texture, XMFLOAT3 lightDirection, XMFLOAT4 ambientColor, XMFLOAT4 diffuseColor,
     XMFLOAT3 cameraPosition, XMFLOAT4 specularColor, float specularPower)
 {
@@ -82,7 +82,7 @@ bool LightShaderClass::Render(ID3D11DeviceContext* deviceContext, int indexCount
     return true;
 }
 
-bool LightShaderClass::InitializeShader(ID3D11Device* device, HWND hwnd, WCHAR* vsFilename, WCHAR* psFilename)
+bool LightShader::InitializeShader(ID3D11Device* device, HWND hwnd, WCHAR* vsFilename, WCHAR* psFilename)
 {
     HRESULT result;
     ID3D10Blob* errorMessage;
@@ -266,7 +266,7 @@ bool LightShaderClass::InitializeShader(ID3D11Device* device, HWND hwnd, WCHAR* 
     return true;
 }
 
-void LightShaderClass::ShutdownShader()
+void LightShader::ShutdownShader()
 {
     // Release the light constant buffer.
     if (m_lightBuffer)
@@ -320,7 +320,7 @@ void LightShaderClass::ShutdownShader()
     return;
 }
 
-void LightShaderClass::OutputShaderErrorMessage(ID3D10Blob* errorMessage, HWND hwnd, WCHAR* shaderFilename)
+void LightShader::OutputShaderErrorMessage(ID3D10Blob* errorMessage, HWND hwnd, WCHAR* shaderFilename)
 {
     char* compileErrors;
     unsigned __int64 bufferSize, i;
@@ -355,7 +355,7 @@ void LightShaderClass::OutputShaderErrorMessage(ID3D10Blob* errorMessage, HWND h
     return;
 }
 
-bool LightShaderClass::SetShaderParameters(ID3D11DeviceContext* deviceContext, XMMATRIX worldMatrix, XMMATRIX viewMatrix, XMMATRIX projectionMatrix,
+bool LightShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, XMMATRIX worldMatrix, XMMATRIX viewMatrix, XMMATRIX projectionMatrix,
     ID3D11ShaderResourceView* texture, XMFLOAT3 lightDirection, XMFLOAT4 ambientColor, XMFLOAT4 diffuseColor,
     XMFLOAT3 cameraPosition, XMFLOAT4 specularColor, float specularPower)
 {
@@ -452,7 +452,7 @@ bool LightShaderClass::SetShaderParameters(ID3D11DeviceContext* deviceContext, X
 }
 
 
-void LightShaderClass::RenderShader(ID3D11DeviceContext* deviceContext, int indexCount)
+void LightShader::RenderShader(ID3D11DeviceContext* deviceContext, int indexCount)
 {
     // Set the vertex input layout.
     deviceContext->IASetInputLayout(m_layout);

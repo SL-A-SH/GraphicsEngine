@@ -1,5 +1,5 @@
-#ifndef _COLORSHADERCLASS_H_
-#define _COLORSHADERCLASS_H_
+#ifndef _COLORSHADER_H_
+#define _COLORSHADER_H_
 
 #include <d3d11.h>
 #include <d3dcompiler.h>
@@ -9,7 +9,7 @@
 using namespace DirectX;
 using namespace std;
 
-class ColorShaderClass
+class ColorShader
 {
 private:
 	struct MatrixBufferType
@@ -20,9 +20,9 @@ private:
 	};
 
 public:
-	ColorShaderClass();
-	ColorShaderClass(const ColorShaderClass&);
-	~ColorShaderClass();
+	ColorShader();
+	ColorShader(const ColorShader&);
+	~ColorShader();
 
 	bool Initialize(ID3D11Device*, HWND);
 	void Shutdown();

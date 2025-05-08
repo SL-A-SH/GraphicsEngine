@@ -1,21 +1,21 @@
 #include "systemmanager.h"
 
-SystemClass::SystemClass()
+SystemManager::SystemManager()
 {
 	m_Input = 0;
 	m_Application = 0;
 }
 
-SystemClass::SystemClass(const SystemClass& other)
+SystemManager::SystemManager(const SystemManager& other)
 {
 }
 
 
-SystemClass::~SystemClass()
+SystemManager::~SystemManager()
 {
 }
 
-bool SystemClass::Initialize()
+bool SystemManager::Initialize()
 {
 	int screenWidth, screenHeight;
 	bool result;
@@ -28,12 +28,12 @@ bool SystemClass::Initialize()
 	InitializeWindows(screenWidth, screenHeight);
 
 	// Create and initialize the input object.  This object will be used to handle reading the keyboard input from the user.
-	m_Input = new InputClass;
+	m_Input = new InputManager;
 
 	m_Input->Initialize();
 
 	// Create and initialize the application class object.  This object will handle rendering all the graphics for this application.
-	m_Application = new ApplicationClass;
+	m_Application = new Application;
 
 	result = m_Application->Initialize(screenWidth, screenHeight, m_hwnd);
 	if (!result)
@@ -44,7 +44,7 @@ bool SystemClass::Initialize()
 	return true;
 }
 
-void SystemClass::Shutdown()
+void SystemManager::Shutdown()
 {
 	// Release the application class object.
 	if (m_Application)
@@ -67,7 +67,7 @@ void SystemClass::Shutdown()
 	return;
 }
 
-void SystemClass::Run()
+void SystemManager::Run()
 {
 	MSG msg;
 	bool done, result;
@@ -107,7 +107,7 @@ void SystemClass::Run()
 	return;
 }
 
-bool SystemClass::Frame()
+bool SystemManager::Frame()
 {
 	bool result;
 
@@ -128,7 +128,7 @@ bool SystemClass::Frame()
 	return true;
 }
 
-LRESULT CALLBACK SystemClass::MessageHandler(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam)
+LRESULT CALLBACK SystemManager::MessageHandler(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam)
 {
 	switch (umsg)
 	{
@@ -156,7 +156,7 @@ LRESULT CALLBACK SystemClass::MessageHandler(HWND hwnd, UINT umsg, WPARAM wparam
 	}
 }
 
-void SystemClass::InitializeWindows(int& screenWidth, int& screenHeight)
+void SystemManager::InitializeWindows(int& screenWidth, int& screenHeight)
 {
 	WNDCLASSEX wc;
 	DEVMODE dmScreenSettings;
@@ -237,7 +237,7 @@ void SystemClass::InitializeWindows(int& screenWidth, int& screenHeight)
 	return;
 }
 
-void SystemClass::ShutdownWindows()
+void SystemManager::ShutdownWindows()
 {
 	// Show the mouse cursor.
 	ShowCursor(true);

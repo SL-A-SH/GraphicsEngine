@@ -1,7 +1,7 @@
-#ifndef _APPLICATIONCLASS_H_
-#define _APPLICATIONCLASS_H_
+#ifndef _APPLICATION_H_
+#define _APPLICATION_H_
 
-#include "../../Graphics/D3D11/D3DClass.h"
+#include "../../Graphics/D3D11/D3D11Device.h"
 #include "../../Graphics/Rendering/Camera.h"
 #include "../../Graphics/Rendering/Light.h"
 #include "../../Graphics/Resource/Model.h"
@@ -18,12 +18,12 @@ const bool VSYNC_ENABLED = true;
 const float SCREEN_DEPTH = 1000.0f;
 const float SCREEN_NEAR = 0.3f;
 
-class ApplicationClass
+class Application
 {
 public:
-	ApplicationClass();
-	ApplicationClass(const ApplicationClass&);
-	~ApplicationClass();
+	Application();
+	Application(const Application&);
+	~Application();
 
 	bool Initialize(int, int, HWND);
 	void Shutdown();
@@ -33,14 +33,14 @@ private:
 	bool Render();
 
 private:
-	D3DClass* m_Direct3D;
-	CameraClass* m_Camera;
-	ModelClass* m_Model;
-	LightShaderClass* m_LightShader;
-	LightClass* m_Light;
+	D3D11Device* m_Direct3D;
+	Camera* m_Camera;
+	Model* m_Model;
+	LightShader* m_LightShader;
+	Light* m_Light;
 	Sprite* m_Sprite;
 	Timer* m_Timer;
-	TextureShaderClass* m_TextureShader;
+	TextureShader* m_TextureShader;
 };
 
 #endif

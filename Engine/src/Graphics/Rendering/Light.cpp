@@ -1,81 +1,81 @@
 #include "light.h"
 
 
-LightClass::LightClass()
+Light::Light()
 {
 }
 
 
-LightClass::LightClass(const LightClass& other)
+Light::Light(const Light& other)
 {
 }
 
 
-LightClass::~LightClass()
+Light::~Light()
 {
 }
 
 
-void LightClass::SetAmbientColor(float red, float green, float blue, float alpha)
+void Light::SetAmbientColor(float red, float green, float blue, float alpha)
 {
     m_ambientColor = XMFLOAT4(red, green, blue, alpha);
     return;
 }
 
 
-void LightClass::SetDiffuseColor(float red, float green, float blue, float alpha)
+void Light::SetDiffuseColor(float red, float green, float blue, float alpha)
 {
     m_diffuseColor = XMFLOAT4(red, green, blue, alpha);
     return;
 }
 
 
-void LightClass::SetDirection(float x, float y, float z)
+void Light::SetDirection(float x, float y, float z)
 {
     m_direction = XMFLOAT3(x, y, z);
     return;
 }
 
 
-void LightClass::SetSpecularColor(float red, float green, float blue, float alpha)
+void Light::SetSpecularColor(float red, float green, float blue, float alpha)
 {
     m_specularColor = XMFLOAT4(red, green, blue, alpha);
     return;
 }
 
 
-void LightClass::SetSpecularPower(float power)
+void Light::SetSpecularPower(float power)
 {
     m_specularPower = power;
     return;
 }
 
 
-XMFLOAT4 LightClass::GetAmbientColor()
+XMFLOAT4 Light::GetAmbientColor()
 {
     return m_ambientColor;
 }
 
 
-XMFLOAT4 LightClass::GetDiffuseColor()
+XMFLOAT4 Light::GetDiffuseColor()
 {
     return m_diffuseColor;
 }
 
 
-XMFLOAT3 LightClass::GetDirection()
+XMFLOAT3 Light::GetDirection()
 {
     return m_direction;
 }
 
 
-XMFLOAT4 LightClass::GetSpecularColor()
+XMFLOAT4 Light::GetSpecularColor()
 {
     return m_specularColor;
 }
 
 
-float LightClass::GetSpecularPower()
+float Light::GetSpecularPower()
 {
     return m_specularPower;
 }

@@ -24,7 +24,7 @@
     <ClCompile Include="src\Core\System\SystemManager.cpp" />
     <ClCompile Include="src\Core\System\Timer.cpp" />
     <ClCompile Include="src\Graphics\Rendering\Camera.cpp" />
-    <ClCompile Include="src\Graphics\D3D11\D3DClass.cpp" />
+    <ClCompile Include="src\Graphics\D3D11\D3D11Device.cpp" />
     <ClCompile Include="src\Graphics\Rendering\Light.cpp" />
     <ClCompile Include="src\Graphics\Rendering\Sprite.cpp" />
     <ClCompile Include="src\Graphics\Resource\Model.cpp" />
@@ -40,7 +40,7 @@
     <ClInclude Include="src\Core\System\SystemManager.h" />
     <ClInclude Include="src\Core\System\Timer.h" />
     <ClInclude Include="src\Graphics\Rendering\Camera.h" />
-    <ClInclude Include="src\Graphics\D3D11\D3DClass.h" />
+    <ClInclude Include="src\Graphics\D3D11\D3D11Device.h" />
     <ClInclude Include="src\Graphics\Rendering\Light.h" />
     <ClInclude Include="src\Graphics\Rendering\Sprite.h" />
     <ClInclude Include="src\Graphics\Resource\Model.h" />

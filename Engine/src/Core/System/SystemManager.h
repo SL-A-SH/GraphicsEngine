@@ -1,5 +1,5 @@
-#ifndef _SYSTEMCLASS_H_
-#define _SYSTEMCLASS_H_
+#ifndef _SYSTEMMANAGER_H_
+#define _SYSTEMMANAGER_H_
 
 #define WIN32_LEAN_AND_MEAN
 
@@ -8,12 +8,12 @@
 #include "../Input/InputManager.h"
 #include "../Application/Application.h"
 
-class SystemClass
+class SystemManager
 {
 public:
-	SystemClass();
-	SystemClass(const SystemClass&);
-	~SystemClass();
+	SystemManager();
+	SystemManager(const SystemManager&);
+	~SystemManager();
 
 	bool Initialize();
 	void Shutdown();
@@ -31,8 +31,8 @@ private:
 	HINSTANCE m_hinstance;
 	HWND m_hwnd;
 
-	InputClass* m_Input;
-	ApplicationClass* m_Application;
+	InputManager* m_Input;
+	Application* m_Application;
 };
 
 /////////////////////////
@@ -44,7 +44,7 @@ static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 /////////////
 // GLOBALS //
 /////////////
-static SystemClass* ApplicationHandle = 0;
+static SystemManager* ApplicationHandle = 0;
 
 
 #endif

@@ -1,16 +1,16 @@
-#ifndef _LIGHTCLASS_H_
-#define _LIGHTCLASS_H_
+#ifndef _LIGHT_H_
+#define _LIGHT_H_
 
 #include <directxmath.h>
 
 using namespace DirectX;
 
-class LightClass
+class Light
 {
 public:
-    LightClass();
-    LightClass(const LightClass&);
-    ~LightClass();
+    Light();
+    Light(const Light&);
+    ~Light();
 
     void SetAmbientColor(float, float, float, float);
     void SetDiffuseColor(float, float, float, float);

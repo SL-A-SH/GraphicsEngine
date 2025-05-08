@@ -336,7 +336,7 @@ bool Sprite::LoadTextures(ID3D11Device* device, ID3D11DeviceContext* deviceConte
     fin >> m_textureCount;
 
     // Create and initialize the texture object.
-    m_Textures = new TextureClass[m_textureCount];
+    m_Textures = new Texture[m_textureCount];
 
     // Read to start of next line.
     fin.get(input);

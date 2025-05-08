@@ -1,12 +1,12 @@
-#ifndef _INPUTCLASS_H_
-#define _INPUTCLASS_H_
+#ifndef _INPUTMANAGER_H_
+#define _INPUTMANAGER_H_
 
-class InputClass
+class InputManager
 {
 public:
-	InputClass();
-	InputClass(const InputClass&);
-	~InputClass();
+	InputManager();
+	InputManager(const InputManager&);
+	~InputManager();
 
 	void Initialize();
 

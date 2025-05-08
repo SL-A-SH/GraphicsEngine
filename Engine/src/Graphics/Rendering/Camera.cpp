@@ -1,6 +1,6 @@
 #include "camera.h"
 
-CameraClass::CameraClass()
+Camera::Camera()
 {
 	m_positionX = 0.0f;
 	m_positionY = 0.0f;
@@ -12,16 +12,16 @@ CameraClass::CameraClass()
 }
 
 
-CameraClass::CameraClass(const CameraClass& other)
+Camera::Camera(const Camera& other)
 {
 }
 
 
-CameraClass::~CameraClass()
+Camera::~Camera()
 {
 }
 
-void CameraClass::SetPosition(float x, float y, float z)
+void Camera::SetPosition(float x, float y, float z)
 {
 	m_positionX = x;
 	m_positionY = y;
@@ -30,7 +30,7 @@ void CameraClass::SetPosition(float x, float y, float z)
 }
 
 
-void CameraClass::SetRotation(float x, float y, float z)
+void Camera::SetRotation(float x, float y, float z)
 {
 	m_rotationX = x;
 	m_rotationY = y;
@@ -38,18 +38,18 @@ void CameraClass::SetRotation(float x, float y, float z)
 	return;
 }
 
-XMFLOAT3 CameraClass::GetPosition()
+XMFLOAT3 Camera::GetPosition()
 {
 	return XMFLOAT3(m_positionX, m_positionY, m_positionZ);
 }
 
 
-XMFLOAT3 CameraClass::GetRotation()
+XMFLOAT3 Camera::GetRotation()
 {
 	return XMFLOAT3(m_rotationX, m_rotationY, m_rotationZ);
 }
 
-void CameraClass::Render()
+void Camera::Render()
 {
 	XMFLOAT3 up, position, lookAt;
 	XMVECTOR upVector, positionVector, lookAtVector;
@@ -102,7 +102,7 @@ void CameraClass::Render()
 	return;
 }
 
-void CameraClass::GetViewMatrix(XMMATRIX& viewMatrix)
+void Camera::GetViewMatrix(XMMATRIX& viewMatrix)
 {
 	viewMatrix = m_viewMatrix;
 	return;

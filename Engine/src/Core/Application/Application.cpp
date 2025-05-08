@@ -1,7 +1,7 @@
 #include "application.h"
 
 
-ApplicationClass::ApplicationClass()
+Application::Application()
 {
 	m_Direct3D = 0;
 	m_Camera = 0;
@@ -14,17 +14,17 @@ ApplicationClass::ApplicationClass()
 }
 
 
-ApplicationClass::ApplicationClass(const ApplicationClass& other)
+Application::Application(const Application& other)
 {
 }
 
 
-ApplicationClass::~ApplicationClass()
+Application::~Application()
 {
 }
 
 
-bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
+bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 {
 	char modelFilename[128];
 	char textureFilename[128];
@@ -32,7 +32,7 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	bool result;
 
 	// Create and initialize the Direct3D object.
-	m_Direct3D = new D3DClass;
+	m_Direct3D = new D3D11Device;
 
 	result = m_Direct3D->Initialize(screenWidth, screenHeight, VSYNC_ENABLED, hwnd, FULL_SCREEN, SCREEN_DEPTH, SCREEN_NEAR);
 	if (!result)
@@ -42,7 +42,7 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	}
 
 	// Create the camera object.
-	m_Camera = new CameraClass;
+	m_Camera = new Camera;
 
 	// Set the initial position of the camera.
 	m_Camera->SetPosition(0.0f, 100.0f, -280.0f);
@@ -54,7 +54,7 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	strcpy_s(textureFilename, "../Engine/assets/textures/stone01.tga");
 
 	// Create and initialize the model object.
-	m_Model = new ModelClass;
+	m_Model = new Model;
 
 	result = m_Model->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, textureFilename);
 	if (!result)
@@ -64,7 +64,7 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	}
 
 	// Create and initialize the light shader object.
-	m_LightShader = new LightShaderClass;
+	m_LightShader = new LightShader;
 
 	result = m_LightShader->Initialize(m_Direct3D->GetDevice(), hwnd);
 	if (!result)
@@ -74,7 +74,7 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	}
 
 	// Create and initialize the light object.
-	m_Light = new LightClass;
+	m_Light = new Light;
 
 	// If the model has FBX materials, we'll use those values
 	if (m_Model->HasFBXMaterial())
@@ -97,7 +97,7 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	m_Light->SetDirection(1.0f, 0.0f, 0.0f);
 
 	// Create and initialize the texture shader object.
-	m_TextureShader = new TextureShaderClass;
+	m_TextureShader = new TextureShader;
 
 	result = m_TextureShader->Initialize(m_Direct3D->GetDevice(), hwnd);
 	if (!result)
@@ -132,7 +132,7 @@ bool ApplicationClass::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 }
 
 
-void ApplicationClass::Shutdown()
+void Application::Shutdown()
 {
 	// Release the timer object.
 	if (m_Timer)
@@ -199,7 +199,7 @@ void ApplicationClass::Shutdown()
 }
 
 
-bool ApplicationClass::Frame()
+bool Application::Frame()
 {
 	float frameTime;
 	bool result;
@@ -224,7 +224,7 @@ bool ApplicationClass::Frame()
 }
 
 
-bool ApplicationClass::Render()
+bool Application::Render()
 {
 	XMMATRIX worldMatrix, viewMatrix, projectionMatrix, orthoMatrix, scaleMatrix2D, rotateMatrix;
 	bool result;

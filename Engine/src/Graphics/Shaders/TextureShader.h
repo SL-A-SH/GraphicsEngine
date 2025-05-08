@@ -1,5 +1,5 @@
-#ifndef _TEXTURESHADERCLASS_H_
-#define _TEXTURESHADERCLASS_H_
+#ifndef _TEXTURESHADER_H_
+#define _TEXTURESHADER_H_
 
 #include <d3d11.h>
 #include <d3dcompiler.h>
@@ -9,7 +9,7 @@
 using namespace DirectX;
 using namespace std;
 
-class TextureShaderClass
+class TextureShader
 {
 private:
 	struct MatrixBufferType
@@ -20,9 +20,9 @@ private:
 	};
 
 public:
-	TextureShaderClass();
-	TextureShaderClass(const TextureShaderClass&);
-	~TextureShaderClass();
+	TextureShader();
+	TextureShader(const TextureShader&);
+	~TextureShader();
 
 	bool Initialize(ID3D11Device*, HWND);
 	void Shutdown();

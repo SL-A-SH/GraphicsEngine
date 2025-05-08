@@ -1,5 +1,5 @@
-#ifndef _MODELCLASS_H_
-#define _MODELCLASS_H_
+#ifndef _MODEL_H_
+#define _MODEL_H_
 
 #include <d3d11.h>
 #include <directxmath.h>
@@ -16,7 +16,7 @@ using namespace std;
 #define FBXSDK_CURRENTNAMESPACE fbxsdk
 #define FBXSDK_NAMESPACE_USE fbxsdk
 
-class ModelClass
+class Model
 {
 private:
 	struct VertexType
@@ -44,9 +44,9 @@ private:
 	};
 
 public:
-	ModelClass();
-	ModelClass(const ModelClass&);
-	~ModelClass();
+	Model();
+	Model(const Model&);
+	~Model();
 
 	bool Initialize(ID3D11Device*, ID3D11DeviceContext*, char*, char*);
 	void Shutdown();
@@ -77,7 +77,7 @@ private:
 private:
 	ID3D11Buffer* m_vertexBuffer, * m_indexBuffer;
 	int m_vertexCount, m_indexCount;
-	TextureClass* m_Texture;
+	Texture* m_Texture;
 	ModelType* m_model;
 	MaterialInfo m_materialInfo;
 	bool m_hasFBXMaterial;

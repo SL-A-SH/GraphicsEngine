@@ -1,5 +1,5 @@
-#ifndef _LIGHTSHADERCLASS_H_
-#define _LIGHTSHADERCLASS_H_
+#ifndef _LIGHTSHADER_H_
+#define _LIGHTSHADER_H_
 
 #include <d3d11.h>
 #include <d3dcompiler.h>
@@ -9,7 +9,7 @@
 using namespace DirectX;
 using namespace std;
 
-class LightShaderClass
+class LightShader
 {
 private:
     struct MatrixBufferType
@@ -35,9 +35,9 @@ private:
     };
 
 public:
-    LightShaderClass();
-    LightShaderClass(const LightShaderClass&);
-    ~LightShaderClass();
+    LightShader();
+    LightShader(const LightShader&);
+    ~LightShader();
 
     bool Initialize(ID3D11Device*, HWND);
     void Shutdown();
