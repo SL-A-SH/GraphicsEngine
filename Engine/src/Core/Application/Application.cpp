@@ -199,7 +199,7 @@ bool ApplicationClass::Frame()
 
 bool ApplicationClass::Render()
 {
-	XMMATRIX worldMatrix, viewMatrix, projectionMatrix, orthoMatrix, scaleMatrix2D;
+	XMMATRIX worldMatrix, viewMatrix, projectionMatrix, orthoMatrix, scaleMatrix2D, rotateMatrix;
 	bool result;
 
 

@@ -92,6 +92,9 @@
     <ClInclude Include="src\Graphics\Rendering\Bitmap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Math\Transform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="assets\shaders\LightVertexShader.hlsl" />
