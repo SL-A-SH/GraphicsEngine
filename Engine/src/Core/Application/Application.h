@@ -9,10 +9,10 @@
 #include "../../Graphics/Rendering/Sprite.h"
 #include "../../Core/System/Timer.h"
 #include "../../Graphics/Shaders/TextureShader.h"
+#include "../../Graphics/Rendering/Font.h"
+#include "../../Graphics//Resource/Text.h"
+#include "../../Graphics/Shaders/FontShader.h"
 
-/////////////
-// GLOBALS //
-/////////////
 const bool FULL_SCREEN = true;
 const bool VSYNC_ENABLED = true;
 const float SCREEN_DEPTH = 1000.0f;
@@ -41,6 +41,9 @@ private:
 	Sprite* m_Sprite;
 	Timer* m_Timer;
 	TextureShader* m_TextureShader;
+	FontShader* m_FontShader;
+	Font* m_Font;
+	Text* m_TextString1, * m_TextString2;
 };
 
 #endif

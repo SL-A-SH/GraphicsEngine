@@ -25,10 +25,13 @@
     <ClCompile Include="src\Core\System\Timer.cpp" />
     <ClCompile Include="src\Graphics\Rendering\Camera.cpp" />
     <ClCompile Include="src\Graphics\D3D11\D3D11Device.cpp" />
+    <ClCompile Include="src\Graphics\Rendering\Font.cpp" />
     <ClCompile Include="src\Graphics\Rendering\Light.cpp" />
     <ClCompile Include="src\Graphics\Rendering\Sprite.cpp" />
     <ClCompile Include="src\Graphics\Resource\Model.cpp" />
+    <ClCompile Include="src\Graphics\Resource\Text.cpp" />
     <ClCompile Include="src\Graphics\Shaders\ColorShader.cpp" />
+    <ClCompile Include="src\Graphics\Shaders\FontShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\LightShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\TextureShader.cpp" />
     <ClCompile Include="src\Graphics\Resource\Texture.cpp" />
@@ -41,16 +44,27 @@
     <ClInclude Include="src\Core\System\Timer.h" />
     <ClInclude Include="src\Graphics\Rendering\Camera.h" />
     <ClInclude Include="src\Graphics\D3D11\D3D11Device.h" />
+    <ClInclude Include="src\Graphics\Rendering\Font.h" />
     <ClInclude Include="src\Graphics\Rendering\Light.h" />
     <ClInclude Include="src\Graphics\Rendering\Sprite.h" />
     <ClInclude Include="src\Graphics\Resource\Model.h" />
+    <ClInclude Include="src\Graphics\Resource\Text.h" />
     <ClInclude Include="src\Graphics\Shaders\ColorShader.h" />
+    <ClInclude Include="src\Graphics\Shaders\FontShader.h" />
     <ClInclude Include="src\Graphics\Shaders\LightShader.h" />
     <ClInclude Include="src\Graphics\Shaders\TextureShader.h" />
     <ClInclude Include="src\Graphics\Resource\Texture.h" />
     <ClInclude Include="src\Math\Transform.h" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="assets\shaders\FontPixelShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\FontVertexShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="assets\shaders\LightPixelShader.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>

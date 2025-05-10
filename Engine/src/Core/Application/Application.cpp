@@ -11,6 +11,10 @@ Application::Application()
 	m_TextureShader = 0;
 	m_Sprite = 0;
 	m_Timer = 0;
+	m_FontShader = 0;
+	m_Font = 0;
+	m_TextString1 = 0;
+	m_TextString2 = 0;
 }
 
 
@@ -29,6 +33,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	char modelFilename[128];
 	char textureFilename[128];
 	char spriteFilename[128];
+	char testString1[32], testString2[32];
 	bool result;
 
 	// Create and initialize the Direct3D object.
@@ -127,6 +132,46 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 		return false;
 	}
 
+	// Create and initialize the font shader object.
+	m_FontShader = new FontShader;
+
+	result = m_FontShader->Initialize(m_Direct3D->GetDevice(), hwnd);
+	if (!result)
+	{
+		MessageBox(hwnd, L"Could not initialize the font shader object.", L"Error", MB_OK);
+		return false;
+	}
+
+	// Create and initialize the font object.
+	m_Font = new Font;
+
+	result = m_Font->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), 0);
+	if (!result)
+	{
+		return false;
+	}
+
+	// Set the strings we want to display.
+	strcpy_s(testString1, "Hello");
+	strcpy_s(testString2, "Goodbye World");
+
+	// Create and initialize the first text object.
+	m_TextString1 = new Text;
+
+	result = m_TextString1->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, 32, m_Font, testString1, 10, 10, 0.0f, 1.0f, 0.0f);
+	if (!result)
+	{
+		return false;
+	}
+
+	// Create and initialize the second text object.
+	m_TextString2 = new Text;
+
+	result = m_TextString2->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, 32, m_Font, testString2, 10, 50, 1.0f, 1.0f, 0.0f);
+	if (!result)
+	{
+		return false;
+	}
 
 	return true;
 }
@@ -134,6 +179,37 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 
 void Application::Shutdown()
 {
+	// Release the text string objects.
+	if (m_TextString2)
+	{
+		m_TextString2->Shutdown();
+		delete m_TextString2;
+		m_TextString2 = 0;
+	}
+
+	if (m_TextString1)
+	{
+		m_TextString1->Shutdown();
+		delete m_TextString1;
+		m_TextString1 = 0;
+	}
+
+	// Release the font object.
+	if (m_Font)
+	{
+		m_Font->Shutdown();
+		delete m_Font;
+		m_Font = 0;
+	}
+
+	// Release the font shader object.
+	if (m_FontShader)
+	{
+		m_FontShader->Shutdown();
+		delete m_FontShader;
+		m_FontShader = 0;
+	}
+
 	// Release the timer object.
 	if (m_Timer)
 	{
@@ -254,8 +330,9 @@ bool Application::Render()
 		return false;
 	}
 
-	// Turn off the Z buffer to begin all 2D rendering.
+	// Disable the Z buffer and enable alpha blending for 2D rendering.
 	m_Direct3D->TurnZBufferOff();
+	m_Direct3D->EnableAlphaBlending();
 
 	/*scaleMatrix2D = XMMatrixScaling(0.5f, 0.5f, 0.5f);
 	worldMatrix = XMMatrixMultiply(scaleMatrix2D, worldMatrix);*/
@@ -275,8 +352,29 @@ bool Application::Render()
 		return false;
 	}
 
-	// Turn the Z buffer back on now that all 2D rendering has completed.
+	// Render the first text string using the font shader.
+	m_TextString1->Render(m_Direct3D->GetDeviceContext());
+
+	result = m_FontShader->Render(m_Direct3D->GetDeviceContext(), m_TextString1->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix,
+		m_Font->GetTexture(), m_TextString1->GetPixelColor());
+	if (!result)
+	{
+		return false;
+	}
+
+	// Render the second text string using the font shader.
+	m_TextString2->Render(m_Direct3D->GetDeviceContext());
+
+	result = m_FontShader->Render(m_Direct3D->GetDeviceContext(), m_TextString2->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix,
+		m_Font->GetTexture(), m_TextString2->GetPixelColor());
+	if (!result)
+	{
+		return false;
+	}
+
+	// Enable the Z buffer and disable alpha blending now that 2D rendering is complete.
 	m_Direct3D->TurnZBufferOn();
+	m_Direct3D->DisableAlphaBlending();
 
 	// Present the rendered scene to the screen.
 	m_Direct3D->EndScene();
