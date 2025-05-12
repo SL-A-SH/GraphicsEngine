@@ -31,6 +31,7 @@ public:
 
 private:
 	bool Render();
+	bool UpdateFps();
 
 private:
 	D3D11Device* m_Direct3D;
@@ -44,6 +45,8 @@ private:
 	FontShader* m_FontShader;
 	Font* m_Font;
 	Text* m_TextString1, * m_TextString2;
+	Text* m_FpsString;
+	int m_previousFps;
 };
 
 #endif

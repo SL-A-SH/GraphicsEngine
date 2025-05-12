@@ -13,12 +13,17 @@ public:
     bool Initialize();
     void Frame();
 
-    float GetTime();
+    float const GetTime();
+    float const GetFps();
 
 private:
     float m_frequency;
     INT64 m_startTime;
     float m_frameTime;
+
+    int m_fps;
+    int m_count;
+    float m_secondCounter;
 };
 
 #endif
