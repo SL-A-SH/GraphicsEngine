@@ -2,6 +2,7 @@
 #define _APPLICATION_H_
 
 #include "../../Graphics/D3D11/D3D11Device.h"
+#include "../Input/InputManager.h"
 #include "../../Graphics/Rendering/Camera.h"
 #include "../../Graphics/Rendering/Light.h"
 #include "../../Graphics/Resource/Model.h"
@@ -27,10 +28,11 @@ public:
 
 	bool Initialize(int, int, HWND);
 	void Shutdown();
-	bool Frame();
+	bool Frame(InputManager*);
 
 private:
 	bool Render();
+	bool UpdateMouseStrings(int, int, bool);
 	bool UpdateFps();
 
 private:
@@ -39,12 +41,13 @@ private:
 	Model* m_Model;
 	LightShader* m_LightShader;
 	Light* m_Light;
-	Sprite* m_Sprite;
+	Sprite* m_Cursor;
 	Timer* m_Timer;
 	TextureShader* m_TextureShader;
 	FontShader* m_FontShader;
 	Font* m_Font;
 	Text* m_TextString1, * m_TextString2;
+	Text* m_MouseStrings;
 	Text* m_FpsString;
 	int m_previousFps;
 };

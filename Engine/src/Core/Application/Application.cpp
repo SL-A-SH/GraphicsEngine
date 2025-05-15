@@ -9,12 +9,13 @@ Application::Application()
 	m_LightShader = 0;
 	m_Light = 0;
 	m_TextureShader = 0;
-	m_Sprite = 0;
+	m_Cursor = 0;
 	m_Timer = 0;
 	m_FontShader = 0;
 	m_Font = 0;
 	m_TextString1 = 0;
 	m_TextString2 = 0;
+	m_MouseStrings = 0;
 	m_FpsString = 0;
 }
 
@@ -35,6 +36,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	char textureFilename[128];
 	char spriteFilename[128];
 	char testString1[32], testString2[32];
+	char mouseString1[32], mouseString2[32], mouseString3[32];
 	char fpsString[32];
 	bool result;
 
@@ -114,12 +116,12 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	}
 
 	// Set the file name of the bitmap file.
-	strcpy_s(spriteFilename, "../Engine/assets/sprites/sprite_data_01.txt");
+	strcpy_s(spriteFilename, "../Engine/assets/sprites/ui/cursor_data.txt");
 
 	// Create and initialize the bitmap object.
-	m_Sprite = new Sprite;
+	m_Cursor = new Sprite;
 
-	result = m_Sprite->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, spriteFilename, 20, screenHeight - 500);
+	result = m_Cursor->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, spriteFilename, 0, 0);
 	if (!result)
 	{
 		return false;
@@ -175,6 +177,32 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 		return false;
 	}
 
+	// Set the initial mouse strings.
+	strcpy_s(mouseString1, "Mouse X: 0");
+	strcpy_s(mouseString2, "Mouse Y: 0");
+	strcpy_s(mouseString3, "Mouse Button: No");
+
+	// Create and initialize the text objects for the mouse strings.
+	m_MouseStrings = new Text[3];
+
+	result = m_MouseStrings[0].Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, 32, m_Font, mouseString1, 150, 30, 1.0f, 1.0f, 1.0f);
+	if (!result)
+	{
+		return false;
+	}
+
+	result = m_MouseStrings[1].Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, 32, m_Font, mouseString1, 175, 55, 1.0f, 1.0f, 1.0f);
+	if (!result)
+	{
+		return false;
+	}
+
+	result = m_MouseStrings[2].Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, 32, m_Font, mouseString1, 200, 80, 1.0f, 1.0f, 1.0f);
+	if (!result)
+	{
+		return false;
+	}
+
 	// Set the initial fps and fps string.
 	m_previousFps = -1;
 	strcpy_s(fpsString, "Fps: 0");
@@ -194,6 +222,17 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 
 void Application::Shutdown()
 {
+	// Release the text objects for the mouse strings.
+	if (m_MouseStrings)
+	{
+		m_MouseStrings[0].Shutdown();
+		m_MouseStrings[1].Shutdown();
+		m_MouseStrings[2].Shutdown();
+
+		delete[] m_MouseStrings;
+		m_MouseStrings = 0;
+	}
+
 	// Release the text string objects.
 	if (m_TextString2)
 	{
@@ -240,12 +279,12 @@ void Application::Shutdown()
 		m_Timer = 0;
 	}
 
-	// Release the sprite object.
-	if (m_Sprite)
+	// Release the cursor sprite object.
+	if (m_Cursor)
 	{
-		m_Sprite->Shutdown();
-		delete m_Sprite;
-		m_Sprite = 0;
+		m_Cursor->Shutdown();
+		delete m_Cursor;
+		m_Cursor = 0;
 	}
 
 	// Release the texture shader object.
@@ -298,10 +337,34 @@ void Application::Shutdown()
 }
 
 
-bool Application::Frame()
+bool Application::Frame(InputManager* Input)
 {
 	float frameTime;
+	int mouseX, mouseY;
+	bool mouseDown;
 	bool result;
+
+	// Check if the user pressed escape and wants to exit the application.
+	if (Input->IsEscapePressed())
+	{
+		return false;
+	}
+
+	// Get the location of the mouse from the input object,
+	Input->GetMouseLocation(mouseX, mouseY);
+
+	// Update the cursor position with the mouse coordinates
+	m_Cursor->SetRenderLocation(mouseX, mouseY);
+
+	// Check if the mouse has been pressed.
+	mouseDown = Input->IsMousePressed();
+
+	// Update the mouse strings each frame.
+	result = UpdateMouseStrings(mouseX, mouseY, mouseDown);
+	if (!result)
+	{
+		return false;
+	}
 
 	// Update the system stats.
 	m_Timer->Frame();
@@ -309,8 +372,8 @@ bool Application::Frame()
 	// Get the current frame time.
 	frameTime = m_Timer->GetTime();
 
-	// Update the sprite object using the frame time.
-	m_Sprite->Update(frameTime);
+	// Update the cursor sprite object using the frame time.
+	m_Cursor->Update(frameTime);
 
 	// Render the graphics scene.
 	result = Render();
@@ -369,14 +432,14 @@ bool Application::Render()
 
 
 	// Put the bitmap vertex and index buffers on the graphics pipeline to prepare them for drawing.
-	result = m_Sprite->Render(m_Direct3D->GetDeviceContext());
+	result = m_Cursor->Render(m_Direct3D->GetDeviceContext());
 	if (!result)
 	{
 		return false;
 	}
 
 	// Render the bitmap with the texture shader.
-	result = m_TextureShader->Render(m_Direct3D->GetDeviceContext(), m_Sprite->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix, m_Sprite->GetTexture());
+	result = m_TextureShader->Render(m_Direct3D->GetDeviceContext(), m_Cursor->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix, m_Cursor->GetTexture());
 	if (!result)
 	{
 		return false;
@@ -400,6 +463,19 @@ bool Application::Render()
 	if (!result)
 	{
 		return false;
+	}
+
+	// Render the mouse text strings using the font shader.
+	for (int i = 0; i < 3; i++)
+	{
+		m_MouseStrings[i].Render(m_Direct3D->GetDeviceContext());
+
+		result = m_FontShader->Render(m_Direct3D->GetDeviceContext(), m_MouseStrings[i].GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix,
+			m_Font->GetTexture(), m_MouseStrings[i].GetPixelColor());
+		if (!result)
+		{
+			return false;
+		}
 	}
 
 	// Render the fps text string using the font shader.
@@ -481,6 +557,60 @@ bool Application::UpdateFps()
 
 	// Update the sentence vertex buffer with the new string information.
 	result = m_FpsString->UpdateText(m_Direct3D->GetDeviceContext(), m_Font, finalString, 10, 100, red, green, blue);
+	if (!result)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool Application::UpdateMouseStrings(int mouseX, int mouseY, bool mouseDown)
+{
+	char tempString[16], finalString[32];
+	bool result;
+
+
+	// Convert the mouse X integer to string format.
+	sprintf_s(tempString, "%d", mouseX);
+
+	// Setup the mouse X string.
+	strcpy_s(finalString, "Mouse X: ");
+	strcat_s(finalString, tempString);
+
+	// Update the sentence vertex buffer with the new string information.
+	result = m_MouseStrings[0].UpdateText(m_Direct3D->GetDeviceContext(), m_Font, finalString, 10, 150, 1.0f, 1.0f, 1.0f);
+	if (!result)
+	{
+		return false;
+	}
+
+	// Convert the mouse Y integer to string format.
+	sprintf_s(tempString, "%d", mouseY);
+
+	// Setup the mouse Y string.
+	strcpy_s(finalString, "Mouse Y: ");
+	strcat_s(finalString, tempString);
+
+	// Update the sentence vertex buffer with the new string information.
+	result = m_MouseStrings[1].UpdateText(m_Direct3D->GetDeviceContext(), m_Font, finalString, 10, 175, 1.0f, 1.0f, 1.0f);
+	if (!result)
+	{
+		return false;
+	}
+
+	// Setup the mouse button string.
+	if (mouseDown)
+	{
+		strcpy_s(finalString, "Mouse Button: Yes");
+	}
+	else
+	{
+		strcpy_s(finalString, "Mouse Button: No");
+	}
+
+	// Update the sentence vertex buffer with the new string information.
+	result = m_MouseStrings[2].UpdateText(m_Direct3D->GetDeviceContext(), m_Font, finalString, 10, 200, 1.0f, 1.0f, 1.0f);
 	if (!result)
 	{
 		return false;
