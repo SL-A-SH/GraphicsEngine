@@ -251,23 +251,23 @@ bool Sprite::UpdateBuffers(ID3D11DeviceContext* deviceContent)
     // Load the vertex array with data.
     // First triangle.
     vertices[0].position = XMFLOAT3(left, top, 0.0f);  // Top left.
-    vertices[0].texture = XMFLOAT2(0.0f, 0.0f);
+    vertices[0].texture = XMFLOAT2(0.0f, 1.0f);
 
     vertices[1].position = XMFLOAT3(right, bottom, 0.0f);  // Bottom right.
-    vertices[1].texture = XMFLOAT2(1.0f, 1.0f);
+    vertices[1].texture = XMFLOAT2(1.0f, 0.0f);
 
     vertices[2].position = XMFLOAT3(left, bottom, 0.0f);  // Bottom left.
-    vertices[2].texture = XMFLOAT2(0.0f, 1.0f);
+    vertices[2].texture = XMFLOAT2(0.0f, 0.0f);
 
     // Second triangle.
     vertices[3].position = XMFLOAT3(left, top, 0.0f);  // Top left.
-    vertices[3].texture = XMFLOAT2(0.0f, 0.0f);
+    vertices[3].texture = XMFLOAT2(0.0f, 1.0f);
 
     vertices[4].position = XMFLOAT3(right, top, 0.0f);  // Top right.
-    vertices[4].texture = XMFLOAT2(1.0f, 0.0f);
+    vertices[4].texture = XMFLOAT2(1.0f, 1.0f);
 
     vertices[5].position = XMFLOAT3(right, bottom, 0.0f);  // Bottom right.
-    vertices[5].texture = XMFLOAT2(1.0f, 1.0f);
+    vertices[5].texture = XMFLOAT2(1.0f, 0.0f);
 
     // Lock the vertex buffer.
     result = deviceContent->Map(m_vertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);

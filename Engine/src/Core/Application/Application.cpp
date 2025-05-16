@@ -13,8 +13,6 @@ Application::Application()
 	m_Timer = 0;
 	m_FontShader = 0;
 	m_Font = 0;
-	m_TextString1 = 0;
-	m_TextString2 = 0;
 	m_MouseStrings = 0;
 	m_FpsString = 0;
 }
@@ -35,7 +33,6 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	char modelFilename[128];
 	char textureFilename[128];
 	char spriteFilename[128];
-	char testString1[32], testString2[32];
 	char mouseString1[32], mouseString2[32], mouseString3[32];
 	char fpsString[32];
 	bool result;
@@ -155,28 +152,6 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 		return false;
 	}
 
-	// Set the strings we want to display.
-	strcpy_s(testString1, "Hello");
-	strcpy_s(testString2, "Goodbye World");
-
-	// Create and initialize the first text object.
-	m_TextString1 = new Text;
-
-	result = m_TextString1->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, 32, m_Font, testString1, 10, 10, 0.0f, 1.0f, 0.0f);
-	if (!result)
-	{
-		return false;
-	}
-
-	// Create and initialize the second text object.
-	m_TextString2 = new Text;
-
-	result = m_TextString2->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, 32, m_Font, testString2, 10, 50, 1.0f, 1.0f, 0.0f);
-	if (!result)
-	{
-		return false;
-	}
-
 	// Set the initial mouse strings.
 	strcpy_s(mouseString1, "Mouse X: 0");
 	strcpy_s(mouseString2, "Mouse Y: 0");
@@ -210,7 +185,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	// Create and initialize the text object for the fps string.
 	m_FpsString = new Text;
 
-	result = m_FpsString->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, 32, m_Font, fpsString, 10, 10, 0.0f, 1.0f, 0.0f);
+	result = m_FpsString->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, 32, m_Font, fpsString, 10, 0, 0.0f, 1.0f, 0.0f);
 	if (!result)
 	{
 		return false;
@@ -231,21 +206,6 @@ void Application::Shutdown()
 
 		delete[] m_MouseStrings;
 		m_MouseStrings = 0;
-	}
-
-	// Release the text string objects.
-	if (m_TextString2)
-	{
-		m_TextString2->Shutdown();
-		delete m_TextString2;
-		m_TextString2 = 0;
-	}
-
-	if (m_TextString1)
-	{
-		m_TextString1->Shutdown();
-		delete m_TextString1;
-		m_TextString1 = 0;
 	}
 
 	// Release the text object for the fps string.
@@ -445,26 +405,6 @@ bool Application::Render()
 		return false;
 	}
 
-	// Render the first text string using the font shader.
-	m_TextString1->Render(m_Direct3D->GetDeviceContext());
-
-	result = m_FontShader->Render(m_Direct3D->GetDeviceContext(), m_TextString1->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix,
-		m_Font->GetTexture(), m_TextString1->GetPixelColor());
-	if (!result)
-	{
-		return false;
-	}
-
-	// Render the second text string using the font shader.
-	m_TextString2->Render(m_Direct3D->GetDeviceContext());
-
-	result = m_FontShader->Render(m_Direct3D->GetDeviceContext(), m_TextString2->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix,
-		m_Font->GetTexture(), m_TextString2->GetPixelColor());
-	if (!result)
-	{
-		return false;
-	}
-
 	// Render the mouse text strings using the font shader.
 	for (int i = 0; i < 3; i++)
 	{
@@ -556,7 +496,7 @@ bool Application::UpdateFps()
 	}
 
 	// Update the sentence vertex buffer with the new string information.
-	result = m_FpsString->UpdateText(m_Direct3D->GetDeviceContext(), m_Font, finalString, 10, 100, red, green, blue);
+	result = m_FpsString->UpdateText(m_Direct3D->GetDeviceContext(), m_Font, finalString, 10, 0, red, green, blue);
 	if (!result)
 	{
 		return false;

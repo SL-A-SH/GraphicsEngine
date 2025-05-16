@@ -46,7 +46,6 @@ private:
 	TextureShader* m_TextureShader;
 	FontShader* m_FontShader;
 	Font* m_Font;
-	Text* m_TextString1, * m_TextString2;
 	Text* m_MouseStrings;
 	Text* m_FpsString;
 	int m_previousFps;
