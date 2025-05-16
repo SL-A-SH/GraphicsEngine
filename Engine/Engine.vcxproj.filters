@@ -66,6 +66,9 @@
     <ClCompile Include="src\Graphics\Resource\Text.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Graphics\Shaders\MultiTextureShader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Core\Application\Application.h">
@@ -119,12 +122,17 @@
     <ClInclude Include="src\Graphics\Resource\Text.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Graphics\Shaders\MultiTextureShader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="assets\shaders\LightVertexShader.hlsl" />
     <FxCompile Include="assets\shaders\LightPixelShader.hlsl" />
     <FxCompile Include="assets\shaders\FontVertexShader.hlsl" />
     <FxCompile Include="assets\shaders\FontPixelShader.hlsl" />
+    <FxCompile Include="assets\shaders\MultiTextureVertexShader.hlsl" />
+    <FxCompile Include="assets\shaders\MultiTexturePixelShader.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="FBX.props" />

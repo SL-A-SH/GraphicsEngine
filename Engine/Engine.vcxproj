@@ -33,6 +33,7 @@
     <ClCompile Include="src\Graphics\Shaders\ColorShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\FontShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\LightShader.cpp" />
+    <ClCompile Include="src\Graphics\Shaders\MultiTextureShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\TextureShader.cpp" />
     <ClCompile Include="src\Graphics\Resource\Texture.cpp" />
     <ClCompile Include="src\Main\main.cpp" />
@@ -52,6 +53,7 @@
     <ClInclude Include="src\Graphics\Shaders\ColorShader.h" />
     <ClInclude Include="src\Graphics\Shaders\FontShader.h" />
     <ClInclude Include="src\Graphics\Shaders\LightShader.h" />
+    <ClInclude Include="src\Graphics\Shaders\MultiTextureShader.h" />
     <ClInclude Include="src\Graphics\Shaders\TextureShader.h" />
     <ClInclude Include="src\Graphics\Resource\Texture.h" />
     <ClInclude Include="src\Math\Transform.h" />
@@ -78,6 +80,14 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\MultiTexturePixelShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\MultiTextureVertexShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>

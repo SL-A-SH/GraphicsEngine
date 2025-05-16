@@ -6,6 +6,7 @@ Model::Model()
 	m_vertexBuffer = 0;
 	m_indexBuffer = 0;
 	m_Texture = 0;
+	m_Textures = 0;
 	m_model = 0;
 	m_hasFBXMaterial = false;
 	m_materialInfo.diffuseColor = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -23,6 +24,7 @@ Model::Model(const Model& other)
 Model::~Model()
 {
 }
+
 
 bool Model::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceContext, char* modelFilename, char* textureFilename)
 {
@@ -82,10 +84,41 @@ bool Model::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceContext,
 	return true;
 }
 
+
+bool Model::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceContext, char* modelFilename, char* textureFilename1, char* textureFilename2)
+{
+	bool result;
+
+
+	// Load in the model data.
+	result = LoadModel(modelFilename);
+	if (!result)
+	{
+		return false;
+	}
+
+	// Initialize the vertex and index buffers.
+	result = InitializeBuffers(device);
+	if (!result)
+	{
+		return false;
+	}
+
+	// Load the textures for this model.
+	result = LoadTextures(device, deviceContext, textureFilename1, textureFilename2);
+	if (!result)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+
 void Model::Shutdown()
 {
-	// Release the model texture.
-	ReleaseTexture();
+	// Release the model textures.
+	ReleaseTextures();
 
 	// Shutdown the vertex and index buffers.
 	ShutdownBuffers();
@@ -96,6 +129,7 @@ void Model::Shutdown()
 	return;
 }
 
+
 void Model::Render(ID3D11DeviceContext* deviceContext)
 {
 	// Put the vertex and index buffers on the graphics pipeline to prepare them for drawing.
@@ -104,14 +138,22 @@ void Model::Render(ID3D11DeviceContext* deviceContext)
 	return;
 }
 
+
 int Model::GetIndexCount()
 {
 	return m_indexCount;
 }
 
+
 ID3D11ShaderResourceView* Model::GetTexture()
 {
 	return m_Texture->GetTexture();
+}
+
+
+ID3D11ShaderResourceView* Model::GetTexture(int index)
+{
+	return m_Textures[index].GetTexture();
 }
 
 
@@ -198,6 +240,7 @@ bool Model::InitializeBuffers(ID3D11Device* device)
 	return true;
 }
 
+
 void Model::ShutdownBuffers()
 {
 	// Release the index buffer.
@@ -216,6 +259,7 @@ void Model::ShutdownBuffers()
 
 	return;
 }
+
 
 void Model::RenderBuffers(ID3D11DeviceContext* deviceContext)
 {
@@ -238,6 +282,7 @@ void Model::RenderBuffers(ID3D11DeviceContext* deviceContext)
 
 	return;
 }
+
 
 bool Model::LoadTexture(ID3D11Device* device, ID3D11DeviceContext* deviceContext, char* filename)
 {
@@ -271,8 +316,43 @@ bool Model::LoadTexture(ID3D11Device* device, ID3D11DeviceContext* deviceContext
 	return true;
 }
 
-void Model::ReleaseTexture()
+
+bool Model::LoadTextures(ID3D11Device* device, ID3D11DeviceContext* deviceContext, char* filename1, char* filename2)
 {
+	bool result;
+
+
+	// Create and initialize the texture object array.
+	m_Textures = new Texture[2];
+
+	result = m_Textures[0].Initialize(device, deviceContext, filename1);
+	if (!result)
+	{
+		return false;
+	}
+
+	result = m_Textures[1].Initialize(device, deviceContext, filename2);
+	if (!result)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+
+void Model::ReleaseTextures()
+{
+	// Release the texture object array.
+	if (m_Textures)
+	{
+		m_Textures[0].Shutdown();
+		m_Textures[1].Shutdown();
+
+		delete[] m_Textures;
+		m_Textures = 0;
+	}
+
 	// Release the texture object.
 	if (m_Texture)
 	{
@@ -283,6 +363,7 @@ void Model::ReleaseTexture()
 
 	return;
 }
+
 
 bool Model::LoadModel(char* filename)
 {
@@ -297,6 +378,7 @@ bool Model::LoadModel(char* filename)
 		return LoadTextModel(filename);
 	}
 }
+
 
 bool Model::LoadTextModel(char* filename)
 {
@@ -351,6 +433,7 @@ bool Model::LoadTextModel(char* filename)
 
 	return true;
 }
+
 
 bool Model::LoadFBXModel(char* filename)
 {
@@ -410,6 +493,7 @@ bool Model::LoadFBXModel(char* filename)
 	return true;
 }
 
+
 void Model::ProcessNode(FbxNode* pNode)
 {
 	if (!pNode)
@@ -434,6 +518,7 @@ void Model::ProcessNode(FbxNode* pNode)
 	}
 }
 
+
 void Model::ProcessMaterials(FbxNode* pNode)
 {
 	if (!pNode)
@@ -455,6 +540,7 @@ void Model::ProcessMaterials(FbxNode* pNode)
 		}
 	}
 }
+
 
 void Model::ExtractMaterialInfo(FbxSurfaceMaterial* material)
 {
@@ -526,6 +612,7 @@ void Model::ExtractMaterialInfo(FbxSurfaceMaterial* material)
 	OutputDebugStringA(("Normal texture path: " + m_materialInfo.normalTexturePath + "\n").c_str());
 }
 
+
 string Model::GetTexturePath(FbxProperty& property)
 {
 	if (property.IsValid())
@@ -550,6 +637,7 @@ string Model::GetTexturePath(FbxProperty& property)
 	}
 	return "";
 }
+
 
 void Model::ProcessMesh(FbxNode* pNode)
 {
@@ -639,6 +727,7 @@ void Model::ProcessMesh(FbxNode* pNode)
 		indices.clear();
 	}
 }
+
 
 void Model::ReleaseModel()
 {
