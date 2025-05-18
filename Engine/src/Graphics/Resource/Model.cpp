@@ -6,7 +6,6 @@ Model::Model()
 	m_vertexBuffer = 0;
 	m_indexBuffer = 0;
 	m_Texture = 0;
-	m_Textures = 0;
 	m_model = 0;
 	m_hasFBXMaterial = false;
 	m_materialInfo.diffuseColor = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -106,6 +105,35 @@ bool Model::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceContext,
 
 	// Load the textures for this model.
 	result = LoadTextures(device, deviceContext, textureFilename1, textureFilename2);
+	if (!result)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool Model::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceContext, char* modelFilename, char* textureFilename1, char* textureFilename2, char* textureFilename3)
+{
+	bool result;
+
+
+	// Load in the model data.
+	result = LoadModel(modelFilename);
+	if (!result)
+	{
+		return false;
+	}
+
+	// Initialize the vertex and index buffers.
+	result = InitializeBuffers(device);
+	if (!result)
+	{
+		return false;
+	}
+
+	// Load the textures for this model.
+	result = LoadTextures(device, deviceContext, textureFilename1, textureFilename2, textureFilename3);
 	if (!result)
 	{
 		return false;
@@ -323,7 +351,7 @@ bool Model::LoadTextures(ID3D11Device* device, ID3D11DeviceContext* deviceContex
 
 
 	// Create and initialize the texture object array.
-	m_Textures = new Texture[2];
+	m_Textures.resize(2);
 
 	result = m_Textures[0].Initialize(device, deviceContext, filename1);
 	if (!result)
@@ -341,17 +369,44 @@ bool Model::LoadTextures(ID3D11Device* device, ID3D11DeviceContext* deviceContex
 }
 
 
+bool Model::LoadTextures(ID3D11Device* device, ID3D11DeviceContext* deviceContext, char* filename1, char* filename2, char* filename3)
+{
+	bool result;
+
+
+	// Create and initialize the texture object array.
+	m_Textures.resize(3);
+
+	result = m_Textures[0].Initialize(device, deviceContext, filename1);
+	if (!result)
+	{
+		return false;
+	}
+
+	result = m_Textures[1].Initialize(device, deviceContext, filename2);
+	if (!result)
+	{
+		return false;
+	}
+
+	result = m_Textures[2].Initialize(device, deviceContext, filename3);
+	if (!result)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+
 void Model::ReleaseTextures()
 {
 	// Release the texture object array.
-	if (m_Textures)
+	for (auto& texture : m_Textures)
 	{
-		m_Textures[0].Shutdown();
-		m_Textures[1].Shutdown();
-
-		delete[] m_Textures;
-		m_Textures = 0;
+		texture.Shutdown();
 	}
+	m_Textures.clear();
 
 	// Release the texture object.
 	if (m_Texture)

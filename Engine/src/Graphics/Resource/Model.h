@@ -50,6 +50,7 @@ public:
 
 	bool Initialize(ID3D11Device*, ID3D11DeviceContext*, char*, char*);
 	bool Initialize(ID3D11Device*, ID3D11DeviceContext*, char*, char*, char*);
+	bool Initialize(ID3D11Device*, ID3D11DeviceContext*, char*, char*, char*, char*);
 	void Shutdown();
 	void Render(ID3D11DeviceContext*);
 
@@ -65,6 +66,7 @@ private:
 
 	bool LoadTexture(ID3D11Device*, ID3D11DeviceContext*, char*);
 	bool LoadTextures(ID3D11Device*, ID3D11DeviceContext*, char*, char*);
+	bool LoadTextures(ID3D11Device*, ID3D11DeviceContext*, char*, char*, char*);
 	void ReleaseTextures();
 
 	bool LoadModel(char*);
@@ -81,7 +83,7 @@ private:
 	ID3D11Buffer* m_vertexBuffer, * m_indexBuffer;
 	int m_vertexCount, m_indexCount;
 	Texture* m_Texture;
-	Texture* m_Textures;
+	vector<Texture> m_Textures;
 	ModelType* m_model;
 	MaterialInfo m_materialInfo;
 	bool m_hasFBXMaterial;

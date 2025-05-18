@@ -30,6 +30,7 @@
     <ClCompile Include="src\Graphics\Rendering\Sprite.cpp" />
     <ClCompile Include="src\Graphics\Resource\Model.cpp" />
     <ClCompile Include="src\Graphics\Resource\Text.cpp" />
+    <ClCompile Include="src\Graphics\Shaders\AlphaMapShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\ColorShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\FontShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\LightMapShader.cpp" />
@@ -51,6 +52,7 @@
     <ClInclude Include="src\Graphics\Rendering\Sprite.h" />
     <ClInclude Include="src\Graphics\Resource\Model.h" />
     <ClInclude Include="src\Graphics\Resource\Text.h" />
+    <ClInclude Include="src\Graphics\Shaders\AlphaMapShader.h" />
     <ClInclude Include="src\Graphics\Shaders\ColorShader.h" />
     <ClInclude Include="src\Graphics\Shaders\FontShader.h" />
     <ClInclude Include="src\Graphics\Shaders\LightMapShader.h" />
@@ -61,6 +63,14 @@
     <ClInclude Include="src\Math\Transform.h" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="assets\shaders\AlphamapPixelShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\AlphamapVertexShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="assets\shaders\FontPixelShader.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
