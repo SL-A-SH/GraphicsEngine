@@ -13,6 +13,7 @@
 #include "../../Graphics/Rendering/Font.h"
 #include "../../Graphics//Resource/Text.h"
 #include "../../Graphics/Shaders/FontShader.h"
+#include "../../Graphics/Shaders/NormalMapShader.h"
 
 const bool FULL_SCREEN = true;
 const bool VSYNC_ENABLED = true;
@@ -31,7 +32,7 @@ public:
 	bool Frame(InputManager*);
 
 private:
-	bool Render();
+	bool Render(float);
 	bool UpdateMouseStrings(int, int, bool);
 	bool UpdateFps();
 
@@ -40,6 +41,7 @@ private:
 	Camera* m_Camera;
 	Model* m_Model;
 	LightShader* m_LightShader;
+	NormalMapShader* m_NormalMapShader;
 	Light* m_Light;
 	Sprite* m_Cursor;
 	Timer* m_Timer;

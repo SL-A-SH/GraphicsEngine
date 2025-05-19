@@ -72,6 +72,12 @@
     <ClCompile Include="src\Graphics\Shaders\LightMapShader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Graphics\Shaders\AlphaMapShader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Shaders\NormalMapShader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Core\Application\Application.h">
@@ -131,6 +137,12 @@
     <ClInclude Include="src\Graphics\Shaders\LightMapShader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Graphics\Shaders\AlphaMapShader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Shaders\NormalMapShader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="assets\shaders\LightVertexShader.hlsl" />
@@ -141,6 +153,10 @@
     <FxCompile Include="assets\shaders\MultiTexturePixelShader.hlsl" />
     <FxCompile Include="assets\shaders\LightmapVertexShader.hlsl" />
     <FxCompile Include="assets\shaders\LightmapPixelShader.hlsl" />
+    <FxCompile Include="assets\shaders\AlphamapPixelShader.hlsl" />
+    <FxCompile Include="assets\shaders\AlphamapVertexShader.hlsl" />
+    <FxCompile Include="assets\shaders\NormalMapVertexShader.hlsl" />
+    <FxCompile Include="assets\shaders\NormalMapPixelShader.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="FBX.props" />

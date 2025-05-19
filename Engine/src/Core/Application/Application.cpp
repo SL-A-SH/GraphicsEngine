@@ -9,6 +9,7 @@ Application::Application()
 	m_LightShader = 0;
 	m_Light = 0;
 	m_TextureShader = 0;
+	m_NormalMapShader = 0;
 	m_Cursor = 0;
 	m_Timer = 0;
 	m_FontShader = 0;
@@ -30,6 +31,7 @@ Application::~Application()
 
 bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 {
+	char textureFilename1[128], textureFilename2[128];
 	char modelFilename[128];
 	char textureFilename[128];
 	char spriteFilename[128];
@@ -51,18 +53,30 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	m_Camera = new Camera;
 
 	// Set the initial position of the camera.
-	m_Camera->SetPosition(0.0f, 100.0f, -280.0f);
+	m_Camera->SetPosition(0.0f, 0.0f, -5.0f);
+	/*m_Camera->SetRotation(0.0f, 180.0f, 0.0f);*/
+
+	// Create and initialize the normal map shader object.
+	m_NormalMapShader = new NormalMapShader;
+
+	result = m_NormalMapShader->Initialize(m_Direct3D->GetDevice(), hwnd);
+	if (!result)
+	{
+		MessageBox(hwnd, L"Could not initialize the normal map shader object.", L"Error", MB_OK);
+		return false;
+	}
 
 	// Set the file name of the model.
-	strcpy_s(modelFilename, "../Engine/assets/models/Thriller.fbx");
+	strcpy_s(modelFilename, "../Engine/assets/models/Cube.txt");
 
 	// Set the name of the texture file that we will be loading (used as fallback if no FBX material)
-	strcpy_s(textureFilename, "../Engine/assets/textures/stone01.tga");
+	strcpy_s(textureFilename1, "../Engine/assets/textures/stone01.tga");
+	strcpy_s(textureFilename2, "../Engine/assets/textures/normal01.tga");
 
 	// Create and initialize the model object.
 	m_Model = new Model;
 
-	result = m_Model->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, textureFilename);
+	result = m_Model->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, textureFilename1, textureFilename2);
 	if (!result)
 	{
 		MessageBox(hwnd, L"Could not initialize the model object.", L"Error", MB_OK);
@@ -94,13 +108,13 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	}
 	else
 	{
-		m_Light->SetAmbientColor(0.15f, 0.15f, 0.15f, 1.0f);
+		/*m_Light->SetAmbientColor(0.15f, 0.15f, 0.15f, 1.0f);*/
 		m_Light->SetDiffuseColor(1.0f, 1.0f, 1.0f, 1.0f);
 		m_Light->SetSpecularColor(1.0f, 1.0f, 1.0f, 1.0f);
 		m_Light->SetSpecularPower(32.0f);
 	}
 
-	m_Light->SetDirection(1.0f, 0.0f, 0.0f);
+	m_Light->SetDirection(0.0f, 0.0f, 1.0f);
 
 	// Create and initialize the texture shader object.
 	m_TextureShader = new TextureShader;
@@ -262,6 +276,14 @@ void Application::Shutdown()
 		m_Light = 0;
 	}
 
+	// Release the normal map shader object.
+	if (m_NormalMapShader)
+	{
+		m_NormalMapShader->Shutdown();
+		delete m_NormalMapShader;
+		m_NormalMapShader = 0;
+	}
+
 	// Release the light shader object.
 	if (m_LightShader)
 	{
@@ -302,12 +324,20 @@ bool Application::Frame(InputManager* Input)
 	float frameTime;
 	int mouseX, mouseY;
 	bool mouseDown;
+	static float rotation = 360.0f;
 	bool result;
 
 	// Check if the user pressed escape and wants to exit the application.
 	if (Input->IsEscapePressed())
 	{
 		return false;
+	}
+
+	// Update the rotation variable each frame.
+	rotation -= 0.0174532925f * 0.25f;
+	if (rotation <= 0.0f)
+	{
+		rotation += 360.0f;
 	}
 
 	// Get the location of the mouse from the input object,
@@ -336,7 +366,7 @@ bool Application::Frame(InputManager* Input)
 	m_Cursor->Update(frameTime);
 
 	// Render the graphics scene.
-	result = Render();
+	result = Render(rotation);
 	if (!result)
 	{
 		return false;
@@ -353,7 +383,7 @@ bool Application::Frame(InputManager* Input)
 }
 
 
-bool Application::Render()
+bool Application::Render(float rotation)
 {
 	XMMATRIX worldMatrix, viewMatrix, projectionMatrix, orthoMatrix, scaleMatrix2D, rotateMatrix;
 	bool result;
@@ -371,13 +401,15 @@ bool Application::Render()
 	m_Direct3D->GetProjectionMatrix(projectionMatrix);
 	m_Direct3D->GetOrthoMatrix(orthoMatrix);
 
+	// Rotate the world matrix by the rotation value so that the model will spin.
+	worldMatrix = XMMatrixRotationY(rotation);
+
 	// Put the model vertex and index buffers on the graphics pipeline to prepare them for drawing.
 	m_Model->Render(m_Direct3D->GetDeviceContext());
 
-	// Render the model using the light shader.
-	result = m_LightShader->Render(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix, m_Model->GetTexture(),
-		m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
-		m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
+	// Render the model using the normal map shader.
+	result = m_NormalMapShader->Render(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
+		m_Model->GetTexture(0), m_Model->GetTexture(1), m_Light->GetDirection(), m_Light->GetDiffuseColor());
 	if (!result)
 	{
 		return false;
