@@ -37,6 +37,7 @@
     <ClCompile Include="src\Graphics\Shaders\LightShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\MultiTextureShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\NormalMapShader.cpp" />
+    <ClCompile Include="src\Graphics\Shaders\SpecularMapShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\TextureShader.cpp" />
     <ClCompile Include="src\Graphics\Resource\Texture.cpp" />
     <ClCompile Include="src\Main\main.cpp" />
@@ -60,6 +61,7 @@
     <ClInclude Include="src\Graphics\Shaders\LightShader.h" />
     <ClInclude Include="src\Graphics\Shaders\MultiTextureShader.h" />
     <ClInclude Include="src\Graphics\Shaders\NormalMapShader.h" />
+    <ClInclude Include="src\Graphics\Shaders\SpecularMapShader.h" />
     <ClInclude Include="src\Graphics\Shaders\TextureShader.h" />
     <ClInclude Include="src\Graphics\Resource\Texture.h" />
     <ClInclude Include="src\Math\Transform.h" />
@@ -116,6 +118,14 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="assets\shaders\NormalMapVertexShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\SpecularMapPixelShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\SpecularMapVertexShader.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>

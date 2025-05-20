@@ -78,6 +78,9 @@
     <ClCompile Include="src\Graphics\Shaders\NormalMapShader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Graphics\Shaders\SpecularMapShader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Core\Application\Application.h">
@@ -143,6 +146,9 @@
     <ClInclude Include="src\Graphics\Shaders\NormalMapShader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Graphics\Shaders\SpecularMapShader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="assets\shaders\LightVertexShader.hlsl" />
@@ -157,6 +163,8 @@
     <FxCompile Include="assets\shaders\AlphamapVertexShader.hlsl" />
     <FxCompile Include="assets\shaders\NormalMapVertexShader.hlsl" />
     <FxCompile Include="assets\shaders\NormalMapPixelShader.hlsl" />
+    <FxCompile Include="assets\shaders\SpecularMapVertexShader.hlsl" />
+    <FxCompile Include="assets\shaders\SpecularMapPixelShader.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="FBX.props" />

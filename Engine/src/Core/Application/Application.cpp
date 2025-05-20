@@ -10,6 +10,7 @@ Application::Application()
 	m_Light = 0;
 	m_TextureShader = 0;
 	m_NormalMapShader = 0;
+	m_SpecMapShader = 0;
 	m_Cursor = 0;
 	m_Timer = 0;
 	m_FontShader = 0;
@@ -31,7 +32,7 @@ Application::~Application()
 
 bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 {
-	char textureFilename1[128], textureFilename2[128];
+	char textureFilename1[128], textureFilename2[128], textureFilename3[128];
 	char modelFilename[128];
 	char textureFilename[128];
 	char spriteFilename[128];
@@ -56,13 +57,13 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	m_Camera->SetPosition(0.0f, 0.0f, -5.0f);
 	/*m_Camera->SetRotation(0.0f, 180.0f, 0.0f);*/
 
-	// Create and initialize the normal map shader object.
-	m_NormalMapShader = new NormalMapShader;
+	// Create and initialize the specular map shader object.
+	m_SpecMapShader = new SpecMapShader;
 
-	result = m_NormalMapShader->Initialize(m_Direct3D->GetDevice(), hwnd);
+	result = m_SpecMapShader->Initialize(m_Direct3D->GetDevice(), hwnd);
 	if (!result)
 	{
-		MessageBox(hwnd, L"Could not initialize the normal map shader object.", L"Error", MB_OK);
+		MessageBox(hwnd, L"Could not initialize the specular map shader object.", L"Error", MB_OK);
 		return false;
 	}
 
@@ -70,26 +71,17 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	strcpy_s(modelFilename, "../Engine/assets/models/Cube.txt");
 
 	// Set the name of the texture file that we will be loading (used as fallback if no FBX material)
-	strcpy_s(textureFilename1, "../Engine/assets/textures/stone01.tga");
-	strcpy_s(textureFilename2, "../Engine/assets/textures/normal01.tga");
+	strcpy_s(textureFilename1, "../Engine/assets/textures/Stone02/stone02.tga");
+	strcpy_s(textureFilename2, "../Engine/assets/textures/Stone02/normal02.tga");
+	strcpy_s(textureFilename3, "../Engine/assets/textures/Stone02/spec02.tga");
 
 	// Create and initialize the model object.
 	m_Model = new Model;
 
-	result = m_Model->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, textureFilename1, textureFilename2);
+	result = m_Model->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, textureFilename1, textureFilename2, textureFilename3);
 	if (!result)
 	{
 		MessageBox(hwnd, L"Could not initialize the model object.", L"Error", MB_OK);
-		return false;
-	}
-
-	// Create and initialize the light shader object.
-	m_LightShader = new LightShader;
-
-	result = m_LightShader->Initialize(m_Direct3D->GetDevice(), hwnd);
-	if (!result)
-	{
-		MessageBox(hwnd, L"Could not initialize the light shader object.", L"Error", MB_OK);
 		return false;
 	}
 
@@ -111,7 +103,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 		/*m_Light->SetAmbientColor(0.15f, 0.15f, 0.15f, 1.0f);*/
 		m_Light->SetDiffuseColor(1.0f, 1.0f, 1.0f, 1.0f);
 		m_Light->SetSpecularColor(1.0f, 1.0f, 1.0f, 1.0f);
-		m_Light->SetSpecularPower(32.0f);
+		m_Light->SetSpecularPower(16.0f);
 	}
 
 	m_Light->SetDirection(0.0f, 0.0f, 1.0f);
@@ -276,12 +268,12 @@ void Application::Shutdown()
 		m_Light = 0;
 	}
 
-	// Release the normal map shader object.
-	if (m_NormalMapShader)
+	// Release the specular map shader object.
+	if (m_SpecMapShader)
 	{
-		m_NormalMapShader->Shutdown();
-		delete m_NormalMapShader;
-		m_NormalMapShader = 0;
+		m_SpecMapShader->Shutdown();
+		delete m_SpecMapShader;
+		m_SpecMapShader = 0;
 	}
 
 	// Release the light shader object.
@@ -408,8 +400,9 @@ bool Application::Render(float rotation)
 	m_Model->Render(m_Direct3D->GetDeviceContext());
 
 	// Render the model using the normal map shader.
-	result = m_NormalMapShader->Render(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
-		m_Model->GetTexture(0), m_Model->GetTexture(1), m_Light->GetDirection(), m_Light->GetDiffuseColor());
+	result = m_SpecMapShader->Render(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
+		m_Model->GetTexture(0), m_Model->GetTexture(1), m_Model->GetTexture(2), m_Light->GetDirection(), m_Light->GetDiffuseColor(),
+		m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
 	if (!result)
 	{
 		return false;

@@ -14,6 +14,7 @@
 #include "../../Graphics//Resource/Text.h"
 #include "../../Graphics/Shaders/FontShader.h"
 #include "../../Graphics/Shaders/NormalMapShader.h"
+#include "../../Graphics/Shaders/SpecularMapShader.h"
 
 const bool FULL_SCREEN = true;
 const bool VSYNC_ENABLED = true;
@@ -42,6 +43,7 @@ private:
 	Model* m_Model;
 	LightShader* m_LightShader;
 	NormalMapShader* m_NormalMapShader;
+	SpecMapShader* m_SpecMapShader;
 	Light* m_Light;
 	Sprite* m_Cursor;
 	Timer* m_Timer;
