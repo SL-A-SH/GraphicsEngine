@@ -37,6 +37,7 @@
     <ClCompile Include="src\Graphics\Shaders\LightShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\MultiTextureShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\NormalMapShader.cpp" />
+    <ClCompile Include="src\Graphics\Shaders\ShaderManager.cpp" />
     <ClCompile Include="src\Graphics\Shaders\SpecularMapShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\TextureShader.cpp" />
     <ClCompile Include="src\Graphics\Resource\Texture.cpp" />
@@ -61,6 +62,7 @@
     <ClInclude Include="src\Graphics\Shaders\LightShader.h" />
     <ClInclude Include="src\Graphics\Shaders\MultiTextureShader.h" />
     <ClInclude Include="src\Graphics\Shaders\NormalMapShader.h" />
+    <ClInclude Include="src\Graphics\Shaders\ShaderManager.h" />
     <ClInclude Include="src\Graphics\Shaders\SpecularMapShader.h" />
     <ClInclude Include="src\Graphics\Shaders\TextureShader.h" />
     <ClInclude Include="src\Graphics\Resource\Texture.h" />

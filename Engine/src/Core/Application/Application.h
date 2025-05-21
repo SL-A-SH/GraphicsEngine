@@ -1,20 +1,16 @@
 #ifndef _APPLICATION_H_
 #define _APPLICATION_H_
 
-#include "../../Graphics/D3D11/D3D11Device.h"
 #include "../Input/InputManager.h"
+#include "../../Core/System/Timer.h"
+#include "../../Graphics/D3D11/D3D11Device.h"
 #include "../../Graphics/Rendering/Camera.h"
 #include "../../Graphics/Rendering/Light.h"
 #include "../../Graphics/Resource/Model.h"
-#include "../../Graphics/Shaders/LightShader.h"
 #include "../../Graphics/Rendering/Sprite.h"
-#include "../../Core/System/Timer.h"
-#include "../../Graphics/Shaders/TextureShader.h"
 #include "../../Graphics/Rendering/Font.h"
 #include "../../Graphics//Resource/Text.h"
-#include "../../Graphics/Shaders/FontShader.h"
-#include "../../Graphics/Shaders/NormalMapShader.h"
-#include "../../Graphics/Shaders/SpecularMapShader.h"
+#include "../../Graphics/Shaders/ShaderManager.h"
 
 const bool FULL_SCREEN = true;
 const bool VSYNC_ENABLED = true;
@@ -41,14 +37,10 @@ private:
 	D3D11Device* m_Direct3D;
 	Camera* m_Camera;
 	Model* m_Model;
-	LightShader* m_LightShader;
-	NormalMapShader* m_NormalMapShader;
-	SpecMapShader* m_SpecMapShader;
 	Light* m_Light;
+	ShaderManager* m_ShaderManager;
 	Sprite* m_Cursor;
 	Timer* m_Timer;
-	TextureShader* m_TextureShader;
-	FontShader* m_FontShader;
 	Font* m_Font;
 	Text* m_MouseStrings;
 	Text* m_FpsString;

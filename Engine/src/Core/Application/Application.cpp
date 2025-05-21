@@ -6,14 +6,10 @@ Application::Application()
 	m_Direct3D = 0;
 	m_Camera = 0;
 	m_Model = 0;
-	m_LightShader = 0;
 	m_Light = 0;
-	m_TextureShader = 0;
-	m_NormalMapShader = 0;
-	m_SpecMapShader = 0;
+	m_ShaderManager = 0;
 	m_Cursor = 0;
 	m_Timer = 0;
-	m_FontShader = 0;
 	m_Font = 0;
 	m_MouseStrings = 0;
 	m_FpsString = 0;
@@ -54,18 +50,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	m_Camera = new Camera;
 
 	// Set the initial position of the camera.
-	m_Camera->SetPosition(0.0f, 0.0f, -5.0f);
-	/*m_Camera->SetRotation(0.0f, 180.0f, 0.0f);*/
-
-	// Create and initialize the specular map shader object.
-	m_SpecMapShader = new SpecMapShader;
-
-	result = m_SpecMapShader->Initialize(m_Direct3D->GetDevice(), hwnd);
-	if (!result)
-	{
-		MessageBox(hwnd, L"Could not initialize the specular map shader object.", L"Error", MB_OK);
-		return false;
-	}
+	m_Camera->SetPosition(0.0f, 0.0f, -8.0f);
 
 	// Set the file name of the model.
 	strcpy_s(modelFilename, "../Engine/assets/models/Cube.txt");
@@ -108,13 +93,12 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 
 	m_Light->SetDirection(0.0f, 0.0f, 1.0f);
 
-	// Create and initialize the texture shader object.
-	m_TextureShader = new TextureShader;
+	// Create and initialize the normal map shader object.
+	m_ShaderManager = new ShaderManager;
 
-	result = m_TextureShader->Initialize(m_Direct3D->GetDevice(), hwnd);
+	result = m_ShaderManager->Initialize(m_Direct3D->GetDevice(), hwnd);
 	if (!result)
 	{
-		MessageBox(hwnd, L"Could not initialize the texture shader object.", L"Error", MB_OK);
 		return false;
 	}
 
@@ -136,16 +120,6 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	result = m_Timer->Initialize();
 	if (!result)
 	{
-		return false;
-	}
-
-	// Create and initialize the font shader object.
-	m_FontShader = new FontShader;
-
-	result = m_FontShader->Initialize(m_Direct3D->GetDevice(), hwnd);
-	if (!result)
-	{
-		MessageBox(hwnd, L"Could not initialize the font shader object.", L"Error", MB_OK);
 		return false;
 	}
 
@@ -230,14 +204,6 @@ void Application::Shutdown()
 		m_Font = 0;
 	}
 
-	// Release the font shader object.
-	if (m_FontShader)
-	{
-		m_FontShader->Shutdown();
-		delete m_FontShader;
-		m_FontShader = 0;
-	}
-
 	// Release the timer object.
 	if (m_Timer)
 	{
@@ -253,35 +219,11 @@ void Application::Shutdown()
 		m_Cursor = 0;
 	}
 
-	// Release the texture shader object.
-	if (m_TextureShader)
-	{
-		m_TextureShader->Shutdown();
-		delete m_TextureShader;
-		m_TextureShader = 0;
-	}
-
 	// Release the light object.
 	if (m_Light)
 	{
 		delete m_Light;
 		m_Light = 0;
-	}
-
-	// Release the specular map shader object.
-	if (m_SpecMapShader)
-	{
-		m_SpecMapShader->Shutdown();
-		delete m_SpecMapShader;
-		m_SpecMapShader = 0;
-	}
-
-	// Release the light shader object.
-	if (m_LightShader)
-	{
-		m_LightShader->Shutdown();
-		delete m_LightShader;
-		m_LightShader = 0;
 	}
 
 	// Release the model object.
@@ -400,7 +342,7 @@ bool Application::Render(float rotation)
 	m_Model->Render(m_Direct3D->GetDeviceContext());
 
 	// Render the model using the normal map shader.
-	result = m_SpecMapShader->Render(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
+	result = m_ShaderManager->RenderSpecularMapShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
 		m_Model->GetTexture(0), m_Model->GetTexture(1), m_Model->GetTexture(2), m_Light->GetDirection(), m_Light->GetDiffuseColor(),
 		m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
 	if (!result)
@@ -424,7 +366,7 @@ bool Application::Render(float rotation)
 	}
 
 	// Render the bitmap with the texture shader.
-	result = m_TextureShader->Render(m_Direct3D->GetDeviceContext(), m_Cursor->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix, m_Cursor->GetTexture());
+	result = m_ShaderManager->RenderTextureShader(m_Direct3D->GetDeviceContext(), m_Cursor->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix, m_Cursor->GetTexture());
 	if (!result)
 	{
 		return false;
@@ -435,7 +377,7 @@ bool Application::Render(float rotation)
 	{
 		m_MouseStrings[i].Render(m_Direct3D->GetDeviceContext());
 
-		result = m_FontShader->Render(m_Direct3D->GetDeviceContext(), m_MouseStrings[i].GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix,
+		result = m_ShaderManager->RenderFontShader(m_Direct3D->GetDeviceContext(), m_MouseStrings[i].GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix,
 			m_Font->GetTexture(), m_MouseStrings[i].GetPixelColor());
 		if (!result)
 		{
@@ -446,7 +388,7 @@ bool Application::Render(float rotation)
 	// Render the fps text string using the font shader.
 	m_FpsString->Render(m_Direct3D->GetDeviceContext());
 
-	result = m_FontShader->Render(m_Direct3D->GetDeviceContext(), m_FpsString->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix,
+	result = m_ShaderManager->RenderFontShader(m_Direct3D->GetDeviceContext(), m_FpsString->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix,
 		m_Font->GetTexture(), m_FpsString->GetPixelColor());
 	if (!result)
 	{
