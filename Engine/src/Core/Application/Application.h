@@ -11,6 +11,9 @@
 #include "../../Graphics/Rendering/Font.h"
 #include "../../Graphics//Resource/Text.h"
 #include "../../Graphics/Shaders/ShaderManager.h"
+#include "../../Graphics/Scene/ModelList.h"
+#include "../../Graphics/Math/Frustum.h"
+#include "../../Graphics/Math/Position.h"
 
 const bool FULL_SCREEN = true;
 const bool VSYNC_ENABLED = true;
@@ -29,9 +32,9 @@ public:
 	bool Frame(InputManager*);
 
 private:
-	bool Render(float);
-	bool UpdateMouseStrings(int, int, bool);
+	bool Render();
 	bool UpdateFps();
+	bool UpdateRenderCountString(int);
 
 private:
 	D3D11Device* m_Direct3D;
@@ -42,9 +45,13 @@ private:
 	Sprite* m_Cursor;
 	Timer* m_Timer;
 	Font* m_Font;
-	Text* m_MouseStrings;
 	Text* m_FpsString;
 	int m_previousFps;
+	Text* m_RenderCountString;
+	ModelList* m_ModelList;
+	Position* m_Position;
+	Frustum* m_Frustum;
+	XMMATRIX m_baseViewMatrix;
 };
 
 #endif

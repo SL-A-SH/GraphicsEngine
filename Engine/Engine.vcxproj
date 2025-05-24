@@ -23,6 +23,8 @@
     <ClCompile Include="src\Core\Input\InputManager.cpp" />
     <ClCompile Include="src\Core\System\SystemManager.cpp" />
     <ClCompile Include="src\Core\System\Timer.cpp" />
+    <ClCompile Include="src\Graphics\Math\Frustum.cpp" />
+    <ClCompile Include="src\Graphics\Math\Position.cpp" />
     <ClCompile Include="src\Graphics\Rendering\Camera.cpp" />
     <ClCompile Include="src\Graphics\D3D11\D3D11Device.cpp" />
     <ClCompile Include="src\Graphics\Rendering\Font.cpp" />
@@ -30,6 +32,7 @@
     <ClCompile Include="src\Graphics\Rendering\Sprite.cpp" />
     <ClCompile Include="src\Graphics\Resource\Model.cpp" />
     <ClCompile Include="src\Graphics\Resource\Text.cpp" />
+    <ClCompile Include="src\Graphics\Scene\ModelList.cpp" />
     <ClCompile Include="src\Graphics\Shaders\AlphaMapShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\ColorShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\FontShader.cpp" />
@@ -48,6 +51,8 @@
     <ClInclude Include="src\Core\Input\InputManager.h" />
     <ClInclude Include="src\Core\System\SystemManager.h" />
     <ClInclude Include="src\Core\System\Timer.h" />
+    <ClInclude Include="src\Graphics\Math\Frustum.h" />
+    <ClInclude Include="src\Graphics\Math\Position.h" />
     <ClInclude Include="src\Graphics\Rendering\Camera.h" />
     <ClInclude Include="src\Graphics\D3D11\D3D11Device.h" />
     <ClInclude Include="src\Graphics\Rendering\Font.h" />
@@ -55,6 +60,7 @@
     <ClInclude Include="src\Graphics\Rendering\Sprite.h" />
     <ClInclude Include="src\Graphics\Resource\Model.h" />
     <ClInclude Include="src\Graphics\Resource\Text.h" />
+    <ClInclude Include="src\Graphics\Scene\ModelList.h" />
     <ClInclude Include="src\Graphics\Shaders\AlphaMapShader.h" />
     <ClInclude Include="src\Graphics\Shaders\ColorShader.h" />
     <ClInclude Include="src\Graphics\Shaders\FontShader.h" />
