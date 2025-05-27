@@ -22,9 +22,13 @@ public:
 	bool IsEscapePressed();
 	bool IsLeftArrowPressed();
 	bool IsRightArrowPressed();
+	bool IsUpArrowPressed();
+	bool IsDownArrowPressed();
+	bool IsCtrlPressed();
 
 	void GetMouseLocation(int&, int&);
 	bool IsMousePressed();
+	bool IsRightMousePressed();
 
 private:
 	bool ReadKeyboard();

@@ -33,10 +33,18 @@ void ModelList::Initialize(int numModels)
     // Go through all the models and randomly generate the position.
     for (i = 0; i < m_modelCount; i++)
     {
-        // Generate a random position in front of the viewer for the mode.
-        m_ModelInfoList[i].positionX = (((float)rand() - (float)rand()) / RAND_MAX) * 10.0f;
-        m_ModelInfoList[i].positionY = (((float)rand() - (float)rand()) / RAND_MAX) * 10.0f;
-        m_ModelInfoList[i].positionZ = ((((float)rand() - (float)rand()) / RAND_MAX) * 10.0f) + 5.0f;
+        // Generate positions in a larger grid pattern
+        float gridSize = 50.0f;  // Size of the grid
+        float spacing = 100.0f;   // Space between models
+        
+        // Calculate grid position
+        int row = i % 3;         // 5 models per row
+        int col = i / 3;         // Number of rows
+        
+        // Base position with some random offset
+        m_ModelInfoList[i].positionX = (row * spacing) + (((float)rand() / RAND_MAX) * 5.0f - 2.5f);
+        m_ModelInfoList[i].positionY = 0.0f;  // Keep models on the ground
+        m_ModelInfoList[i].positionZ = (col * spacing) + (((float)rand() / RAND_MAX) * 5.0f - 2.5f);
     }
 
     return;

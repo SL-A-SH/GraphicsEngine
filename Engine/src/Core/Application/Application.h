@@ -40,6 +40,7 @@ private:
 	D3D11Device* m_Direct3D;
 	Camera* m_Camera;
 	Model* m_Model;
+	Model* m_Floor;
 	Light* m_Light;
 	ShaderManager* m_ShaderManager;
 	Sprite* m_Cursor;

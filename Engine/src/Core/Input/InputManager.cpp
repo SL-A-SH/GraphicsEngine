@@ -225,7 +225,7 @@ bool InputManager::IsEscapePressed()
 
 bool InputManager::IsLeftArrowPressed()
 {
-	if (m_keyboardState[DIK_LEFT] & 0x80)
+	if (m_keyboardState[DIK_A] & 0x80)
 	{
 		return true;
 	}
@@ -235,7 +235,37 @@ bool InputManager::IsLeftArrowPressed()
 
 bool InputManager::IsRightArrowPressed()
 {
-	if (m_keyboardState[DIK_RIGHT] & 0x80)
+	if (m_keyboardState[DIK_D] & 0x80)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool InputManager::IsUpArrowPressed()
+{
+	if (m_keyboardState[DIK_W] & 0x80)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool InputManager::IsDownArrowPressed()
+{
+	if (m_keyboardState[DIK_S] & 0x80)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool InputManager::IsCtrlPressed()
+{
+	if (m_keyboardState[DIK_LCONTROL] & 0x80)
 	{
 		return true;
 	}
@@ -254,6 +284,17 @@ bool InputManager::IsMousePressed()
 {
 	// Check the left mouse button state.
 	if (m_mouseState.rgbButtons[0] & 0x80)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool InputManager::IsRightMousePressed()
+{
+	// Check the right mouse button state.
+	if (m_mouseState.rgbButtons[1] & 0x80)
 	{
 		return true;
 	}

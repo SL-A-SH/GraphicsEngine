@@ -431,11 +431,21 @@ bool Model::LoadModel(char* filename)
 	std::string fileStr(filename);
 	if (fileStr.substr(fileStr.find_last_of(".") + 1) == "fbx")
 	{
-		return LoadFBXModel(filename);
+		bool result = LoadFBXModel(filename);
+		if (result)
+		{
+			CalculateBoundingBox();
+		}
+		return result;
 	}
 	else
 	{
-		return LoadTextModel(filename);
+		bool result = LoadTextModel(filename);
+		if (result)
+		{
+			CalculateBoundingBox();
+		}
+		return result;
 	}
 }
 
@@ -920,4 +930,52 @@ void Model::CalculateTangentBinormal(TempVertexType vertex1, TempVertexType vert
 	binormal.z = binormal.z / length;
 
 	return;
+}
+
+void Model::CalculateBoundingBox()
+{
+	if (!m_model || m_vertexCount == 0)
+	{
+		// Set default values if no model data
+		m_boundingBox.min = XMFLOAT3(0.0f, 0.0f, 0.0f);
+		m_boundingBox.max = XMFLOAT3(0.0f, 0.0f, 0.0f);
+		m_boundingBox.radius = 0.0f;
+		return;
+	}
+
+	// Initialize min/max with the first vertex
+	m_boundingBox.min = XMFLOAT3(m_model[0].x, m_model[0].y, m_model[0].z);
+	m_boundingBox.max = XMFLOAT3(m_model[0].x, m_model[0].y, m_model[0].z);
+
+	// Find the min/max bounds
+	for (int i = 1; i < m_vertexCount; i++)
+	{
+		// Update min bounds
+		m_boundingBox.min.x = min(m_boundingBox.min.x, m_model[i].x);
+		m_boundingBox.min.y = min(m_boundingBox.min.y, m_model[i].y);
+		m_boundingBox.min.z = min(m_boundingBox.min.z, m_model[i].z);
+
+		// Update max bounds
+		m_boundingBox.max.x = max(m_boundingBox.max.x, m_model[i].x);
+		m_boundingBox.max.y = max(m_boundingBox.max.y, m_model[i].y);
+		m_boundingBox.max.z = max(m_boundingBox.max.z, m_model[i].z);
+	}
+
+	// Calculate the radius for sphere culling (distance from center to furthest point)
+	XMFLOAT3 center;
+	center.x = (m_boundingBox.min.x + m_boundingBox.max.x) * 0.5f;
+	center.y = (m_boundingBox.min.y + m_boundingBox.max.y) * 0.5f;
+	center.z = (m_boundingBox.min.z + m_boundingBox.max.z) * 0.5f;
+
+	float maxDistSq = 0.0f;
+	for (int i = 0; i < m_vertexCount; i++)
+	{
+		float dx = m_model[i].x - center.x;
+		float dy = m_model[i].y - center.y;
+		float dz = m_model[i].z - center.z;
+		float distSq = dx * dx + dy * dy + dz * dz;
+		maxDistSq = max(maxDistSq, distSq);
+	}
+
+	m_boundingBox.radius = sqrt(maxDistSq);
 }

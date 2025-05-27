@@ -18,6 +18,14 @@ using namespace std;
 
 class Model
 {
+public:
+	struct AABB
+	{
+		XMFLOAT3 min;
+		XMFLOAT3 max;
+		float radius;  // For backward compatibility with sphere culling
+	};
+
 private:
 	struct VertexType
 	{
@@ -74,6 +82,7 @@ public:
 	ID3D11ShaderResourceView* GetTexture();
 	ID3D11ShaderResourceView* GetTexture(int);
 	bool HasFBXMaterial() const { return m_hasFBXMaterial; }
+	const AABB& GetBoundingBox() const { return m_boundingBox; }
 
 private:
 	bool InitializeBuffers(ID3D11Device*);
@@ -94,6 +103,7 @@ private:
 	void ExtractMaterialInfo(FbxSurfaceMaterial* material);
 	string GetTexturePath(FbxProperty& property);
 	void ReleaseModel();
+	void CalculateBoundingBox();
 
 	void CalculateModelVectors();
 	void CalculateTangentBinormal(TempVertexType, TempVertexType, TempVertexType, VectorType&, VectorType&);
@@ -106,6 +116,7 @@ private:
 	ModelType* m_model;
 	MaterialInfo m_materialInfo;
 	bool m_hasFBXMaterial;
+	AABB m_boundingBox;
 };
 
 #endif

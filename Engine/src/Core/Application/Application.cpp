@@ -16,6 +16,7 @@ Application::Application()
 	m_ModelList = 0;
 	m_Position = 0;
 	m_Frustum = 0;
+	m_Floor = 0;
 }
 
 
@@ -33,7 +34,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 {
 	char textureFilename1[128], textureFilename2[128], textureFilename3[128];
 	char modelFilename[128];
-	char textureFilename[128];
+	char floorTex[128];
 	char spriteFilename[128];
 	char fpsString[32], renderString[32];
 	bool result;
@@ -52,25 +53,36 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	m_Camera = new Camera;
 
 	// Set the initial position of the camera.
-	m_Camera->SetPosition(0.0f, 0.0f, -10.0f);
+	m_Camera->SetPosition(0.0f, 0.0f, -300.0f);
 	m_Camera->Render();
 	m_Camera->GetViewMatrix(m_baseViewMatrix);
 
 	// Set the file name of the model.
-	strcpy_s(modelFilename, "../Engine/assets/models/sphere.txt");
+	strcpy_s(modelFilename, "../Engine/assets/models/Thriller.fbx");
 
 	// Set the name of the texture file that we will be loading (used as fallback if no FBX material)
 	strcpy_s(textureFilename1, "../Engine/assets/textures/Stone02/stone02.tga");
-	strcpy_s(textureFilename2, "../Engine/assets/textures/Stone02/normal02.tga");
-	strcpy_s(textureFilename3, "../Engine/assets/textures/Stone02/spec02.tga");
+	/*strcpy_s(textureFilename2, "../Engine/assets/textures/Stone02/normal02.tga");
+	strcpy_s(textureFilename3, "../Engine/assets/textures/Stone02/spec02.tga");*/
 
 	// Create and initialize the model object.
 	m_Model = new Model;
 
-	result = m_Model->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, textureFilename1, textureFilename2, textureFilename3);
+	result = m_Model->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, textureFilename1);
 	if (!result)
 	{
 		MessageBox(hwnd, L"Could not initialize the model object.", L"Error", MB_OK);
+		return false;
+	}
+
+	// Create and initialize the floor model
+	m_Floor = new Model;
+	strcpy_s(modelFilename, "../Engine/assets/models/Cube.txt");
+	strcpy_s(floorTex, "../Engine/assets/textures/Stone02/stone02.tga");
+	result = m_Floor->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, floorTex);
+	if (!result)
+	{
+		MessageBox(hwnd, L"Could not initialize the floor model.", L"Error", MB_OK);
 		return false;
 	}
 
@@ -163,7 +175,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 
 	// Create and initialize the model list object.
 	m_ModelList = new ModelList;
-	m_ModelList->Initialize(25);
+	m_ModelList->Initialize(6);
 
 	// Create the position class object.
 	m_Position = new Position;
@@ -268,13 +280,22 @@ void Application::Shutdown()
 		m_Direct3D = 0;
 	}
 
+	// Release the floor model
+	if (m_Floor)
+	{
+		m_Floor->Shutdown();
+		delete m_Floor;
+		m_Floor = 0;
+	}
+
 	return;
 }
 
 
 bool Application::Frame(InputManager* Input)
 {
-	float frameTime, rotationY;
+	float frameTime, rotationY, rotationX;
+	float positionX, positionY, positionZ;
 	int mouseX, mouseY;
 	bool mouseDown, keyDown;
 	bool result;
@@ -306,18 +327,60 @@ bool Application::Frame(InputManager* Input)
 	// Set the frame time for calculating the updated position.
 	m_Position->SetFrameTime(frameTime);
 
-	// Check if the left or right arrow key has been pressed, if so rotate the camera accordingly.
-	keyDown = Input->IsLeftArrowPressed();
-	m_Position->TurnLeft(keyDown);
-
-	keyDown = Input->IsRightArrowPressed();
-	m_Position->TurnRight(keyDown);
-
-	// Get the current view point rotation.
+	// Get current rotations and position
 	m_Position->GetRotation(rotationY);
+	m_Position->GetRotationX(rotationX);
+	m_Position->GetPosition(positionX, positionY, positionZ);
 
-	// Set the rotation of the camera.
-	m_Camera->SetRotation(0.0f, rotationY, 0.0f);
+	// Handle camera controls based on right mouse button state
+	if (Input->IsRightMousePressed())
+	{
+		// When right mouse is pressed, only handle movement
+		keyDown = Input->IsUpArrowPressed();
+		m_Position->MoveForward(keyDown);
+
+		keyDown = Input->IsDownArrowPressed();
+		m_Position->MoveBackward(keyDown);
+
+		keyDown = Input->IsLeftArrowPressed();
+		m_Position->MoveLeft(keyDown);
+
+		keyDown = Input->IsRightArrowPressed();
+		m_Position->MoveRight(keyDown);
+	}
+	else if (Input->IsCtrlPressed())
+	{
+		// When left control is pressed, only handle movement in y direction
+		keyDown = Input->IsUpArrowPressed();
+		m_Position->MoveUp(keyDown);
+
+		keyDown = Input->IsDownArrowPressed();
+		m_Position->MoveDown(keyDown);
+	}
+	else
+	{
+		// When right mouse is not pressed, only handle rotation
+		keyDown = Input->IsLeftArrowPressed();
+		m_Position->TurnLeft(keyDown);
+
+		keyDown = Input->IsRightArrowPressed();
+		m_Position->TurnRight(keyDown);
+
+		keyDown = Input->IsUpArrowPressed();
+		m_Position->LookUp(keyDown);
+
+		keyDown = Input->IsDownArrowPressed();
+		m_Position->LookDown(keyDown);
+	}
+
+	// Get the updated position and rotation
+	m_Position->GetRotation(rotationY);
+	m_Position->GetRotationX(rotationX);
+	m_Position->GetPosition(positionX, positionY, positionZ);
+
+	// Set the position and rotation of the camera.
+	m_Camera->SetPosition(positionX, positionY, positionZ);
+	m_Camera->SetRotation(rotationX, rotationY, 0.0f);
 	m_Camera->Render();
 
 	// Render the graphics scene.
@@ -346,12 +409,8 @@ bool Application::Render()
 	bool renderModel;
 	bool result;
 
-
 	// Clear the buffers to begin the scene.
 	m_Direct3D->BeginScene(0.0f, 0.0f, 0.0f, 1.0f);
-
-	//// Generate the view matrix based on the camera's position.
-	//m_Camera->Render();
 
 	// Get the world, view, and projection matrices from the camera and d3d objects.
 	m_Direct3D->GetWorldMatrix(worldMatrix);
@@ -361,6 +420,18 @@ bool Application::Render()
 
 	// Construct the frustum.
 	m_Frustum->ConstructFrustum(viewMatrix, projectionMatrix, SCREEN_DEPTH);
+
+	// Render the floor
+	worldMatrix = XMMatrixTranslation(0.0f, -10.0f, 0.0f);
+	worldMatrix = XMMatrixMultiply(worldMatrix, XMMatrixScaling(500.0f, 1.0f, 500.0f));
+	m_Floor->Render(m_Direct3D->GetDeviceContext());
+	result = m_ShaderManager->RenderLightShader(m_Direct3D->GetDeviceContext(), m_Floor->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
+		m_Floor->GetTexture(), m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
+		m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
+	if (!result)
+	{
+		return false;
+	}
 
 	// Get the number of models that will be rendered.
 	modelCount = m_ModelList->GetModelCount();
@@ -374,13 +445,22 @@ bool Application::Render()
 		// Get the position and color of the sphere model at this index.
 		m_ModelList->GetData(i, positionX, positionY, positionZ);
 
-		// Set the radius of the sphere to 1.0 since this is already known.
-		radius = 1.0f;
+		// Get the model's bounding box
+		const Model::AABB& bbox = m_Model->GetBoundingBox();
 
-		// Check if the sphere model is in the view frustum.
-		renderModel = m_Frustum->CheckSphere(positionX, positionY, positionZ, radius);
+		// Transform the bounding box to world space
+		XMFLOAT3 worldMin, worldMax;
+		worldMin.x = bbox.min.x + positionX;
+		worldMin.y = bbox.min.y + positionY;
+		worldMin.z = bbox.min.z + positionZ;
+		worldMax.x = bbox.max.x + positionX;
+		worldMax.y = bbox.max.y + positionY;
+		worldMax.z = bbox.max.z + positionZ;
 
-		// If it can be seen then render it, if not skip this model and check the next sphere.
+		// Check if the model's AABB is in the view frustum
+		renderModel = m_Frustum->CheckAABB(worldMin, worldMax);
+
+		// If it can be seen then render it, if not skip this model and check the next one
 		if (renderModel)
 		{
 			// Move the model to the location it should be rendered at.
@@ -389,8 +469,8 @@ bool Application::Render()
 			// Render the model using the light shader.
 			m_Model->Render(m_Direct3D->GetDeviceContext());
 
-			result = m_ShaderManager->RenderSpecularMapShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
-				m_Model->GetTexture(0), m_Model->GetTexture(1), m_Model->GetTexture(2), m_Light->GetDirection(), m_Light->GetDiffuseColor(),
+			result = m_ShaderManager->RenderLightShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
+				m_Model->GetTexture(), m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
 				m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
 			if (!result)
 			{
