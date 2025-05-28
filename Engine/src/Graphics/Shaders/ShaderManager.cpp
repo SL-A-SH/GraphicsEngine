@@ -7,6 +7,7 @@ ShaderManager::ShaderManager()
     m_NormalMapShader = 0;
     m_SpecMapShader = 0;
     m_FontShader = 0;
+    m_SkyDomeShader = 0;
 }
 
 
@@ -73,12 +74,30 @@ bool ShaderManager::Initialize(ID3D11Device* device, HWND hwnd)
         return false;
     }
 
+    // Create and initialize the sky dome shader object.
+    m_SkyDomeShader = new SkyDomeShader;
+
+    // Initialize the sky dome shader object.
+    result = m_SkyDomeShader->Initialize(device, hwnd);
+    if (!result)
+    {
+        return false;
+    }
+
     return true;
 }
 
 
 void ShaderManager::Shutdown()
 {
+    // Release the sky dome shader object.
+    if (m_SkyDomeShader)
+    {
+        m_SkyDomeShader->Shutdown();
+        delete m_SkyDomeShader;
+        m_SkyDomeShader = 0;
+    }
+
     // Release the specular map shader object.
     if (m_SpecMapShader)
     {
@@ -184,6 +203,20 @@ bool ShaderManager::RenderFontShader(ID3D11DeviceContext* deviceContext, int ind
     bool result;
 
     result = m_FontShader->Render(deviceContext, indexCount, worldMatrix, viewMatrix, projectionMatrix, texture, pixelColor);
+    if (!result)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+bool ShaderManager::RenderSkyDomeShader(ID3D11DeviceContext* deviceContext, int indexCount, XMMATRIX worldMatrix, XMMATRIX viewMatrix,
+    XMMATRIX projectionMatrix, XMFLOAT4 apexColor, XMFLOAT4 centerColor)
+{
+    bool result;
+
+    result = m_SkyDomeShader->Render(deviceContext, indexCount, worldMatrix, viewMatrix, projectionMatrix, apexColor, centerColor);
     if (!result)
     {
         return false;

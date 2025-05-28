@@ -14,6 +14,7 @@
 #include "../../Graphics/Scene/ModelList.h"
 #include "../../Graphics/Math/Frustum.h"
 #include "../../Graphics/Math/Position.h"
+#include "../../Graphics/Resource/Environment/Zone.h"
 
 const bool FULL_SCREEN = true;
 const bool VSYNC_ENABLED = true;
@@ -43,6 +44,7 @@ private:
 	Model* m_Floor;
 	Light* m_Light;
 	ShaderManager* m_ShaderManager;
+	Zone* m_Zone;
 	Sprite* m_Cursor;
 	Timer* m_Timer;
 	Font* m_Font;

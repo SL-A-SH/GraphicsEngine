@@ -8,6 +8,7 @@ Application::Application()
 	m_Model = 0;
 	m_Light = 0;
 	m_ShaderManager = 0;
+	m_Zone = 0;
 	m_Cursor = 0;
 	m_Timer = 0;
 	m_Font = 0;
@@ -56,6 +57,16 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	m_Camera->SetPosition(0.0f, 0.0f, -300.0f);
 	m_Camera->Render();
 	m_Camera->GetViewMatrix(m_baseViewMatrix);
+
+	// Create and initialize the zone object
+	m_Zone = new Zone;
+
+	result = m_Zone->Initialize(m_Direct3D->GetDevice());
+	if (!result)
+	{
+		MessageBox(hwnd, L"Could not initialize the zone object.", L"Error", MB_OK);
+		return false;
+	}
 
 	// Set the file name of the model.
 	strcpy_s(modelFilename, "../Engine/assets/models/Thriller.fbx");
@@ -265,6 +276,13 @@ void Application::Shutdown()
 		m_Model = 0;
 	}
 
+	// Release the zone object
+	if (m_Zone)
+	{
+		delete m_Zone;
+		m_Zone = 0;
+	}
+
 	// Release the camera object.
 	if (m_Camera)
 	{
@@ -418,13 +436,33 @@ bool Application::Render()
 	m_Direct3D->GetProjectionMatrix(projectionMatrix);
 	m_Direct3D->GetOrthoMatrix(orthoMatrix);
 
+	// Set render states for sky dome
+	m_Direct3D->TurnOffCulling();
+	m_Direct3D->TurnZBufferOff();
+
+	// Render the zone (sky dome)
+	result = m_Zone->Render(m_Direct3D, m_ShaderManager, m_Camera);
+	if (!result)
+	{
+		// Restore render states
+		m_Direct3D->TurnOnCulling();
+		m_Direct3D->TurnZBufferOn();
+		return false;
+	}
+
+	// Restore render states for the rest of the scene
+	m_Direct3D->TurnOnCulling();
+	m_Direct3D->TurnZBufferOn();
+
 	// Construct the frustum.
 	m_Frustum->ConstructFrustum(viewMatrix, projectionMatrix, SCREEN_DEPTH);
 
 	// Render the floor
 	worldMatrix = XMMatrixTranslation(0.0f, -10.0f, 0.0f);
 	worldMatrix = XMMatrixMultiply(worldMatrix, XMMatrixScaling(500.0f, 1.0f, 500.0f));
+
 	m_Floor->Render(m_Direct3D->GetDeviceContext());
+
 	result = m_ShaderManager->RenderLightShader(m_Direct3D->GetDeviceContext(), m_Floor->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
 		m_Floor->GetTexture(), m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
 		m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
