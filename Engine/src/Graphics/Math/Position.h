@@ -15,8 +15,8 @@ public:
     void GetRotationX(float&);
     void GetPosition(float&, float&, float&);
 
-    void TurnLeft(bool);
-    void TurnRight(bool);
+    void LookLeft(bool);
+    void LookRight(bool);
     void LookUp(bool);
     void LookDown(bool);
     void MoveForward(bool);

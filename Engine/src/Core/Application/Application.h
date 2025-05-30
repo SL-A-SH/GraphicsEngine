@@ -55,6 +55,8 @@ private:
 	Position* m_Position;
 	Frustum* m_Frustum;
 	XMMATRIX m_baseViewMatrix;
+
+	int m_screenWidth, m_screenHeight;
 };
 
 #endif

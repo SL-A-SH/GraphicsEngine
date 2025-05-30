@@ -7,7 +7,7 @@ ShaderManager::ShaderManager()
     m_NormalMapShader = 0;
     m_SpecMapShader = 0;
     m_FontShader = 0;
-    m_SkyDomeShader = 0;
+    m_SkyboxShader = 0;
 }
 
 
@@ -74,11 +74,11 @@ bool ShaderManager::Initialize(ID3D11Device* device, HWND hwnd)
         return false;
     }
 
-    // Create and initialize the sky dome shader object.
-    m_SkyDomeShader = new SkyDomeShader;
+    // Create and initialize the skybox shader object.
+    m_SkyboxShader = new SkyboxShader;
 
-    // Initialize the sky dome shader object.
-    result = m_SkyDomeShader->Initialize(device, hwnd);
+    // Initialize the skybox shader object.
+    result = m_SkyboxShader->Initialize(device, hwnd);
     if (!result)
     {
         return false;
@@ -90,12 +90,12 @@ bool ShaderManager::Initialize(ID3D11Device* device, HWND hwnd)
 
 void ShaderManager::Shutdown()
 {
-    // Release the sky dome shader object.
-    if (m_SkyDomeShader)
+    // Release the skybox shader object.
+    if (m_SkyboxShader)
     {
-        m_SkyDomeShader->Shutdown();
-        delete m_SkyDomeShader;
-        m_SkyDomeShader = 0;
+        m_SkyboxShader->Shutdown();
+        delete m_SkyboxShader;
+        m_SkyboxShader = 0;
     }
 
     // Release the specular map shader object.
@@ -211,12 +211,12 @@ bool ShaderManager::RenderFontShader(ID3D11DeviceContext* deviceContext, int ind
     return true;
 }
 
-bool ShaderManager::RenderSkyDomeShader(ID3D11DeviceContext* deviceContext, int indexCount, XMMATRIX worldMatrix, XMMATRIX viewMatrix,
-    XMMATRIX projectionMatrix, XMFLOAT4 apexColor, XMFLOAT4 centerColor)
+bool ShaderManager::RenderSkyboxShader(ID3D11DeviceContext* deviceContext, int indexCount, XMMATRIX worldMatrix, XMMATRIX viewMatrix,
+    XMMATRIX projectionMatrix, ID3D11ShaderResourceView* textures[6])
 {
     bool result;
 
-    result = m_SkyDomeShader->Render(deviceContext, indexCount, worldMatrix, viewMatrix, projectionMatrix, apexColor, centerColor);
+    result = m_SkyboxShader->Render(deviceContext, indexCount, worldMatrix, viewMatrix, projectionMatrix, textures);
     if (!result)
     {
         return false;

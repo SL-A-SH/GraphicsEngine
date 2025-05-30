@@ -45,7 +45,7 @@ void Position::GetRotation(float& y)
 }
 
 
-void Position::TurnLeft(bool keydown)
+void Position::LookLeft(bool keydown)
 {
     // If the key is pressed increase the speed at which the camera turns left.  If not slow down the turn speed.
     if (keydown)
@@ -78,7 +78,7 @@ void Position::TurnLeft(bool keydown)
 }
 
 
-void Position::TurnRight(bool keydown)
+void Position::LookRight(bool keydown)
 {
     // If the key is pressed increase the speed at which the camera turns right.  If not slow down the turn speed.
     if (keydown)

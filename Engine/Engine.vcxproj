@@ -32,12 +32,14 @@
     <ClCompile Include="src\Graphics\Rendering\Light.cpp" />
     <ClCompile Include="src\Graphics\Rendering\RenderTexture.cpp" />
     <ClCompile Include="src\Graphics\Rendering\Sprite.cpp" />
+    <ClCompile Include="src\Graphics\Resource\Environment\Skybox.cpp" />
     <ClCompile Include="src\Graphics\Resource\Model.cpp" />
     <ClCompile Include="src\Graphics\Resource\Environment\SkyDome.cpp" />
     <ClCompile Include="src\Graphics\Resource\Text.cpp" />
     <ClCompile Include="src\Graphics\Scene\ModelList.cpp" />
     <ClCompile Include="src\Graphics\Shaders\AlphaMapShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\ColorShader.cpp" />
+    <ClCompile Include="src\Graphics\Shaders\Environment\SkyboxShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\Environment\SkyDomeShader.cpp" />
     <ClCompile Include="src\Graphics\Resource\Environment\Zone.cpp" />
     <ClCompile Include="src\Graphics\Shaders\FontShader.cpp" />
@@ -65,12 +67,14 @@
     <ClInclude Include="src\Graphics\Rendering\Light.h" />
     <ClInclude Include="src\Graphics\Rendering\RenderTexture.h" />
     <ClInclude Include="src\Graphics\Rendering\Sprite.h" />
+    <ClInclude Include="src\Graphics\Resource\Environment\Skybox.h" />
     <ClInclude Include="src\Graphics\Resource\Model.h" />
     <ClInclude Include="src\Graphics\Resource\Environment\SkyDome.h" />
     <ClInclude Include="src\Graphics\Resource\Text.h" />
     <ClInclude Include="src\Graphics\Scene\ModelList.h" />
     <ClInclude Include="src\Graphics\Shaders\AlphaMapShader.h" />
     <ClInclude Include="src\Graphics\Shaders\ColorShader.h" />
+    <ClInclude Include="src\Graphics\Shaders\Environment\SkyboxShader.h" />
     <ClInclude Include="src\Graphics\Shaders\Environment\SkyDomeShader.h" />
     <ClInclude Include="src\Graphics\Resource\Environment\Zone.h" />
     <ClInclude Include="src\Graphics\Shaders\FontShader.h" />
@@ -271,6 +275,5 @@
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-  </ImportGroup>
+  <ImportGroup Label="ExtensionTargets" />
 </Project>

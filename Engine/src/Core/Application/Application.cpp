@@ -18,6 +18,9 @@ Application::Application()
 	m_Position = 0;
 	m_Frustum = 0;
 	m_Floor = 0;
+	m_screenWidth = 0;
+	m_screenHeight = 0;
+	m_previousFps = -1;
 }
 
 
@@ -40,6 +43,10 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	char fpsString[32], renderString[32];
 	bool result;
 
+	// Store screen dimensions
+	m_screenWidth = screenWidth;
+	m_screenHeight = screenHeight;
+
 	// Create and initialize the Direct3D object.
 	m_Direct3D = new D3D11Device;
 
@@ -61,7 +68,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	// Create and initialize the zone object
 	m_Zone = new Zone;
 
-	result = m_Zone->Initialize(m_Direct3D->GetDevice());
+	result = m_Zone->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext());
 	if (!result)
 	{
 		MessageBox(hwnd, L"Could not initialize the zone object.", L"Error", MB_OK);
@@ -353,18 +360,35 @@ bool Application::Frame(InputManager* Input)
 	// Handle camera controls based on right mouse button state
 	if (Input->IsRightMousePressed())
 	{
-		// When right mouse is pressed, only handle movement
-		keyDown = Input->IsUpArrowPressed();
-		m_Position->MoveForward(keyDown);
-
-		keyDown = Input->IsDownArrowPressed();
-		m_Position->MoveBackward(keyDown);
-
-		keyDown = Input->IsLeftArrowPressed();
-		m_Position->MoveLeft(keyDown);
-
-		keyDown = Input->IsRightArrowPressed();
-		m_Position->MoveRight(keyDown);
+		// When right mouse is pressed, handle rotation based on mouse movement
+		int mouseX, mouseY;
+		Input->GetMouseLocation(mouseX, mouseY);
+		
+		// Calculate mouse movement delta
+		static int lastMouseX = mouseX;
+		static int lastMouseY = mouseY;
+		int deltaX = mouseX - lastMouseX;
+		int deltaY = mouseY - lastMouseY;
+		
+		// Update rotations based on mouse movement
+		if (deltaX != 0)
+		{
+			if (deltaX > 0)
+				m_Position->LookRight(true);
+			else
+				m_Position->LookLeft(true);
+		}
+		if (deltaY != 0)
+		{
+			if (deltaY > 0)
+				m_Position->LookDown(true);
+			else
+				m_Position->LookUp(true);
+		}
+		
+		// Store current mouse position for next frame
+		lastMouseX = mouseX;
+		lastMouseY = mouseY;
 	}
 	else if (Input->IsCtrlPressed())
 	{
@@ -377,18 +401,18 @@ bool Application::Frame(InputManager* Input)
 	}
 	else
 	{
-		// When right mouse is not pressed, only handle rotation
+		// When right mouse is not pressed, only handle movement
 		keyDown = Input->IsLeftArrowPressed();
-		m_Position->TurnLeft(keyDown);
+		m_Position->MoveLeft(keyDown);
 
 		keyDown = Input->IsRightArrowPressed();
-		m_Position->TurnRight(keyDown);
+		m_Position->MoveRight(keyDown);
 
 		keyDown = Input->IsUpArrowPressed();
-		m_Position->LookUp(keyDown);
+		m_Position->MoveForward(keyDown);
 
 		keyDown = Input->IsDownArrowPressed();
-		m_Position->LookDown(keyDown);
+		m_Position->MoveBackward(keyDown);
 	}
 
 	// Get the updated position and rotation
@@ -436,11 +460,11 @@ bool Application::Render()
 	m_Direct3D->GetProjectionMatrix(projectionMatrix);
 	m_Direct3D->GetOrthoMatrix(orthoMatrix);
 
-	// Set render states for sky dome
+	// Set render states for skybox
 	m_Direct3D->TurnOffCulling();
 	m_Direct3D->TurnZBufferOff();
 
-	// Render the zone (sky dome)
+	// Render the zone (skybox)
 	result = m_Zone->Render(m_Direct3D, m_ShaderManager, m_Camera);
 	if (!result)
 	{
@@ -534,11 +558,27 @@ bool Application::Render()
 	// Reset the world matrix.
 	m_Direct3D->GetWorldMatrix(worldMatrix);
 
+	// Create an orthographic projection matrix for 2D rendering
+	orthoMatrix = XMMatrixOrthographicLH((float)m_screenWidth, (float)m_screenHeight, SCREEN_NEAR, SCREEN_DEPTH);
+
+	// Create a fixed view matrix for 2D rendering
+	XMMATRIX viewMatrix2D = XMMatrixIdentity();
+
 	// Render the render count text string using the font shader.
 	m_RenderCountString->Render(m_Direct3D->GetDeviceContext());
 
-	result = m_ShaderManager->RenderFontShader(m_Direct3D->GetDeviceContext(), m_RenderCountString->GetIndexCount(), worldMatrix, m_baseViewMatrix, orthoMatrix,
+	result = m_ShaderManager->RenderFontShader(m_Direct3D->GetDeviceContext(), m_RenderCountString->GetIndexCount(), worldMatrix, viewMatrix2D, orthoMatrix,
 		m_Font->GetTexture(), m_RenderCountString->GetPixelColor());
+	if (!result)
+	{
+		return false;
+	}
+
+	// Render the fps text string using the font shader.
+	m_FpsString->Render(m_Direct3D->GetDeviceContext());
+
+	result = m_ShaderManager->RenderFontShader(m_Direct3D->GetDeviceContext(), m_FpsString->GetIndexCount(), worldMatrix, viewMatrix2D, orthoMatrix,
+		m_Font->GetTexture(), m_FpsString->GetPixelColor());
 	if (!result)
 	{
 		return false;
@@ -552,17 +592,7 @@ bool Application::Render()
 	}
 
 	// Render the cursor bitmap with the texture shader.
-	result = m_ShaderManager->RenderTextureShader(m_Direct3D->GetDeviceContext(), m_Cursor->GetIndexCount(), worldMatrix, m_baseViewMatrix, orthoMatrix, m_Cursor->GetTexture());
-	if (!result)
-	{
-		return false;
-	}
-
-	// Render the fps text string using the font shader.
-	m_FpsString->Render(m_Direct3D->GetDeviceContext());
-
-	result = m_ShaderManager->RenderFontShader(m_Direct3D->GetDeviceContext(), m_FpsString->GetIndexCount(), worldMatrix, m_baseViewMatrix, orthoMatrix,
-		m_Font->GetTexture(), m_FpsString->GetPixelColor());
+	result = m_ShaderManager->RenderTextureShader(m_Direct3D->GetDeviceContext(), m_Cursor->GetIndexCount(), worldMatrix, viewMatrix2D, orthoMatrix, m_Cursor->GetTexture());
 	if (!result)
 	{
 		return false;

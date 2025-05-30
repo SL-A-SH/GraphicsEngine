@@ -6,7 +6,7 @@
 #include "NormalMapShader.h"
 #include "SpecularMapShader.h"
 #include "FontShader.h"
-#include "./Environment/SkyDomeShader.h"
+#include "./Environment/SkyboxShader.h"
 
 class ShaderManager
 {
@@ -23,7 +23,7 @@ public:
     bool RenderNormalMapShader(ID3D11DeviceContext*, int, XMMATRIX, XMMATRIX, XMMATRIX, ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, XMFLOAT3, XMFLOAT4);
     bool RenderSpecularMapShader(ID3D11DeviceContext*, int, XMMATRIX, XMMATRIX, XMMATRIX, ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, XMFLOAT3, XMFLOAT4, XMFLOAT3, XMFLOAT4, float);
     bool RenderFontShader(ID3D11DeviceContext*, int, XMMATRIX, XMMATRIX, XMMATRIX, ID3D11ShaderResourceView*, XMFLOAT4);
-    bool RenderSkyDomeShader(ID3D11DeviceContext*, int, XMMATRIX, XMMATRIX, XMMATRIX, XMFLOAT4, XMFLOAT4);
+    bool RenderSkyboxShader(ID3D11DeviceContext*, int, XMMATRIX, XMMATRIX, XMMATRIX, ID3D11ShaderResourceView*[6]);
 
 private:
     TextureShader* m_TextureShader;
@@ -31,7 +31,7 @@ private:
     NormalMapShader* m_NormalMapShader;
     SpecMapShader* m_SpecMapShader;
     FontShader* m_FontShader;
-    SkyDomeShader* m_SkyDomeShader;
+    SkyboxShader* m_SkyboxShader;
 };
 
 #endif
