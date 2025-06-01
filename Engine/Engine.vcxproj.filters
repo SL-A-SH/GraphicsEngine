@@ -114,6 +114,9 @@
     <ClCompile Include="src\Graphics\Shaders\Environment\SkyboxShader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Graphics\UI\UserInterface.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Core\Application\Application.h">
@@ -213,6 +216,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Graphics\Shaders\Environment\SkyboxShader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\UI\UserInterface.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

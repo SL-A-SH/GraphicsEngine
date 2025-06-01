@@ -9,18 +9,16 @@ Application::Application()
 	m_Light = 0;
 	m_ShaderManager = 0;
 	m_Zone = 0;
-	m_Cursor = 0;
 	m_Timer = 0;
-	m_Font = 0;
-	m_FpsString = 0;
-	m_RenderCountString = 0;
 	m_ModelList = 0;
 	m_Position = 0;
 	m_Frustum = 0;
 	m_Floor = 0;
 	m_screenWidth = 0;
 	m_screenHeight = 0;
-	m_previousFps = -1;
+	m_Fps = 0;
+	m_RenderCount = 0;
+	m_UserInterface = 0;
 }
 
 
@@ -39,8 +37,6 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	char textureFilename1[128], textureFilename2[128], textureFilename3[128];
 	char modelFilename[128];
 	char floorTex[128];
-	char spriteFilename[128];
-	char fpsString[32], renderString[32];
 	bool result;
 
 	// Store screen dimensions
@@ -80,8 +76,6 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 
 	// Set the name of the texture file that we will be loading (used as fallback if no FBX material)
 	strcpy_s(textureFilename1, "../Engine/assets/textures/Stone02/stone02.tga");
-	/*strcpy_s(textureFilename2, "../Engine/assets/textures/Stone02/normal02.tga");
-	strcpy_s(textureFilename3, "../Engine/assets/textures/Stone02/spec02.tga");*/
 
 	// Create and initialize the model object.
 	m_Model = new Model;
@@ -110,8 +104,6 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	// If the model has FBX materials, we'll use those values
 	if (m_Model->HasFBXMaterial())
 	{
-		// Note: You'll need to add getters for these values in ModelClass
-		// For now, we'll use default values
 		m_Light->SetAmbientColor(0.15f, 0.15f, 0.15f, 1.0f);
 		m_Light->SetDiffuseColor(1.0f, 1.0f, 1.0f, 1.0f);
 		m_Light->SetSpecularColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -119,7 +111,6 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	}
 	else
 	{
-		/*m_Light->SetAmbientColor(0.15f, 0.15f, 0.15f, 1.0f);*/
 		m_Light->SetDiffuseColor(1.0f, 1.0f, 1.0f, 1.0f);
 		m_Light->SetSpecularColor(1.0f, 1.0f, 1.0f, 1.0f);
 		m_Light->SetSpecularPower(16.0f);
@@ -136,56 +127,10 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 		return false;
 	}
 
-	// Set the file name of the bitmap file.
-	strcpy_s(spriteFilename, "../Engine/assets/sprites/ui/cursor_data.txt");
-
-	// Create and initialize the bitmap object.
-	m_Cursor = new Sprite;
-
-	result = m_Cursor->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, spriteFilename, 0, 0);
-	if (!result)
-	{
-		return false;
-	}
-
 	// Create and initialize the timer object.
 	m_Timer = new Timer;
 
 	result = m_Timer->Initialize();
-	if (!result)
-	{
-		return false;
-	}
-
-	// Create and initialize the font object.
-	m_Font = new Font;
-
-	result = m_Font->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), 0);
-	if (!result)
-	{
-		return false;
-	}
-
-	// Set the initial fps and fps string.
-	m_previousFps = -1;
-	strcpy_s(fpsString, "Fps: 0");
-
-	// Create and initialize the text object for the fps string.
-	m_FpsString = new Text;
-
-	result = m_FpsString->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, 32, m_Font, fpsString, 10, 0, 0.0f, 1.0f, 0.0f);
-	if (!result)
-	{
-		return false;
-	}
-
-	// Set the initial render count string.
-	strcpy_s(renderString, "Render Count: 0");
-
-	// Create and initialize the text object for the render count string.
-	m_RenderCountString = new Text;
-
-	result = m_RenderCountString->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), screenWidth, screenHeight, 32, m_Font, renderString, 10, 10, 1.0f, 1.0f, 1.0f);
 	if (!result)
 	{
 		return false;
@@ -201,12 +146,33 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	// Create the frustum class object.
 	m_Frustum = new Frustum;
 
+	// Create and initialize the user interface object.
+	m_UserInterface = new UserInterface;
+	if (!m_UserInterface)
+	{
+		return false;
+	}
+
+	result = m_UserInterface->Initialize(m_Direct3D, screenHeight, screenWidth);
+	if (!result)
+	{
+		return false;
+	}
+
 	return true;
 }
 
 
 void Application::Shutdown()
 {
+	// Release the user interface object.
+	if (m_UserInterface)
+	{
+		m_UserInterface->Shutdown();
+		delete m_UserInterface;
+		m_UserInterface = 0;
+	}
+
 	// Release the frustum class object.
 	if (m_Frustum)
 	{
@@ -229,43 +195,11 @@ void Application::Shutdown()
 		m_ModelList = 0;
 	}
 
-	// Release the text objects for the render count string.
-	if (m_RenderCountString)
-	{
-		m_RenderCountString->Shutdown();
-		delete m_RenderCountString;
-		m_RenderCountString = 0;
-	}
-
-	// Release the text object for the fps string.
-	if (m_FpsString)
-	{
-		m_FpsString->Shutdown();
-		delete m_FpsString;
-		m_FpsString = 0;
-	}
-
-	// Release the font object.
-	if (m_Font)
-	{
-		m_Font->Shutdown();
-		delete m_Font;
-		m_Font = 0;
-	}
-
 	// Release the timer object.
 	if (m_Timer)
 	{
 		delete m_Timer;
 		m_Timer = 0;
-	}
-
-	// Release the cursor sprite object.
-	if (m_Cursor)
-	{
-		m_Cursor->Shutdown();
-		delete m_Cursor;
-		m_Cursor = 0;
 	}
 
 	// Release the light object.
@@ -328,6 +262,9 @@ bool Application::Frame(InputManager* Input)
 	// Update the system stats.
 	m_Timer->Frame();
 
+	// Get the current FPS
+	m_Fps = m_Timer->GetFps();
+
 	// Check if the user pressed escape and wants to exit the application.
 	if (Input->IsEscapePressed())
 	{
@@ -337,17 +274,14 @@ bool Application::Frame(InputManager* Input)
 	// Get the location of the mouse from the input object,
 	Input->GetMouseLocation(mouseX, mouseY);
 
-	// Update the cursor position with the mouse coordinates
-	m_Cursor->SetRenderLocation(mouseX, mouseY);
-
-	// Check if the mouse has been pressed.
-	mouseDown = Input->IsMousePressed();
-
 	// Get the current frame time.
 	frameTime = m_Timer->GetTime();
 
-	// Update the cursor sprite object using the frame time.
-	m_Cursor->Update(frameTime);
+	// Update the cursor position
+	m_UserInterface->UpdateCursorPosition(mouseX, mouseY, frameTime);
+
+	// Check if the mouse has been pressed.
+	mouseDown = Input->IsMousePressed();
 
 	// Set the frame time for calculating the updated position.
 	m_Position->SetFrameTime(frameTime);
@@ -432,8 +366,8 @@ bool Application::Frame(InputManager* Input)
 		return false;
 	}
 
-	// Update the frames per second each frame.
-	result = UpdateFps();
+	// Update the user interface.
+	result = m_UserInterface->Frame(m_Direct3D->GetDeviceContext(), m_Fps, m_RenderCount);
 	if (!result)
 	{
 		return false;
@@ -447,7 +381,7 @@ bool Application::Render()
 {
 	XMMATRIX worldMatrix, viewMatrix, projectionMatrix, orthoMatrix;
 	float positionX, positionY, positionZ, radius;
-	int modelCount, renderCount, i;
+	int modelCount, i;
 	bool renderModel;
 	bool result;
 
@@ -499,7 +433,7 @@ bool Application::Render()
 	modelCount = m_ModelList->GetModelCount();
 
 	// Initialize the count of models that have been rendered.
-	renderCount = 0;
+	m_RenderCount = 0;
 
 	// Go through all the models and render them only if they can be seen by the camera view.
 	for (i = 0; i < modelCount; i++)
@@ -540,161 +474,25 @@ bool Application::Render()
 			}
 
 			// Since this model was rendered then increase the count for this frame.
-			renderCount++;
+			m_RenderCount++;
 		}
 	}
 
-	// Update the render count text.
-	result = UpdateRenderCountString(renderCount);
-	if (!result)
-	{
-		return false;
-	}
-
-	// Disable the Z buffer and enable alpha blending for 2D rendering.
-	m_Direct3D->TurnZBufferOff();
-	m_Direct3D->EnableAlphaBlending();
-
-	// Reset the world matrix.
-	m_Direct3D->GetWorldMatrix(worldMatrix);
-
 	// Create an orthographic projection matrix for 2D rendering
-	orthoMatrix = XMMatrixOrthographicLH((float)m_screenWidth, (float)m_screenHeight, SCREEN_NEAR, SCREEN_DEPTH);
+	orthoMatrix = XMMatrixOrthographicLH((float)m_screenWidth, (float)m_screenHeight, 0.0f, 1.0f);
 
 	// Create a fixed view matrix for 2D rendering
 	XMMATRIX viewMatrix2D = XMMatrixIdentity();
 
-	// Render the render count text string using the font shader.
-	m_RenderCountString->Render(m_Direct3D->GetDeviceContext());
-
-	result = m_ShaderManager->RenderFontShader(m_Direct3D->GetDeviceContext(), m_RenderCountString->GetIndexCount(), worldMatrix, viewMatrix2D, orthoMatrix,
-		m_Font->GetTexture(), m_RenderCountString->GetPixelColor());
+	// Render the user interface.
+	result = m_UserInterface->Render(m_Direct3D, m_ShaderManager, worldMatrix, viewMatrix2D, orthoMatrix);
 	if (!result)
 	{
 		return false;
 	}
-
-	// Render the fps text string using the font shader.
-	m_FpsString->Render(m_Direct3D->GetDeviceContext());
-
-	result = m_ShaderManager->RenderFontShader(m_Direct3D->GetDeviceContext(), m_FpsString->GetIndexCount(), worldMatrix, viewMatrix2D, orthoMatrix,
-		m_Font->GetTexture(), m_FpsString->GetPixelColor());
-	if (!result)
-	{
-		return false;
-	}
-
-	// Put the cursor bitmap vertex and index buffers on the graphics pipeline to prepare them for drawing.
-	result = m_Cursor->Render(m_Direct3D->GetDeviceContext());
-	if (!result)
-	{
-		return false;
-	}
-
-	// Render the cursor bitmap with the texture shader.
-	result = m_ShaderManager->RenderTextureShader(m_Direct3D->GetDeviceContext(), m_Cursor->GetIndexCount(), worldMatrix, viewMatrix2D, orthoMatrix, m_Cursor->GetTexture());
-	if (!result)
-	{
-		return false;
-	}
-
-	// Enable the Z buffer and disable alpha blending now that 2D rendering is complete.
-	m_Direct3D->TurnZBufferOn();
-	m_Direct3D->DisableAlphaBlending();
 
 	// Present the rendered scene to the screen.
 	m_Direct3D->EndScene();
-
-	return true;
-}
-
-bool Application::UpdateFps()
-{
-	int fps;
-	char tempString[16], finalString[16];
-	float red, green, blue;
-	bool result;
-
-
-	// Get the current fps.
-	fps = m_Timer->GetFps();
-
-	// Check if the fps from the previous frame was the same, if so don't need to update the text string.
-	if (m_previousFps == fps)
-	{
-		return true;
-	}
-
-	// Store the fps for checking next frame.
-	m_previousFps = fps;
-
-	// Truncate the fps to below 100,000.
-	if (fps > 99999)
-	{
-		fps = 99999;
-	}
-
-	// Convert the fps integer to string format.
-	sprintf_s(tempString, "%d", fps);
-
-	// Setup the fps string.
-	strcpy_s(finalString, "Fps: ");
-	strcat_s(finalString, tempString);
-
-	// If fps is 60 or above set the fps color to green.
-	if (fps >= 60)
-	{
-		red = 0.0f;
-		green = 1.0f;
-		blue = 0.0f;
-	}
-
-	// If fps is below 60 set the fps color to yellow.
-	if (fps < 60)
-	{
-		red = 1.0f;
-		green = 1.0f;
-		blue = 0.0f;
-	}
-
-	// If fps is below 30 set the fps color to red.
-	if (fps < 30)
-	{
-		red = 1.0f;
-		green = 0.0f;
-		blue = 0.0f;
-	}
-
-	// Update the sentence vertex buffer with the new string information.
-	result = m_FpsString->UpdateText(m_Direct3D->GetDeviceContext(), m_Font, finalString, 10, 0, red, green, blue);
-	if (!result)
-	{
-		return false;
-	}
-
-	return true;
-}
-
-
-bool Application::UpdateRenderCountString(int renderCount)
-{
-	char tempString[16], finalString[32];
-	bool result;
-
-
-	// Convert the render count integer to string format.
-	sprintf_s(tempString, "%d", renderCount);
-
-	// Setup the render count string.
-	strcpy_s(finalString, "Render Count: ");
-	strcat_s(finalString, tempString);
-
-	// Update the sentence vertex buffer with the new string information.
-	result = m_RenderCountString->UpdateText(m_Direct3D->GetDeviceContext(), m_Font, finalString, 10, 10, 1.0f, 1.0f, 1.0f);
-	if (!result)
-	{
-		return false;
-	}
 
 	return true;
 }

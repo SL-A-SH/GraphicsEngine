@@ -15,6 +15,7 @@
 #include "../../Graphics/Math/Frustum.h"
 #include "../../Graphics/Math/Position.h"
 #include "../../Graphics/Resource/Environment/Zone.h"
+#include "../../Graphics/UI/UserInterface.h"
 
 const bool FULL_SCREEN = true;
 const bool VSYNC_ENABLED = true;
@@ -55,8 +56,11 @@ private:
 	Position* m_Position;
 	Frustum* m_Frustum;
 	XMMATRIX m_baseViewMatrix;
+	UserInterface* m_UserInterface;
 
 	int m_screenWidth, m_screenHeight;
+	int m_Fps;
+	int m_RenderCount;
 };
 
 #endif

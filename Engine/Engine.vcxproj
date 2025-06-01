@@ -51,6 +51,7 @@
     <ClCompile Include="src\Graphics\Shaders\SpecularMapShader.cpp" />
     <ClCompile Include="src\Graphics\Shaders\TextureShader.cpp" />
     <ClCompile Include="src\Graphics\Resource\Texture.cpp" />
+    <ClCompile Include="src\Graphics\UI\UserInterface.cpp" />
     <ClCompile Include="src\Main\main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -86,6 +87,7 @@
     <ClInclude Include="src\Graphics\Shaders\SpecularMapShader.h" />
     <ClInclude Include="src\Graphics\Shaders\TextureShader.h" />
     <ClInclude Include="src\Graphics\Resource\Texture.h" />
+    <ClInclude Include="src\Graphics\UI\UserInterface.h" />
     <ClInclude Include="src\Math\Transform.h" />
   </ItemGroup>
   <ItemGroup>

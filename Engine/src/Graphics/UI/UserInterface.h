@@ -1,0 +1,40 @@
+#ifndef _USERINTERFACE_H_
+#define _USERINTERFACE_H_
+
+#include <d3d11.h>
+#include <directxmath.h>
+#include "../D3D11/D3D11Device.h"
+#include "../Shaders/ShaderManager.h"
+#include "../Rendering/Font.h"
+#include "../Resource/Text.h"
+#include "../Rendering/Sprite.h"
+
+using namespace DirectX;
+
+class UserInterface
+{
+public:
+    UserInterface();
+    UserInterface(const UserInterface& other);
+    ~UserInterface();
+
+    bool Initialize(D3D11Device* Direct3D, int screenHeight, int screenWidth);
+    void Shutdown();
+    bool Frame(ID3D11DeviceContext* deviceContext, int fps, int renderCount);
+    bool Render(D3D11Device* Direct3D, ShaderManager* ShaderManager, XMMATRIX worldMatrix, XMMATRIX viewMatrix, XMMATRIX orthoMatrix);
+    void UpdateCursorPosition(int mouseX, int mouseY, float frameTime);
+
+private:
+    bool UpdateFpsString(ID3D11DeviceContext* deviceContext, int fps);
+    bool UpdateRenderCountString(ID3D11DeviceContext* deviceContext, int renderCount);
+
+private:
+    Font* m_Font;
+    Text* m_FpsString;
+    Text* m_RenderCountString;
+    Sprite* m_Cursor;
+    int m_previousFps;
+    int m_previousRenderCount;
+};
+
+#endif 
