@@ -18,11 +18,11 @@ public:
 	bool Initialize();
 	void Shutdown();
 	void Run();
-
+	bool Frame();
 	LRESULT CALLBACK MessageHandler(HWND, UINT, WPARAM, LPARAM);
+	void SetWindowHandle(HWND hwnd) { m_hwnd = hwnd; }
 
 private:
-	bool Frame();
 	void InitializeWindows(int&, int&);
 	void ShutdownWindows();
 

@@ -6,6 +6,7 @@
 #include <QMenuBar>
 #include <QToolBar>
 #include <QDockWidget>
+#include "DirectXViewport.h"
 
 class MainWindow : public QMainWindow
 {
@@ -20,8 +21,8 @@ private:
     void CreateToolbars();
     void CreateDockWidgets();
 
-    // Main widget that will contain the DirectX11 viewport
-    QWidget* m_ViewportWidget;
+    // DirectX viewport widget
+    DirectXViewport* m_ViewportWidget;
     
     // Layout for the main window
     QVBoxLayout* m_MainLayout;

@@ -109,6 +109,7 @@ source_group("src\\Core\\System" FILES
     ${SRC_DIR}/Core/System/SystemManager.h
     ${SRC_DIR}/Core/System/Timer.cpp
     ${SRC_DIR}/Core/System/Timer.h
+    ${SRC_DIR}/Core/System/Logger.h
 )
 
 # Graphics
@@ -192,10 +193,13 @@ source_group("src\\Graphics\\UI" FILES
 # Math
 source_group("src\\Math" FILES
     ${SRC_DIR}/Math/Transform.h
+    ${SRC_DIR}/Math/Transform.cpp
 )
 
 # GUI
 source_group("src\\GUI\\Windows" FILES
     ${SRC_DIR}/GUI/Windows/MainWindow.cpp
     ${SRC_DIR}/GUI/Windows/MainWindow.h
+    ${SRC_DIR}/GUI/Windows/DirectXViewport.cpp
+    ${SRC_DIR}/GUI/Windows/DirectXViewport.h
 )

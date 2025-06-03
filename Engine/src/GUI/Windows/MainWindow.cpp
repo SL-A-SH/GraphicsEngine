@@ -3,6 +3,7 @@
 #include <QMenu>
 #include <QAction>
 #include <QFileDialog>
+#include "../../Core/System/Logger.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -16,21 +17,26 @@ MainWindow::MainWindow(QWidget* parent)
     // Create the central widget and layout
     QWidget* centralWidget = new QWidget(this);
     m_MainLayout = new QVBoxLayout(centralWidget);
+    m_MainLayout->setContentsMargins(0, 0, 0, 0);
     setCentralWidget(centralWidget);
 
-    // Create the viewport widget (this will be replaced with your DirectX11 viewport)
-    m_ViewportWidget = new QWidget(centralWidget);
+    // Create the DirectX viewport widget
+    m_ViewportWidget = new DirectXViewport(centralWidget);
     m_ViewportWidget->setMinimumSize(800, 600);
+    m_ViewportWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     m_MainLayout->addWidget(m_ViewportWidget);
 
     // Create UI elements
     CreateMenus();
     CreateToolbars();
     CreateDockWidgets();
+
+    LOG("Main window initialized successfully");
 }
 
 MainWindow::~MainWindow()
 {
+    LOG("Main window shutting down");
 }
 
 void MainWindow::CreateMenus()
