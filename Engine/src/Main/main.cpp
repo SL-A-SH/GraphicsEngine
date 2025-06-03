@@ -1,26 +1,34 @@
 #include "../Core/System/SystemManager.h"
+#include "../GUI/Windows/MainWindow.h"
+#include <QApplication>
+#include <QWidget>
 
-
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pScmdline, int iCmdshow)
+int main(int argc, char *argv[])
 {
-	SystemManager* System;
-	bool result;
+	// Initialize Qt Application
+	QApplication app(argc, argv);
 
+	// Create the system object
+	SystemManager* System = new SystemManager;
 
-	// Create the system object.
-	System = new SystemManager;
-
-	// Initialize and run the system object.
-	result = System->Initialize();
-	if (result)
+	// Initialize the system
+	bool result = System->Initialize();
+	if (!result)
 	{
-		System->Run();
+		delete System;
+		return -1;
 	}
 
-	// Shutdown and release the system object.
+	// Create and show the main window
+	MainWindow mainWindow;
+	mainWindow.show();
+
+	// Run the Qt event loop
+	int returnCode = app.exec();
+
+	// Shutdown and release the system object
 	System->Shutdown();
 	delete System;
-	System = 0;
 
-	return 0;
+	return returnCode;
 }
