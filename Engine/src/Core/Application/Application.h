@@ -32,6 +32,7 @@ public:
 	bool Initialize(int, int, HWND);
 	void Shutdown();
 	bool Frame(InputManager*);
+	bool Resize(int width, int height);
 
 private:
 	bool Render();
@@ -61,6 +62,8 @@ private:
 	int m_screenWidth, m_screenHeight;
 	int m_Fps;
 	int m_RenderCount;
+	XMMATRIX m_projectionMatrix;
+	XMMATRIX m_orthoMatrix;
 };
 
 #endif

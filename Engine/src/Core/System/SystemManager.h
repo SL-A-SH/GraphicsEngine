@@ -21,6 +21,8 @@ public:
 	bool Frame();
 	LRESULT CALLBACK MessageHandler(HWND, UINT, WPARAM, LPARAM);
 	void SetWindowHandle(HWND hwnd) { m_hwnd = hwnd; }
+	Application* GetApplication() { return m_Application; }
+	InputManager* GetInputManager() { return m_Input; }
 
 private:
 	void InitializeWindows(int&, int&);

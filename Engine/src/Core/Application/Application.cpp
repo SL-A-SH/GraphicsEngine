@@ -1,8 +1,10 @@
 #include "application.h"
+#include "../../Core/System/Logger.h"
 
 
 Application::Application()
 {
+	LOG("Application constructor called");
 	m_Direct3D = 0;
 	m_Camera = 0;
 	m_Model = 0;
@@ -34,6 +36,7 @@ Application::~Application()
 
 bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 {
+	LOG("Application::Initialize called");
 	char textureFilename1[128], textureFilename2[128], textureFilename3[128];
 	char modelFilename[128];
 	char floorTex[128];
@@ -44,61 +47,74 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	m_screenHeight = screenHeight;
 
 	// Create and initialize the Direct3D object.
+	LOG("Creating Direct3D object");
 	m_Direct3D = new D3D11Device;
 
 	result = m_Direct3D->Initialize(screenWidth, screenHeight, VSYNC_ENABLED, hwnd, FULL_SCREEN, SCREEN_DEPTH, SCREEN_NEAR);
 	if (!result)
 	{
+		LOG_ERROR("Could not initialize Direct3D");
 		MessageBox(hwnd, L"Could not initialize Direct3D", L"Error", MB_OK);
 		return false;
 	}
+	LOG("Direct3D initialized successfully");
 
 	// Create the camera object.
+	LOG("Creating camera object");
 	m_Camera = new Camera;
 
 	// Set the initial position of the camera.
 	m_Camera->SetPosition(0.0f, 0.0f, -300.0f);
 	m_Camera->Render();
 	m_Camera->GetViewMatrix(m_baseViewMatrix);
+	LOG("Camera initialized successfully");
 
 	// Create and initialize the zone object
+	LOG("Creating zone object");
 	m_Zone = new Zone;
 
 	result = m_Zone->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext());
 	if (!result)
 	{
+		LOG_ERROR("Could not initialize the zone object");
 		MessageBox(hwnd, L"Could not initialize the zone object.", L"Error", MB_OK);
 		return false;
 	}
+	LOG("Zone initialized successfully");
 
 	// Set the file name of the model.
 	strcpy_s(modelFilename, "../Engine/assets/models/Thriller.fbx");
-
-	// Set the name of the texture file that we will be loading (used as fallback if no FBX material)
 	strcpy_s(textureFilename1, "../Engine/assets/textures/Stone02/stone02.tga");
 
 	// Create and initialize the model object.
+	LOG("Creating model object");
 	m_Model = new Model;
 
 	result = m_Model->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, textureFilename1);
 	if (!result)
 	{
+		LOG_ERROR("Could not initialize the model object");
 		MessageBox(hwnd, L"Could not initialize the model object.", L"Error", MB_OK);
 		return false;
 	}
+	LOG("Model initialized successfully");
 
 	// Create and initialize the floor model
+	LOG("Creating floor model");
 	m_Floor = new Model;
 	strcpy_s(modelFilename, "../Engine/assets/models/Cube.txt");
 	strcpy_s(floorTex, "../Engine/assets/textures/Stone02/stone02.tga");
 	result = m_Floor->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, floorTex);
 	if (!result)
 	{
+		LOG_ERROR("Could not initialize the floor model");
 		MessageBox(hwnd, L"Could not initialize the floor model.", L"Error", MB_OK);
 		return false;
 	}
+	LOG("Floor model initialized successfully");
 
 	// Create and initialize the light object.
+	LOG("Creating light object");
 	m_Light = new Light;
 
 	// If the model has FBX materials, we'll use those values
@@ -117,54 +133,71 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	}
 
 	m_Light->SetDirection(0.0f, 0.0f, 1.0f);
+	LOG("Light initialized successfully");
 
 	// Create and initialize the normal map shader object.
+	LOG("Creating shader manager");
 	m_ShaderManager = new ShaderManager;
 
 	result = m_ShaderManager->Initialize(m_Direct3D->GetDevice(), hwnd);
 	if (!result)
 	{
+		LOG_ERROR("Could not initialize shader manager");
 		return false;
 	}
+	LOG("Shader manager initialized successfully");
 
 	// Create and initialize the timer object.
+	LOG("Creating timer object");
 	m_Timer = new Timer;
 
 	result = m_Timer->Initialize();
 	if (!result)
 	{
+		LOG_ERROR("Could not initialize timer");
 		return false;
 	}
+	LOG("Timer initialized successfully");
 
 	// Create and initialize the model list object.
+	LOG("Creating model list");
 	m_ModelList = new ModelList;
 	m_ModelList->Initialize(6);
+	LOG("Model list initialized successfully");
 
 	// Create the position class object.
+	LOG("Creating position object");
 	m_Position = new Position;
 
 	// Create the frustum class object.
+	LOG("Creating frustum object");
 	m_Frustum = new Frustum;
 
 	// Create and initialize the user interface object.
+	LOG("Creating user interface");
 	m_UserInterface = new UserInterface;
 	if (!m_UserInterface)
 	{
+		LOG_ERROR("Could not create user interface");
 		return false;
 	}
 
 	result = m_UserInterface->Initialize(m_Direct3D, screenHeight, screenWidth);
 	if (!result)
 	{
+		LOG_ERROR("Could not initialize user interface");
 		return false;
 	}
+	LOG("User interface initialized successfully");
 
+	LOG("Application initialization completed successfully");
 	return true;
 }
 
 
 void Application::Shutdown()
 {
+	LOG("Application::Shutdown called");
 	// Release the user interface object.
 	if (m_UserInterface)
 	{
@@ -247,12 +280,14 @@ void Application::Shutdown()
 		m_Floor = 0;
 	}
 
+	LOG("Application shutdown completed");
 	return;
 }
 
 
 bool Application::Frame(InputManager* Input)
 {
+	LOG("Application::Frame called");
 	float frameTime, rotationY, rotationX;
 	float positionX, positionY, positionZ;
 	int mouseX, mouseY;
@@ -260,38 +295,49 @@ bool Application::Frame(InputManager* Input)
 	bool result;
 
 	// Update the system stats.
+	LOG("Updating timer");
 	m_Timer->Frame();
 
 	// Get the current FPS
+	LOG("Getting FPS");
 	m_Fps = m_Timer->GetFps();
 
 	// Check if the user pressed escape and wants to exit the application.
+	LOG("Checking escape key");
 	if (Input->IsEscapePressed())
 	{
+		LOG("Escape key pressed, exiting application");
 		return false;
 	}
 
 	// Get the location of the mouse from the input object,
+	LOG("Getting mouse location");
 	Input->GetMouseLocation(mouseX, mouseY);
 
 	// Get the current frame time.
+	LOG("Getting frame time");
 	frameTime = m_Timer->GetTime();
 
 	// Update the cursor position
+	LOG("Updating cursor position");
 	m_UserInterface->UpdateCursorPosition(mouseX, mouseY, frameTime);
 
 	// Check if the mouse has been pressed.
+	LOG("Checking mouse state");
 	mouseDown = Input->IsMousePressed();
 
 	// Set the frame time for calculating the updated position.
+	LOG("Setting frame time for position");
 	m_Position->SetFrameTime(frameTime);
 
 	// Get current rotations and position
+	LOG("Getting current rotations and position");
 	m_Position->GetRotation(rotationY);
 	m_Position->GetRotationX(rotationX);
 	m_Position->GetPosition(positionX, positionY, positionZ);
 
 	// Handle camera controls based on right mouse button state
+	LOG("Handling camera controls");
 	if (Input->IsRightMousePressed())
 	{
 		// When right mouse is pressed, handle rotation based on mouse movement
@@ -350,35 +396,45 @@ bool Application::Frame(InputManager* Input)
 	}
 
 	// Get the updated position and rotation
+	LOG("Getting updated position and rotation");
 	m_Position->GetRotation(rotationY);
 	m_Position->GetRotationX(rotationX);
 	m_Position->GetPosition(positionX, positionY, positionZ);
 
 	// Set the position and rotation of the camera.
+	LOG("Setting camera position and rotation");
 	m_Camera->SetPosition(positionX, positionY, positionZ);
 	m_Camera->SetRotation(rotationX, rotationY, 0.0f);
 	m_Camera->Render();
 
 	// Render the graphics scene.
+	LOG("Starting render");
 	result = Render();
 	if (!result)
 	{
+		LOG_ERROR("Render failed");
 		return false;
 	}
+	LOG("Render completed successfully");
 
 	// Update the user interface.
+	LOG("Updating user interface");
 	result = m_UserInterface->Frame(m_Direct3D->GetDeviceContext(), m_Fps, m_RenderCount);
 	if (!result)
 	{
+		LOG_ERROR("User interface update failed");
 		return false;
 	}
+	LOG("User interface updated successfully");
 
+	LOG("Frame completed successfully");
 	return true;
 }
 
 
 bool Application::Render()
 {
+	LOG("Application::Render called");
 	XMMATRIX worldMatrix, viewMatrix, projectionMatrix, orthoMatrix;
 	float positionX, positionY, positionZ, radius;
 	int modelCount, i;
@@ -399,9 +455,11 @@ bool Application::Render()
 	m_Direct3D->TurnZBufferOff();
 
 	// Render the zone (skybox)
+	LOG("Rendering zone (skybox)");
 	result = m_Zone->Render(m_Direct3D, m_ShaderManager, m_Camera);
 	if (!result)
 	{
+		LOG_ERROR("Zone render failed");
 		// Restore render states
 		m_Direct3D->TurnOnCulling();
 		m_Direct3D->TurnZBufferOn();
@@ -416,6 +474,7 @@ bool Application::Render()
 	m_Frustum->ConstructFrustum(viewMatrix, projectionMatrix, SCREEN_DEPTH);
 
 	// Render the floor
+	LOG("Rendering floor");
 	worldMatrix = XMMatrixTranslation(0.0f, -10.0f, 0.0f);
 	worldMatrix = XMMatrixMultiply(worldMatrix, XMMatrixScaling(500.0f, 1.0f, 500.0f));
 
@@ -426,6 +485,7 @@ bool Application::Render()
 		m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
 	if (!result)
 	{
+		LOG_ERROR("Floor render failed");
 		return false;
 	}
 
@@ -436,6 +496,7 @@ bool Application::Render()
 	m_RenderCount = 0;
 
 	// Go through all the models and render them only if they can be seen by the camera view.
+	LOG("Rendering models");
 	for (i = 0; i < modelCount; i++)
 	{
 		// Get the position and color of the sphere model at this index.
@@ -470,6 +531,7 @@ bool Application::Render()
 				m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
 			if (!result)
 			{
+				LOG_ERROR("Model render failed");
 				return false;
 			}
 
@@ -485,14 +547,48 @@ bool Application::Render()
 	XMMATRIX viewMatrix2D = XMMatrixIdentity();
 
 	// Render the user interface.
+	LOG("Rendering user interface");
 	result = m_UserInterface->Render(m_Direct3D, m_ShaderManager, worldMatrix, viewMatrix2D, orthoMatrix);
 	if (!result)
 	{
+		LOG_ERROR("User interface render failed");
 		return false;
 	}
 
 	// Present the rendered scene to the screen.
 	m_Direct3D->EndScene();
+	LOG("Render completed successfully");
 
+	return true;
+}
+
+bool Application::Resize(int width, int height)
+{
+	LOG("Application::Resize called");
+	if (width == 0 || height == 0)
+	{
+		LOG_ERROR("Invalid resize dimensions");
+		return false;
+	}
+
+	m_screenWidth = width;
+	m_screenHeight = height;
+
+	// Resize the Direct3D device
+	if (!m_Direct3D->Resize(width, height))
+	{
+		LOG_ERROR("Direct3D resize failed");
+		return false;
+	}
+
+	// Update the projection matrix
+	float fieldOfView = 3.141592654f / 4.0f;
+	float screenAspect = (float)width / (float)height;
+	m_Direct3D->GetProjectionMatrix(m_projectionMatrix);
+
+	// Update the orthographic matrix
+	m_Direct3D->GetOrthoMatrix(m_orthoMatrix);
+
+	LOG("Resize completed successfully");
 	return true;
 }

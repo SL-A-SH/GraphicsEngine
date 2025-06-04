@@ -28,17 +28,17 @@ bool SystemManager::Initialize()
 	// Initialize the windows api.
 	InitializeWindows(screenWidth, screenHeight);
 
-	// Create and initialize the input object.  This object will be used to handle reading the keyboard input from the user.
+	// Create and initialize the input object.
 	m_Input = new InputManager;
 
-	result = m_Input->Initialize(m_hinstance, m_hwnd, screenWidth, screenHeight);
+	result = m_Input->Initialize(screenWidth, screenHeight);
 	if (!result)
 	{
 		LOG_ERROR("Failed to initialize InputManager");
 		return false;
 	}
 
-	// Create and initialize the application class object.  This object will handle rendering all the graphics for this application.
+	// Create and initialize the application class object.
 	m_Application = new Application;
 
 	result = m_Application->Initialize(screenWidth, screenHeight, m_hwnd);

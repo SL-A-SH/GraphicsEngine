@@ -1,303 +1,108 @@
-#include "inputmanager.h"
-
+#include "InputManager.h"
+#include "../../Core/System/Logger.h"
 
 InputManager::InputManager()
 {
-	m_directInput = 0;
-	m_keyboard = 0;
-	m_mouse = 0;
+	m_mouseX = 0;
+	m_mouseY = 0;
+	m_screenWidth = 0;
+	m_screenHeight = 0;
 }
-
-
-InputManager::InputManager(const InputManager& other)
-{
-}
-
 
 InputManager::~InputManager()
 {
 }
 
-
-bool InputManager::Initialize(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeight)
+bool InputManager::Initialize(int screenWidth, int screenHeight)
 {
-	HRESULT result;
-
-	// Store the screen size which will be used for positioning the mouse cursor.
 	m_screenWidth = screenWidth;
 	m_screenHeight = screenHeight;
+	m_mouseX = screenWidth / 2;
+	m_mouseY = screenHeight / 2;
 
-	// Initialize the location of the mouse on the screen.
-	m_mouseX = 0;
-	m_mouseY = 0;
-
-	// Initialize the main direct input interface.
-	result = DirectInput8Create(hinstance, DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&m_directInput, NULL);
-	if (FAILED(result))
-	{
-		return false;
-	}
-
-	// Initialize the direct input interface for the keyboard.
-	result = m_directInput->CreateDevice(GUID_SysKeyboard, &m_keyboard, NULL);
-	if (FAILED(result))
-	{
-		return false;
-	}
-
-	// Set the data format.  In this case since it is a keyboard we can use the predefined data format.
-	result = m_keyboard->SetDataFormat(&c_dfDIKeyboard);
-	if (FAILED(result))
-	{
-		return false;
-	}
-
-	// Set the cooperative level of the keyboard to not share with other programs.
-	result = m_keyboard->SetCooperativeLevel(hwnd, DISCL_FOREGROUND | DISCL_EXCLUSIVE);
-	if (FAILED(result))
-	{
-		return false;
-	}
-
-	// Now acquire the keyboard.
-	result = m_keyboard->Acquire();
-	if (FAILED(result))
-	{
-		return false;
-	}
-
-	// Initialize the direct input interface for the mouse.
-	result = m_directInput->CreateDevice(GUID_SysMouse, &m_mouse, NULL);
-	if (FAILED(result))
-	{
-		return false;
-	}
-
-	// Set the data format for the mouse using the pre-defined mouse data format.
-	result = m_mouse->SetDataFormat(&c_dfDIMouse);
-	if (FAILED(result))
-	{
-		return false;
-	}
-
-	// Set the cooperative level of the mouse to share with other programs.
-	result = m_mouse->SetCooperativeLevel(hwnd, DISCL_FOREGROUND | DISCL_NONEXCLUSIVE);
-	if (FAILED(result))
-	{
-		return false;
-	}
-
-	// Acquire the mouse.
-	result = m_mouse->Acquire();
-	if (FAILED(result))
-	{
-		return false;
-	}
-
+	LOG("InputManager initialized successfully");
 	return true;
 }
 
 void InputManager::Shutdown()
 {
-	// Release the mouse.
-	if (m_mouse)
-	{
-		m_mouse->Unacquire();
-		m_mouse->Release();
-		m_mouse = 0;
-	}
-
-	// Release the keyboard.
-	if (m_keyboard)
-	{
-		m_keyboard->Unacquire();
-		m_keyboard->Release();
-		m_keyboard = 0;
-	}
-
-	// Release the main interface to direct input.
-	if (m_directInput)
-	{
-		m_directInput->Release();
-		m_directInput = 0;
-	}
-
-	return;
 }
 
 bool InputManager::Frame()
 {
-	bool result;
-
-
-	// Read the current state of the keyboard.
-	result = ReadKeyboard();
-	if (!result)
-	{
-		return false;
-	}
-
-	// Read the current state of the mouse.
-	result = ReadMouse();
-	if (!result)
-	{
-		return false;
-	}
-
-	// Process the changes in the mouse and keyboard.
-	ProcessInput();
-
 	return true;
 }
 
-bool InputManager::ReadKeyboard()
+void InputManager::HandleKeyEvent(QKeyEvent* event, bool isPressed)
 {
-	HRESULT result;
-
-
-	// Read the keyboard device.
-	result = m_keyboard->GetDeviceState(sizeof(m_keyboardState), (LPVOID)&m_keyboardState);
-	if (FAILED(result))
-	{
-		// If the keyboard lost focus or was not acquired then try to get control back.
-		if ((result == DIERR_INPUTLOST) || (result == DIERR_NOTACQUIRED))
-		{
-			m_keyboard->Acquire();
-		}
-		else
-		{
-			return false;
-		}
-	}
-
-	return true;
+	if (!event) return;
+	
+	int key = event->key();
+	m_keys[key] = isPressed;
 }
 
-bool InputManager::ReadMouse()
+void InputManager::HandleMouseEvent(QMouseEvent* event)
 {
-	HRESULT result;
+	if (!event) return;
 
-
-	// Read the mouse device.
-	result = m_mouse->GetDeviceState(sizeof(DIMOUSESTATE), (LPVOID)&m_mouseState);
-	if (FAILED(result))
-	{
-		// If the mouse lost focus or was not acquired then try to get control back.
-		if ((result == DIERR_INPUTLOST) || (result == DIERR_NOTACQUIRED))
-		{
-			m_mouse->Acquire();
-		}
-		else
-		{
-			return false;
-		}
-	}
-
-	return true;
+	Qt::MouseButton button = event->button();
+	bool isPressed = (event->type() == QEvent::MouseButtonPress);
+	
+	m_mouseButtons[button] = isPressed;
+	m_mouseX = event->x();
+	m_mouseY = event->y();
 }
 
-void InputManager::ProcessInput()
+void InputManager::HandleMouseMoveEvent(QMouseEvent* event)
 {
-	// Update the location of the mouse cursor based on the change of the mouse location during the frame.
-	m_mouseX += m_mouseState.lX;
-	m_mouseY += m_mouseState.lY;
-
-	// Ensure the mouse location doesn't exceed the screen width or height.
-	if (m_mouseX < 0) { m_mouseX = 0; }
-	if (m_mouseY < 0) { m_mouseY = 0; }
-
-	if (m_mouseX > m_screenWidth) { m_mouseX = m_screenWidth; }
-	if (m_mouseY > m_screenHeight) { m_mouseY = m_screenHeight; }
-
-	return;
+	if (!event) return;
+	
+	m_mouseX = event->x();
+	m_mouseY = event->y();
 }
 
-bool InputManager::IsEscapePressed()
-{
-	// Do a bitwise and on the keyboard state to check if the escape key is currently being pressed.
-	if (m_keyboardState[DIK_ESCAPE] & 0x80)
-	{
-		return true;
-	}
-
-	return false;
-}
-
-bool InputManager::IsLeftArrowPressed()
-{
-	if (m_keyboardState[DIK_A] & 0x80)
-	{
-		return true;
-	}
-
-	return false;
-}
-
-bool InputManager::IsRightArrowPressed()
-{
-	if (m_keyboardState[DIK_D] & 0x80)
-	{
-		return true;
-	}
-
-	return false;
-}
-
-bool InputManager::IsUpArrowPressed()
-{
-	if (m_keyboardState[DIK_W] & 0x80)
-	{
-		return true;
-	}
-
-	return false;
-}
-
-bool InputManager::IsDownArrowPressed()
-{
-	if (m_keyboardState[DIK_S] & 0x80)
-	{
-		return true;
-	}
-
-	return false;
-}
-
-bool InputManager::IsCtrlPressed()
-{
-	if (m_keyboardState[DIK_LCONTROL] & 0x80)
-	{
-		return true;
-	}
-
-	return false;
-}
-
-void InputManager::GetMouseLocation(int& mouseX, int& mouseY)
+void InputManager::GetMouseLocation(int& mouseX, int& mouseY) const
 {
 	mouseX = m_mouseX;
 	mouseY = m_mouseY;
-	return;
 }
 
-bool InputManager::IsMousePressed()
+bool InputManager::IsEscapePressed() const
 {
-	// Check the left mouse button state.
-	if (m_mouseState.rgbButtons[0] & 0x80)
-	{
-		return true;
-	}
-
-	return false;
+	return m_keys.value(Qt::Key_Escape, false);
 }
 
-bool InputManager::IsRightMousePressed()
+bool InputManager::IsLeftArrowPressed() const
 {
-	// Check the right mouse button state.
-	if (m_mouseState.rgbButtons[1] & 0x80)
-	{
-		return true;
-	}
+	return m_keys.value(Qt::Key_Left, false);
+}
 
-	return false;
+bool InputManager::IsRightArrowPressed() const
+{
+	return m_keys.value(Qt::Key_Right, false);
+}
+
+bool InputManager::IsUpArrowPressed() const
+{
+	return m_keys.value(Qt::Key_Up, false);
+}
+
+bool InputManager::IsDownArrowPressed() const
+{
+	return m_keys.value(Qt::Key_Down, false);
+}
+
+bool InputManager::IsCtrlPressed() const
+{
+	return m_keys.value(Qt::Key_Control, false);
+}
+
+bool InputManager::IsMousePressed() const
+{
+	return m_mouseButtons.value(Qt::LeftButton, false);
+}
+
+bool InputManager::IsRightMousePressed() const
+{
+	return m_mouseButtons.value(Qt::RightButton, false);
 }

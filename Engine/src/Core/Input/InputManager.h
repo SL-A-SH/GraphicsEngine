@@ -1,49 +1,48 @@
 #ifndef _INPUTMANAGER_H_
 #define _INPUTMANAGER_H_
 
-#define DIRECTINPUT_VERSION 0x0800
+#include <QObject>
+#include <QKeyEvent>
+#include <QMouseEvent>
+#include <QPoint>
+#include <QMap>
 
-#pragma comment(lib, "dinput8.lib")
-#pragma comment(lib, "dxguid.lib")
-
-#include <dinput.h>
-
-class InputManager
+class InputManager : public QObject
 {
+	Q_OBJECT
+
 public:
 	InputManager();
-	InputManager(const InputManager&);
 	~InputManager();
 
-	bool Initialize(HINSTANCE, HWND, int, int);
+	bool Initialize(int screenWidth, int screenHeight);
 	void Shutdown();
 	bool Frame();
 
-	bool IsEscapePressed();
-	bool IsLeftArrowPressed();
-	bool IsRightArrowPressed();
-	bool IsUpArrowPressed();
-	bool IsDownArrowPressed();
-	bool IsCtrlPressed();
+	void HandleKeyEvent(QKeyEvent* event, bool isPressed);
+	void HandleMouseEvent(QMouseEvent* event);
+	void HandleMouseMoveEvent(QMouseEvent* event);
 
-	void GetMouseLocation(int&, int&);
-	bool IsMousePressed();
-	bool IsRightMousePressed();
+	bool IsEscapePressed() const;
+	bool IsLeftArrowPressed() const;
+	bool IsRightArrowPressed() const;
+	bool IsUpArrowPressed() const;
+	bool IsDownArrowPressed() const;
+	bool IsCtrlPressed() const;
+	bool IsMousePressed() const;
+	bool IsRightMousePressed() const;
+	void GetMouseLocation(int& mouseX, int& mouseY) const;
 
 private:
-	bool ReadKeyboard();
-	bool ReadMouse();
 	void ProcessInput();
 
 private:
-	IDirectInput8* m_directInput;
-	IDirectInputDevice8* m_keyboard;
-	IDirectInputDevice8* m_mouse;
-
-	unsigned char m_keyboardState[256];
-	DIMOUSESTATE m_mouseState;
-
-	int m_screenWidth, m_screenHeight, m_mouseX, m_mouseY;
+	QMap<int, bool> m_keys;
+	QMap<Qt::MouseButton, bool> m_mouseButtons;
+	int m_mouseX;
+	int m_mouseY;
+	int m_screenWidth;
+	int m_screenHeight;
 };
 
 #endif

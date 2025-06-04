@@ -25,6 +25,7 @@ public:
 
     bool Initialize(int, int, bool, HWND, bool, float, float);
     void Shutdown();
+    bool Resize(int width, int height);
 
     void BeginScene(float, float, float, float);
     void EndScene();
@@ -63,13 +64,13 @@ private:
     ID3D11DepthStencilView* m_depthStencilView;
     ID3D11RasterizerState* m_rasterState;
     ID3D11RasterizerState* m_rasterStateNoCulling;
+    ID3D11DepthStencilState* m_depthDisabledStencilState;
+    ID3D11BlendState* m_alphaEnableBlendingState;
+    ID3D11BlendState* m_alphaDisableBlendingState;
     XMMATRIX m_projectionMatrix;
     XMMATRIX m_worldMatrix;
     XMMATRIX m_orthoMatrix;
     D3D11_VIEWPORT m_viewport;
-    ID3D11DepthStencilState* m_depthDisabledStencilState;
-    ID3D11BlendState* m_alphaEnableBlendingState;
-    ID3D11BlendState* m_alphaDisableBlendingState;
 };
 
 #endif
