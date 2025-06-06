@@ -17,7 +17,7 @@ Text::~Text()
 {
 }
 
-bool Text::Initialize(ID3D11Device * device, ID3D11DeviceContext * deviceContext, int screenWidth, int screenHeight, int maxLength, Font * Font, char* text,
+bool Text::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceContext, int screenWidth, int screenHeight, int maxLength, Font* Font, char* text,
     int positionX, int positionY, float red, float green, float blue)
 {
     bool result;

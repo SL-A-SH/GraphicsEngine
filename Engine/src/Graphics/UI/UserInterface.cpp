@@ -5,7 +5,7 @@ UserInterface::UserInterface()
     m_Font = 0;
     m_FpsString = 0;
     m_RenderCountString = 0;
-    m_Cursor = 0;
+    m_InputStateString = 0;
     m_previousFps = -1;
     m_previousRenderCount = -1;
 }
@@ -23,65 +23,65 @@ bool UserInterface::Initialize(D3D11Device* Direct3D, int screenHeight, int scre
     bool result;
     char fpsString[32];
     char renderString[32];
-    char spriteFilename[128];
+    char inputString[128];
 
-    // Create and initialize the font object.
+    // Create the font object.
     m_Font = new Font;
     if (!m_Font)
     {
         return false;
     }
 
+    // Initialize the font object with default font (choice 0)
     result = m_Font->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), 0);
     if (!result)
     {
         return false;
     }
 
-    // Set the initial fps and fps string.
-    m_previousFps = -1;
     strcpy_s(fpsString, "Fps: 0");
 
-    // Create and initialize the text object for the fps string.
+    // Create the text object for the fps string.
     m_FpsString = new Text;
     if (!m_FpsString)
     {
         return false;
     }
 
-    result = m_FpsString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 32, m_Font, fpsString, 10, 10, 1.0f, 1.0f, 1.0f);
+    // Initialize the fps text string.
+    result = m_FpsString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 16, m_Font, fpsString, 10, 10, 1.0f, 1.0f, 1.0f);
     if (!result)
     {
         return false;
     }
 
-    // Set the initial render count string.
     strcpy_s(renderString, "Render Count: 0");
 
-    // Create and initialize the text object for the render count string.
+    // Create the text object for the render count string.
     m_RenderCountString = new Text;
     if (!m_RenderCountString)
     {
         return false;
     }
 
-    result = m_RenderCountString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 32, m_Font, renderString, 10, 50, 1.0f, 1.0f, 1.0f);
+    // Initialize the render count text string.
+    result = m_RenderCountString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 16, m_Font, renderString, 10, 50, 1.0f, 1.0f, 1.0f);
     if (!result)
     {
         return false;
     }
 
-    // Set the file name of the bitmap file.
-    strcpy_s(spriteFilename, "../Engine/assets/sprites/ui/cursor_data.txt");
+    // Initialize the input state text string
+    strcpy_s(inputString, "Input: RMouse[ ] W[ ] A[ ] S[ ] D[ ] F11[ ]");
 
-    // Create and initialize the bitmap object.
-    m_Cursor = new Sprite;
-    if (!m_Cursor)
+    // Create the text object for input state
+    m_InputStateString = new Text;
+    if (!m_InputStateString)
     {
         return false;
     }
 
-    result = m_Cursor->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, spriteFilename, 0, 0);
+    result = m_InputStateString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 64, m_Font, inputString, 10, 90, 1.0f, 1.0f, 1.0f);
     if (!result)
     {
         return false;
@@ -92,15 +92,14 @@ bool UserInterface::Initialize(D3D11Device* Direct3D, int screenHeight, int scre
 
 void UserInterface::Shutdown()
 {
-    // Release the cursor sprite object.
-    if (m_Cursor)
+    // Release the text objects.
+    if (m_InputStateString)
     {
-        m_Cursor->Shutdown();
-        delete m_Cursor;
-        m_Cursor = 0;
+        m_InputStateString->Shutdown();
+        delete m_InputStateString;
+        m_InputStateString = 0;
     }
 
-    // Release the text objects.
     if (m_RenderCountString)
     {
         m_RenderCountString->Shutdown();
@@ -178,15 +177,11 @@ bool UserInterface::Render(D3D11Device* Direct3D, ShaderManager* ShaderManager, 
         return false;
     }
 
-    // Put the cursor bitmap vertex and index buffers on the graphics pipeline to prepare them for drawing.
-    result = m_Cursor->Render(Direct3D->GetDeviceContext());
-    if (!result)
-    {
-        return false;
-    }
+    // Render the input state text string
+    m_InputStateString->Render(Direct3D->GetDeviceContext());
 
-    // Render the cursor bitmap with the texture shader.
-    result = ShaderManager->RenderTextureShader(Direct3D->GetDeviceContext(), m_Cursor->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix, m_Cursor->GetTexture());
+    result = ShaderManager->RenderFontShader(Direct3D->GetDeviceContext(), m_InputStateString->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix,
+        m_Font->GetTexture(), m_InputStateString->GetPixelColor());
     if (!result)
     {
         return false;
@@ -287,11 +282,26 @@ bool UserInterface::UpdateRenderCountString(ID3D11DeviceContext* deviceContext, 
     return true;
 }
 
-void UserInterface::UpdateCursorPosition(int mouseX, int mouseY, float frameTime)
+bool UserInterface::UpdateInputState(ID3D11DeviceContext* deviceContext, bool rightMousePressed, bool wPressed, bool aPressed, bool sPressed, bool dPressed, bool f11Pressed)
 {
-    // Update the cursor position with the mouse coordinates
-    m_Cursor->SetRenderLocation(mouseX, mouseY);
+    char inputString[128];
+    bool result;
 
-    // Update the cursor sprite object using the frame time
-    m_Cursor->Update(frameTime);
+    // Create the input state string
+    sprintf_s(inputString, "Input: RMouse[%c] W[%c] A[%c] S[%c] D[%c] F11[%c]",
+        rightMousePressed ? 'X' : ' ',
+        wPressed ? 'X' : ' ',
+        aPressed ? 'X' : ' ',
+        sPressed ? 'X' : ' ',
+        dPressed ? 'X' : ' ',
+        f11Pressed ? 'X' : ' ');
+
+    // Update the sentence vertex buffer with the new string information.
+    result = m_InputStateString->UpdateText(deviceContext, m_Font, inputString, 10, 90, 1.0f, 1.0f, 1.0f);
+    if (!result)
+    {
+        return false;
+    }
+
+    return true;
 } 

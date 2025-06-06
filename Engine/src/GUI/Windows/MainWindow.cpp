@@ -81,9 +81,9 @@ void MainWindow::CreateToolbars()
 void MainWindow::CreateDockWidgets()
 {
     // Create a dock widget for the scene hierarchy
-    QDockWidget* sceneDock = new QDockWidget("Scene", this);
+    /*QDockWidget* sceneDock = new QDockWidget("Scene", this);
     sceneDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    addDockWidget(Qt::LeftDockWidgetArea, sceneDock);
+    addDockWidget(Qt::LeftDockWidgetArea, sceneDock);*/
     
     // Create a dock widget for properties
     QDockWidget* propertiesDock = new QDockWidget("Properties", this);

@@ -31,6 +31,11 @@ public:
 	bool IsCtrlPressed() const;
 	bool IsMousePressed() const;
 	bool IsRightMousePressed() const;
+	bool IsWPressed() const;
+	bool IsAPressed() const;
+	bool IsSPressed() const;
+	bool IsDPressed() const;
+	bool IsF11Pressed() const;
 	void GetMouseLocation(int& mouseX, int& mouseY) const;
 
 private:

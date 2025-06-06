@@ -178,14 +178,14 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	m_UserInterface = new UserInterface;
 	if (!m_UserInterface)
 	{
-		LOG_ERROR("Could not create user interface");
+		LOG_ERROR("Could not create User Interface");
 		return false;
 	}
 
 	result = m_UserInterface->Initialize(m_Direct3D, screenHeight, screenWidth);
 	if (!result)
 	{
-		LOG_ERROR("Could not initialize user interface");
+		LOG_ERROR("Could not initialize User Interface");
 		return false;
 	}
 	LOG("User interface initialized successfully");
@@ -287,7 +287,6 @@ void Application::Shutdown()
 
 bool Application::Frame(InputManager* Input)
 {
-	LOG("Application::Frame called");
 	float frameTime, rotationY, rotationX;
 	float positionX, positionY, positionZ;
 	int mouseX, mouseY;
@@ -295,49 +294,49 @@ bool Application::Frame(InputManager* Input)
 	bool result;
 
 	// Update the system stats.
-	LOG("Updating timer");
 	m_Timer->Frame();
 
 	// Get the current FPS
-	LOG("Getting FPS");
 	m_Fps = m_Timer->GetFps();
 
 	// Check if the user pressed escape and wants to exit the application.
-	LOG("Checking escape key");
 	if (Input->IsEscapePressed())
 	{
 		LOG("Escape key pressed, exiting application");
 		return false;
 	}
 
-	// Get the location of the mouse from the input object,
-	LOG("Getting mouse location");
+	// Check for F11 fullscreen toggle
+	static bool wasF11Pressed = false;
+	if (Input->IsF11Pressed() && !wasF11Pressed)
+	{
+		wasF11Pressed = true;
+		// Toggle fullscreen
+		m_Direct3D->ToggleFullscreen();
+	}
+	else if (!Input->IsF11Pressed())
+	{
+		wasF11Pressed = false;
+	}
+
+	// Get the location of the mouse from the input object
 	Input->GetMouseLocation(mouseX, mouseY);
 
 	// Get the current frame time.
-	LOG("Getting frame time");
 	frameTime = m_Timer->GetTime();
 
-	// Update the cursor position
-	LOG("Updating cursor position");
-	m_UserInterface->UpdateCursorPosition(mouseX, mouseY, frameTime);
-
 	// Check if the mouse has been pressed.
-	LOG("Checking mouse state");
 	mouseDown = Input->IsMousePressed();
 
 	// Set the frame time for calculating the updated position.
-	LOG("Setting frame time for position");
 	m_Position->SetFrameTime(frameTime);
 
 	// Get current rotations and position
-	LOG("Getting current rotations and position");
 	m_Position->GetRotation(rotationY);
 	m_Position->GetRotationX(rotationX);
 	m_Position->GetPosition(positionX, positionY, positionZ);
 
 	// Handle camera controls based on right mouse button state
-	LOG("Handling camera controls");
 	if (Input->IsRightMousePressed())
 	{
 		// When right mouse is pressed, handle rotation based on mouse movement
@@ -373,68 +372,74 @@ bool Application::Frame(InputManager* Input)
 	else if (Input->IsCtrlPressed())
 	{
 		// When left control is pressed, only handle movement in y direction
-		keyDown = Input->IsUpArrowPressed();
+		keyDown = Input->IsUpArrowPressed() || Input->IsWPressed();
 		m_Position->MoveUp(keyDown);
 
-		keyDown = Input->IsDownArrowPressed();
+		keyDown = Input->IsDownArrowPressed() || Input->IsSPressed();
 		m_Position->MoveDown(keyDown);
 	}
 	else
 	{
-		// When right mouse is not pressed, only handle movement
-		keyDown = Input->IsLeftArrowPressed();
+		// When right mouse is not pressed, handle movement with WASD or arrow keys
+		keyDown = Input->IsLeftArrowPressed() || Input->IsAPressed();
 		m_Position->MoveLeft(keyDown);
 
-		keyDown = Input->IsRightArrowPressed();
+		keyDown = Input->IsRightArrowPressed() || Input->IsDPressed();
 		m_Position->MoveRight(keyDown);
 
-		keyDown = Input->IsUpArrowPressed();
+		keyDown = Input->IsUpArrowPressed() || Input->IsWPressed();
 		m_Position->MoveForward(keyDown);
 
-		keyDown = Input->IsDownArrowPressed();
+		keyDown = Input->IsDownArrowPressed() || Input->IsSPressed();
 		m_Position->MoveBackward(keyDown);
 	}
 
 	// Get the updated position and rotation
-	LOG("Getting updated position and rotation");
 	m_Position->GetRotation(rotationY);
 	m_Position->GetRotationX(rotationX);
 	m_Position->GetPosition(positionX, positionY, positionZ);
 
 	// Set the position and rotation of the camera.
-	LOG("Setting camera position and rotation");
 	m_Camera->SetPosition(positionX, positionY, positionZ);
 	m_Camera->SetRotation(rotationX, rotationY, 0.0f);
 	m_Camera->Render();
 
 	// Render the graphics scene.
-	LOG("Starting render");
 	result = Render();
 	if (!result)
 	{
 		LOG_ERROR("Render failed");
 		return false;
 	}
-	LOG("Render completed successfully");
 
 	// Update the user interface.
-	LOG("Updating user interface");
 	result = m_UserInterface->Frame(m_Direct3D->GetDeviceContext(), m_Fps, m_RenderCount);
 	if (!result)
 	{
 		LOG_ERROR("User interface update failed");
 		return false;
 	}
-	LOG("User interface updated successfully");
 
-	LOG("Frame completed successfully");
+	// Update input state display
+	result = m_UserInterface->UpdateInputState(m_Direct3D->GetDeviceContext(),
+		Input->IsRightMousePressed(),
+		Input->IsWPressed(),
+		Input->IsAPressed(),
+		Input->IsSPressed(),
+		Input->IsDPressed(),
+		Input->IsF11Pressed());
+	if (!result)
+	{
+		LOG_ERROR("Input state update failed");
+		return false;
+	}
+
 	return true;
 }
 
 
 bool Application::Render()
 {
-	LOG("Application::Render called");
 	XMMATRIX worldMatrix, viewMatrix, projectionMatrix, orthoMatrix;
 	float positionX, positionY, positionZ, radius;
 	int modelCount, i;
@@ -455,7 +460,6 @@ bool Application::Render()
 	m_Direct3D->TurnZBufferOff();
 
 	// Render the zone (skybox)
-	LOG("Rendering zone (skybox)");
 	result = m_Zone->Render(m_Direct3D, m_ShaderManager, m_Camera);
 	if (!result)
 	{
@@ -474,7 +478,6 @@ bool Application::Render()
 	m_Frustum->ConstructFrustum(viewMatrix, projectionMatrix, SCREEN_DEPTH);
 
 	// Render the floor
-	LOG("Rendering floor");
 	worldMatrix = XMMatrixTranslation(0.0f, -10.0f, 0.0f);
 	worldMatrix = XMMatrixMultiply(worldMatrix, XMMatrixScaling(500.0f, 1.0f, 500.0f));
 
@@ -496,7 +499,6 @@ bool Application::Render()
 	m_RenderCount = 0;
 
 	// Go through all the models and render them only if they can be seen by the camera view.
-	LOG("Rendering models");
 	for (i = 0; i < modelCount; i++)
 	{
 		// Get the position and color of the sphere model at this index.
@@ -547,7 +549,6 @@ bool Application::Render()
 	XMMATRIX viewMatrix2D = XMMatrixIdentity();
 
 	// Render the user interface.
-	LOG("Rendering user interface");
 	result = m_UserInterface->Render(m_Direct3D, m_ShaderManager, worldMatrix, viewMatrix2D, orthoMatrix);
 	if (!result)
 	{
@@ -557,7 +558,6 @@ bool Application::Render()
 
 	// Present the rendered scene to the screen.
 	m_Direct3D->EndScene();
-	LOG("Render completed successfully");
 
 	return true;
 }

@@ -7,7 +7,6 @@
 #include "../Shaders/ShaderManager.h"
 #include "../Rendering/Font.h"
 #include "../Resource/Text.h"
-#include "../Rendering/Sprite.h"
 
 using namespace DirectX;
 
@@ -22,7 +21,7 @@ public:
     void Shutdown();
     bool Frame(ID3D11DeviceContext* deviceContext, int fps, int renderCount);
     bool Render(D3D11Device* Direct3D, ShaderManager* ShaderManager, XMMATRIX worldMatrix, XMMATRIX viewMatrix, XMMATRIX orthoMatrix);
-    void UpdateCursorPosition(int mouseX, int mouseY, float frameTime);
+    bool UpdateInputState(ID3D11DeviceContext* deviceContext, bool rightMousePressed, bool wPressed, bool aPressed, bool sPressed, bool dPressed, bool f11Pressed);
 
 private:
     bool UpdateFpsString(ID3D11DeviceContext* deviceContext, int fps);
@@ -32,7 +31,7 @@ private:
     Font* m_Font;
     Text* m_FpsString;
     Text* m_RenderCountString;
-    Sprite* m_Cursor;
+    Text* m_InputStateString;
     int m_previousFps;
     int m_previousRenderCount;
 };

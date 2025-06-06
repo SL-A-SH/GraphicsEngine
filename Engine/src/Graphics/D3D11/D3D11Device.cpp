@@ -27,6 +27,10 @@ D3D11Device::~D3D11Device()
 
 bool D3D11Device::Initialize(int screenWidth, int screenHeight, bool vsync, HWND hwnd, bool fullscreen, float screenDepth, float screenNear)
 {
+	// Store the window handle
+	m_hwnd = hwnd;
+	m_fullscreen = fullscreen;
+
 	HRESULT result;
 	IDXGIFactory* factory;
 	IDXGIAdapter* adapter;
@@ -759,4 +763,22 @@ bool D3D11Device::Resize(int width, int height)
 	m_deviceContext->RSSetViewports(1, &m_viewport);
 
 	return true;
+}
+
+void D3D11Device::ToggleFullscreen()
+{
+	// Toggle the fullscreen state
+	m_fullscreen = !m_fullscreen;
+
+	// Get the current window size
+	RECT rect;
+	GetClientRect(m_hwnd, &rect);
+	int width = rect.right - rect.left;
+	int height = rect.bottom - rect.top;
+
+	// Resize the swap chain
+	m_swapChain->SetFullscreenState(m_fullscreen, nullptr);
+
+	// Resize the buffers
+	Resize(width, height);
 }

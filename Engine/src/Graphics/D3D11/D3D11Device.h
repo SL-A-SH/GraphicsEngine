@@ -13,6 +13,7 @@
 //////////////
 #include <d3d11.h>
 #include <directxmath.h>
+#include <dxgi.h>
 
 using namespace DirectX;
 
@@ -51,6 +52,8 @@ public:
     void TurnOnCulling();
     void TurnOffCulling();
 
+    void ToggleFullscreen();
+
 private:
     bool m_vsync_enabled;
     int m_videoCardMemory;
@@ -71,6 +74,8 @@ private:
     XMMATRIX m_worldMatrix;
     XMMATRIX m_orthoMatrix;
     D3D11_VIEWPORT m_viewport;
+    bool m_fullscreen;
+    HWND m_hwnd;
 };
 
 #endif

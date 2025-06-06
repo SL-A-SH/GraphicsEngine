@@ -21,8 +21,10 @@ DirectXViewport::DirectXViewport(QWidget* parent)
     setAttribute(Qt::WA_OpaquePaintEvent);
     setAttribute(Qt::WA_ShowWithoutActivating);
 
-    // Enable mouse tracking for continuous mouse move events
+    // Enable focus and input handling
+    setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true);
+    setFocus();
 
     // Create system manager
     LOG("Creating SystemManager");
@@ -96,15 +98,21 @@ void DirectXViewport::showEvent(QShowEvent* event)
             return;
         }
 
-        // Create update timer with a more appropriate interval (60 FPS)
+        // Get the monitor's refresh rate
+        DEVMODE devMode;
+        devMode.dmSize = sizeof(DEVMODE);
+        EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devMode);
+        int refreshRate = devMode.dmDisplayFrequency;
+        
+        // Create update timer with the monitor's refresh rate
         LOG("Creating update timer");
         m_UpdateTimer = new QTimer(this);
         connect(m_UpdateTimer, &QTimer::timeout, this, &DirectXViewport::updateFrame);
-        m_UpdateTimer->start(16); // ~60 FPS
+        m_UpdateTimer->start(1000 / refreshRate); // Use monitor's refresh rate
 
         m_Initialized = true;
         std::stringstream ss;
-        ss << "DirectX viewport initialized successfully with size: " << width << "x" << height;
+        ss << "DirectX viewport initialized successfully with size: " << width << "x" << height << " and refresh rate: " << refreshRate << "Hz";
         LOG(ss.str());
     }
 }
@@ -158,6 +166,7 @@ bool DirectXViewport::nativeEvent(const QByteArray& eventType, void* message, qi
 
 void DirectXViewport::keyPressEvent(QKeyEvent* event)
 {
+    LOG("DirectXViewport::keyPressEvent called");
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleKeyEvent(event, true);
@@ -167,6 +176,7 @@ void DirectXViewport::keyPressEvent(QKeyEvent* event)
 
 void DirectXViewport::keyReleaseEvent(QKeyEvent* event)
 {
+    LOG("DirectXViewport::keyReleaseEvent called");
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleKeyEvent(event, false);
@@ -176,6 +186,7 @@ void DirectXViewport::keyReleaseEvent(QKeyEvent* event)
 
 void DirectXViewport::mousePressEvent(QMouseEvent* event)
 {
+    LOG("DirectXViewport::mousePressEvent called");
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleMouseEvent(event);
@@ -185,6 +196,7 @@ void DirectXViewport::mousePressEvent(QMouseEvent* event)
 
 void DirectXViewport::mouseReleaseEvent(QMouseEvent* event)
 {
+    LOG("DirectXViewport::mouseReleaseEvent called");
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleMouseEvent(event);
@@ -194,6 +206,7 @@ void DirectXViewport::mouseReleaseEvent(QMouseEvent* event)
 
 void DirectXViewport::mouseMoveEvent(QMouseEvent* event)
 {
+    LOG("DirectXViewport::mouseMoveEvent called");
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleMouseMoveEvent(event);
@@ -205,8 +218,19 @@ void DirectXViewport::updateFrame()
 {
     if (m_Initialized && m_SystemManager)
     {
-        LOG("DirectXViewport::updateFrame called");
         m_SystemManager->Frame();
         // Don't call update() here as it triggers Qt's paint system
     }
+}
+
+void DirectXViewport::focusInEvent(QFocusEvent* event)
+{
+    LOG("DirectXViewport::focusInEvent called");
+    QWidget::focusInEvent(event);
+}
+
+void DirectXViewport::focusOutEvent(QFocusEvent* event)
+{
+    LOG("DirectXViewport::focusOutEvent called");
+    QWidget::focusOutEvent(event);
 } 
