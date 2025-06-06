@@ -26,6 +26,10 @@ DirectXViewport::DirectXViewport(QWidget* parent)
     setMouseTracking(true);
     setFocus();
 
+    // Ensure the widget can receive mouse events
+    setAttribute(Qt::WA_AcceptTouchEvents, false);
+    setAttribute(Qt::WA_TransparentForMouseEvents, false);
+
     // Create system manager
     LOG("Creating SystemManager");
     m_SystemManager = new SystemManager();
@@ -186,31 +190,51 @@ void DirectXViewport::keyReleaseEvent(QKeyEvent* event)
 
 void DirectXViewport::mousePressEvent(QMouseEvent* event)
 {
-    LOG("DirectXViewport::mousePressEvent called");
+    LOG("DirectXViewport::mousePressEvent called - Button: " + QString::number(event->button()).toStdString());
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleMouseEvent(event);
+        
+        // Capture mouse on right click for camera rotation
+        if (event->button() == Qt::RightButton)
+        {
+            LOG("Capturing mouse for camera rotation");
+            setMouseTracking(true);
+            grabMouse();
+        }
     }
+    event->accept();  // Explicitly accept the event
     QWidget::mousePressEvent(event);
 }
 
 void DirectXViewport::mouseReleaseEvent(QMouseEvent* event)
 {
-    LOG("DirectXViewport::mouseReleaseEvent called");
+    LOG("DirectXViewport::mouseReleaseEvent called - Button: " + QString::number(event->button()).toStdString());
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleMouseEvent(event);
+        
+        // Release mouse capture when right button is released
+        if (event->button() == Qt::RightButton)
+        {
+            LOG("Releasing mouse capture");
+            releaseMouse();
+        }
     }
+    event->accept();  // Explicitly accept the event
     QWidget::mouseReleaseEvent(event);
 }
 
 void DirectXViewport::mouseMoveEvent(QMouseEvent* event)
 {
-    LOG("DirectXViewport::mouseMoveEvent called");
+    LOG("DirectXViewport::mouseMoveEvent called - Position: " + 
+        QString::number(event->pos().x()).toStdString() + "," + 
+        QString::number(event->pos().y()).toStdString());
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleMouseMoveEvent(event);
     }
+    event->accept();  // Explicitly accept the event
     QWidget::mouseMoveEvent(event);
 }
 

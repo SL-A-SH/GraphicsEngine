@@ -13,7 +13,7 @@ MainWindow::MainWindow(QWidget* parent)
     // Set up the main window
     setWindowTitle("DirectX11 Engine");
     resize(1280, 720);
-
+    
     // Create the central widget and layout
     QWidget* centralWidget = new QWidget(this);
     m_MainLayout = new QVBoxLayout(centralWidget);
@@ -30,6 +30,12 @@ MainWindow::MainWindow(QWidget* parent)
     CreateMenus();
     CreateToolbars();
     CreateDockWidgets();
+
+    // Install event filter to handle F11
+    installEventFilter(this);
+
+    // Set initial window state to maximized
+    showMaximized();
 
     LOG("Main window initialized successfully");
 }
@@ -80,13 +86,67 @@ void MainWindow::CreateToolbars()
 
 void MainWindow::CreateDockWidgets()
 {
-    // Create a dock widget for the scene hierarchy
-    /*QDockWidget* sceneDock = new QDockWidget("Scene", this);
-    sceneDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    addDockWidget(Qt::LeftDockWidgetArea, sceneDock);*/
-    
     // Create a dock widget for properties
     QDockWidget* propertiesDock = new QDockWidget("Properties", this);
     propertiesDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
     addDockWidget(Qt::RightDockWidgetArea, propertiesDock);
+    
+    // Set the initial size of the dock widget to 20% of the window width
+    propertiesDock->setMinimumWidth(width() * 0.2);
+    propertiesDock->setMaximumWidth(width() * 0.3);
+}
+
+bool MainWindow::eventFilter(QObject* watched, QEvent* event)
+{
+    if (event->type() == QEvent::KeyPress)
+    {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        if (keyEvent->key() == Qt::Key_F11)
+        {
+            ToggleFullscreen();
+            return true;
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
+}
+
+void MainWindow::ToggleFullscreen()
+{
+    LOG("MainWindow::ToggleFullscreen called");
+    if (isFullScreen())
+    {
+        LOG("Exiting fullscreen mode");
+        showMaximized();  // Return to maximized state instead of normal
+        // Restore UI elements
+        menuBar()->show();
+        for (auto toolbar : findChildren<QToolBar*>())
+        {
+            toolbar->show();
+        }
+        for (auto dock : findChildren<QDockWidget*>())
+        {
+            dock->show();
+        }
+    }
+    else
+    {
+        LOG("Entering fullscreen mode");
+        // Hide UI elements before going fullscreen
+        menuBar()->hide();
+        for (auto toolbar : findChildren<QToolBar*>())
+        {
+            toolbar->hide();
+        }
+        for (auto dock : findChildren<QDockWidget*>())
+        {
+            dock->hide();
+        }
+        showFullScreen();
+    }
+    
+    // Ensure viewport gets focus
+    m_ViewportWidget->setFocus();
+    
+    // Force a resize of the viewport
+    m_ViewportWidget->resize(size());
 } 

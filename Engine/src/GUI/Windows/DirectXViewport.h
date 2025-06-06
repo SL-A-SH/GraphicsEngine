@@ -11,6 +11,7 @@ class DirectXViewport : public QWidget
 public:
     DirectXViewport(QWidget* parent = nullptr);
     ~DirectXViewport();
+    void ToggleFullscreen();
 
 protected:
     void paintEvent(QPaintEvent* event) override;
