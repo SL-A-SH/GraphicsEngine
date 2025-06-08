@@ -67,6 +67,12 @@ void MainWindow::CreateMenus()
     
     // View menu
     QMenu* viewMenu = menuBar()->addMenu("View");
+
+    QAction* showFPSAction = new QAction("Show FPS", this);
+    showFPSAction->setCheckable(true);  // Make it checkable
+    showFPSAction->setChecked(false);   // Initially unchecked
+    connect(showFPSAction, &QAction::toggled, this, &MainWindow::ToggleFPS);
+    viewMenu->addAction(showFPSAction);
     
     // Help menu
     QMenu* helpMenu = menuBar()->addMenu("Help");
@@ -168,4 +174,14 @@ void MainWindow::ToggleFullscreen()
     
     // Force a resize of the viewport
     m_ViewportWidget->resize(size());
+}
+
+void MainWindow::ToggleFPS(bool show)
+{
+    if (m_ViewportWidget && m_ViewportWidget->GetSystemManager() && 
+        m_ViewportWidget->GetSystemManager()->GetApplication() &&
+        m_ViewportWidget->GetSystemManager()->GetApplication()->GetUserInterface())
+    {
+        m_ViewportWidget->GetSystemManager()->GetApplication()->GetUserInterface()->SetShowFps(show);
+    }
 } 

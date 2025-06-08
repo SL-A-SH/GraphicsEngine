@@ -36,4 +36,7 @@ private:
     SystemManager* m_SystemManager;
     QTimer* m_UpdateTimer;
     bool m_Initialized;
+
+public:
+    SystemManager* GetSystemManager() const { return m_SystemManager; }
 }; 

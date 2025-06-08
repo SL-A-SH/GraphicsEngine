@@ -194,9 +194,9 @@ bool Text::UpdateText(ID3D11DeviceContext* deviceContext, Font* Font, char* text
     // Initialize vertex array to zeros at first.
     memset(vertices, 0, (sizeof(VertexType) * m_vertexCount));
 
-    // Calculate the X and Y pixel position on the screen to start drawing to.
-    drawX = (float)(((m_screenWidth / 2) * -1) + positionX);
-    drawY = (float)((m_screenHeight / 2) - positionY);
+    // (0,0) is center
+    drawX = (float)positionX;
+    drawY = (float)positionY;
 
     // Use the font class to build the vertex array from the sentence text and sentence draw location.
     Font->BuildVertexArray((void*)vertices, text, drawX, drawY);

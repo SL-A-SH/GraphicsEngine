@@ -4,7 +4,6 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include <windows.h>
-
 #include "../Input/InputManager.h"
 #include "../Application/Application.h"
 
@@ -21,8 +20,6 @@ public:
 	bool Frame();
 	LRESULT CALLBACK MessageHandler(HWND, UINT, WPARAM, LPARAM);
 	void SetWindowHandle(HWND);
-	Application* GetApplication() { return m_Application; }
-	InputManager* GetInputManager() { return m_Input; }
 
 private:
 	void InitializeWindows(int&, int&);
@@ -35,18 +32,15 @@ private:
 
 	InputManager* m_Input;
 	Application* m_Application;
+
+public:
+	Application* GetApplication() { return m_Application; }
+	InputManager* GetInputManager() { return m_Input; }
+
 };
 
-/////////////////////////
-// FUNCTION PROTOTYPES //
-/////////////////////////
-static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-
-
-/////////////
-// GLOBALS //
-/////////////
 static SystemManager* ApplicationHandle = 0;
 
+static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
 #endif

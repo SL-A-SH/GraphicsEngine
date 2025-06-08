@@ -64,6 +64,9 @@ private:
 	int m_RenderCount;
 	XMMATRIX m_projectionMatrix;
 	XMMATRIX m_orthoMatrix;
+
+public:
+	UserInterface* GetUserInterface() const { return m_UserInterface; }
 };
 
 #endif

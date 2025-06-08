@@ -420,19 +420,6 @@ bool Application::Frame(InputManager* Input)
 		return false;
 	}
 
-	// Update input state display
-	result = m_UserInterface->UpdateInputState(m_Direct3D->GetDeviceContext(),
-		Input->IsRightMousePressed(),
-		Input->IsWPressed(),
-		Input->IsAPressed(),
-		Input->IsSPressed(),
-		Input->IsDPressed(),
-		Input->IsF11Pressed());
-	if (!result)
-	{
-		LOG_ERROR("Input state update failed");
-		return false;
-	}
 
 	return true;
 }

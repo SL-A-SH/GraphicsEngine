@@ -2,12 +2,15 @@
 
 UserInterface::UserInterface()
 {
+    m_screenWidth = 0;
+    m_screenHeight = 0;
+    m_QTOffset = 100;
     m_Font = 0;
     m_FpsString = 0;
     m_RenderCountString = 0;
-    m_InputStateString = 0;
     m_previousFps = -1;
     m_previousRenderCount = -1;
+    m_ShowFps = false;
 }
 
 UserInterface::UserInterface(const UserInterface& other)
@@ -22,8 +25,13 @@ bool UserInterface::Initialize(D3D11Device* Direct3D, int screenHeight, int scre
 {
     bool result;
     char fpsString[32];
+    int fpsStringX, fpsStringY;
     char renderString[32];
-    char inputString[128];
+    int renderStringX, renderStringY;
+
+    // Store screen dimensions
+    m_screenWidth = screenWidth;
+    m_screenHeight = screenHeight;
 
     // Create the font object.
     m_Font = new Font;
@@ -48,8 +56,10 @@ bool UserInterface::Initialize(D3D11Device* Direct3D, int screenHeight, int scre
         return false;
     }
 
-    // Initialize the fps text string.
-    result = m_FpsString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 16, m_Font, fpsString, 10, 10, 1.0f, 1.0f, 1.0f);
+    fpsStringX = m_screenWidth;
+    fpsStringY = m_screenHeight - m_QTOffset;
+    // Initialize the fps text string with fixed position (20, 20)
+    result = m_FpsString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 16, m_Font, fpsString, fpsStringX, fpsStringY, 1.0f, 1.0f, 1.0f);
     if (!result)
     {
         return false;
@@ -64,42 +74,21 @@ bool UserInterface::Initialize(D3D11Device* Direct3D, int screenHeight, int scre
         return false;
     }
 
+    renderStringX = 0;
+    renderStringY = m_screenHeight - m_QTOffset;
     // Initialize the render count text string.
-    result = m_RenderCountString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 16, m_Font, renderString, 10, 50, 1.0f, 1.0f, 1.0f);
+    result = m_RenderCountString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 16, m_Font, renderString, renderStringX, renderStringY, 1.0f, 1.0f, 1.0f);
     if (!result)
     {
         return false;
     }
 
-    // Initialize the input state text string
-    strcpy_s(inputString, "Input: RMouse[ ] W[ ] A[ ] S[ ] D[ ] F11[ ]");
-
-    // Create the text object for input state
-    m_InputStateString = new Text;
-    if (!m_InputStateString)
-    {
-        return false;
-    }
-
-    result = m_InputStateString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 64, m_Font, inputString, 10, 90, 1.0f, 1.0f, 1.0f);
-    if (!result)
-    {
-        return false;
-    }
 
     return true;
 }
 
 void UserInterface::Shutdown()
 {
-    // Release the text objects.
-    if (m_InputStateString)
-    {
-        m_InputStateString->Shutdown();
-        delete m_InputStateString;
-        m_InputStateString = 0;
-    }
-
     if (m_RenderCountString)
     {
         m_RenderCountString->Shutdown();
@@ -157,14 +146,18 @@ bool UserInterface::Render(D3D11Device* Direct3D, ShaderManager* ShaderManager, 
     // Reset the world matrix to identity for 2D rendering
     worldMatrix = XMMatrixIdentity();
 
-    // Render the fps text string using the font shader.
-    m_FpsString->Render(Direct3D->GetDeviceContext());
-
-    result = ShaderManager->RenderFontShader(Direct3D->GetDeviceContext(), m_FpsString->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix,
-        m_Font->GetTexture(), m_FpsString->GetPixelColor());
-    if (!result)
+    // Only render FPS if enabled
+    if (m_ShowFps)
     {
-        return false;
+        // Render the fps text string using the font shader.
+        m_FpsString->Render(Direct3D->GetDeviceContext());
+
+        result = ShaderManager->RenderFontShader(Direct3D->GetDeviceContext(), m_FpsString->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix,
+            m_Font->GetTexture(), m_FpsString->GetPixelColor());
+        if (!result)
+        {
+            return false;
+        }
     }
 
     // Render the render count text string using the font shader.
@@ -172,16 +165,6 @@ bool UserInterface::Render(D3D11Device* Direct3D, ShaderManager* ShaderManager, 
 
     result = ShaderManager->RenderFontShader(Direct3D->GetDeviceContext(), m_RenderCountString->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix,
         m_Font->GetTexture(), m_RenderCountString->GetPixelColor());
-    if (!result)
-    {
-        return false;
-    }
-
-    // Render the input state text string
-    m_InputStateString->Render(Direct3D->GetDeviceContext());
-
-    result = ShaderManager->RenderFontShader(Direct3D->GetDeviceContext(), m_InputStateString->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix,
-        m_Font->GetTexture(), m_InputStateString->GetPixelColor());
     if (!result)
     {
         return false;
@@ -198,8 +181,15 @@ bool UserInterface::Render(D3D11Device* Direct3D, ShaderManager* ShaderManager, 
 
 bool UserInterface::UpdateFpsString(ID3D11DeviceContext* deviceContext, int fps)
 {
+    // If FPS display is disabled, don't update
+    if (!m_ShowFps)
+    {
+        return true;
+    }
+
     char tempString[16];
     char finalString[16];
+    int fpsStringX, fpsStringY;
     float red, green, blue;
     bool result;
 
@@ -249,8 +239,10 @@ bool UserInterface::UpdateFpsString(ID3D11DeviceContext* deviceContext, int fps)
         blue = 0.0f;
     }
 
+    fpsStringX = m_screenWidth;
+    fpsStringY = m_screenHeight - m_QTOffset;
     // Update the sentence vertex buffer with the new string information.
-    result = m_FpsString->UpdateText(deviceContext, m_Font, finalString, 10, 10, red, green, blue);
+    result = m_FpsString->UpdateText(deviceContext, m_Font, finalString, fpsStringX, fpsStringY, red, green, blue);
     if (!result)
     {
         return false;
@@ -263,6 +255,7 @@ bool UserInterface::UpdateRenderCountString(ID3D11DeviceContext* deviceContext, 
 {
     char tempString[16];
     char finalString[32];
+    int renderStringX, renderStringY;
     bool result;
 
     // Convert the render count integer to string format.
@@ -272,8 +265,10 @@ bool UserInterface::UpdateRenderCountString(ID3D11DeviceContext* deviceContext, 
     strcpy_s(finalString, "Render Count: ");
     strcat_s(finalString, tempString);
 
+    renderStringX = 0;
+    renderStringY = m_screenHeight - m_QTOffset;
     // Update the sentence vertex buffer with the new string information.
-    result = m_RenderCountString->UpdateText(deviceContext, m_Font, finalString, 10, 50, 1.0f, 1.0f, 1.0f);
+    result = m_RenderCountString->UpdateText(deviceContext, m_Font, finalString, renderStringX, renderStringY, 1.0f, 1.0f, 1.0f);
     if (!result)
     {
         return false;
@@ -281,27 +276,3 @@ bool UserInterface::UpdateRenderCountString(ID3D11DeviceContext* deviceContext, 
 
     return true;
 }
-
-bool UserInterface::UpdateInputState(ID3D11DeviceContext* deviceContext, bool rightMousePressed, bool wPressed, bool aPressed, bool sPressed, bool dPressed, bool f11Pressed)
-{
-    char inputString[128];
-    bool result;
-
-    // Create the input state string
-    sprintf_s(inputString, "Input: RMouse[%c] W[%c] A[%c] S[%c] D[%c] F11[%c]",
-        rightMousePressed ? 'X' : ' ',
-        wPressed ? 'X' : ' ',
-        aPressed ? 'X' : ' ',
-        sPressed ? 'X' : ' ',
-        dPressed ? 'X' : ' ',
-        f11Pressed ? 'X' : ' ');
-
-    // Update the sentence vertex buffer with the new string information.
-    result = m_InputStateString->UpdateText(deviceContext, m_Font, inputString, 10, 90, 1.0f, 1.0f, 1.0f);
-    if (!result)
-    {
-        return false;
-    }
-
-    return true;
-} 

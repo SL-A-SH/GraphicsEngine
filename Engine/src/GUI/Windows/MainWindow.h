@@ -23,7 +23,9 @@ private:
     void CreateMenus();
     void CreateToolbars();
     void CreateDockWidgets();
+
     void ToggleFullscreen();
+    void ToggleFPS(bool show);
 
     // DirectX viewport widget
     DirectXViewport* m_ViewportWidget;
