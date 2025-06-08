@@ -38,9 +38,9 @@ bool InputManager::Frame()
 
 void InputManager::HandleKeyEvent(QKeyEvent* event, bool pressed)
 {
-	LOG("InputManager::HandleKeyEvent called");
+	/*LOG("InputManager::HandleKeyEvent called");*/
 	int key = event->key();
-	LOG("Key: " + std::to_string(key) + " Pressed: " + std::to_string(pressed));
+	/*LOG("Key: " + std::to_string(key) + " Pressed: " + std::to_string(pressed));*/
 
 	switch (key)
 	{

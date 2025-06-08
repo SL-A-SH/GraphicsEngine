@@ -6,6 +6,7 @@ SystemManager::SystemManager()
 {
 	m_Input = 0;
 	m_Application = 0;
+	m_hwnd = NULL;  // Initialize to NULL since Qt will provide the window handle
 }
 
 SystemManager::SystemManager(const SystemManager& other)
@@ -25,9 +26,6 @@ bool SystemManager::Initialize()
 	screenWidth = 0;
 	screenHeight = 0;
 
-	// Initialize the windows api.
-	InitializeWindows(screenWidth, screenHeight);
-
 	// Create and initialize the input object.
 	m_Input = new InputManager;
 
@@ -41,15 +39,30 @@ bool SystemManager::Initialize()
 	// Create and initialize the application class object.
 	m_Application = new Application;
 
-	result = m_Application->Initialize(screenWidth, screenHeight, m_hwnd);
-	if (!result)
-	{
-		LOG_ERROR("Failed to initialize Application");
-		return false;
-	}
-
+	// Note: We'll initialize the application later when we have a valid window handle
 	LOG("SystemManager initialized successfully");
 	return true;
+}
+
+void SystemManager::SetWindowHandle(HWND hwnd)
+{
+	m_hwnd = hwnd;
+	
+	// Get the window dimensions
+	RECT rect;
+	GetClientRect(m_hwnd, &rect);
+	int screenWidth = rect.right - rect.left;
+	int screenHeight = rect.bottom - rect.top;
+
+	// Initialize the application with the window handle
+	if (m_Application)
+	{
+		bool result = m_Application->Initialize(screenWidth, screenHeight, m_hwnd);
+		if (!result)
+		{
+			LOG_ERROR("Failed to initialize Application");
+		}
+	}
 }
 
 void SystemManager::Shutdown()
@@ -136,6 +149,13 @@ bool SystemManager::Frame()
 
 LRESULT CALLBACK SystemManager::MessageHandler(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam)
 {
+	// Let mouse events pass through to Qt
+	if (umsg >= WM_MOUSEFIRST && umsg <= WM_MOUSELAST)
+	{
+		return DefWindowProc(hwnd, umsg, wparam, lparam);
+	}
+	
+	// Handle other messages
 	return DefWindowProc(hwnd, umsg, wparam, lparam);
 }
 

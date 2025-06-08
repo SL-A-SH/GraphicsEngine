@@ -2,6 +2,7 @@
 #include <QPainter>
 #include <QResizeEvent>
 #include <QApplication>
+#include <QMetaEnum>
 #include <sstream>
 #include "../../Core/System/Logger.h"
 
@@ -12,6 +13,12 @@ DirectXViewport::DirectXViewport(QWidget* parent)
     , m_Initialized(false)
 {
     LOG("DirectXViewport constructor called");
+    
+    // Log widget hierarchy and geometry
+    LOG("Widget parent: " + (parent ? parent->objectName().toStdString() : "null"));
+    LOG("Widget geometry: " + std::to_string(geometry().x()) + "," + 
+        std::to_string(geometry().y()) + " " +
+        std::to_string(width()) + "x" + std::to_string(height()));
     
     // Set up the widget to receive native events
     setAttribute(Qt::WA_NativeWindow);
@@ -24,15 +31,29 @@ DirectXViewport::DirectXViewport(QWidget* parent)
     // Enable focus and input handling
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true);
+    setAttribute(Qt::WA_Hover);
     setFocus();
 
     // Ensure the widget can receive mouse events
     setAttribute(Qt::WA_AcceptTouchEvents, false);
     setAttribute(Qt::WA_TransparentForMouseEvents, false);
+    
+    // Force the widget to be on top and receive events
+    raise();
+    activateWindow();
+    
+    // Set a minimum size to ensure the widget is visible
+    setMinimumSize(100, 100);
 
     // Create system manager
     LOG("Creating SystemManager");
     m_SystemManager = new SystemManager();
+    if (!m_SystemManager->Initialize())
+    {
+        LOG_ERROR("Failed to initialize SystemManager");
+        delete m_SystemManager;
+        m_SystemManager = nullptr;
+    }
 }
 
 DirectXViewport::~DirectXViewport()
@@ -60,6 +81,31 @@ void DirectXViewport::showEvent(QShowEvent* event)
     LOG("DirectXViewport::showEvent called");
     QWidget::showEvent(event);
     
+    // Check for widgets overlapping our viewport
+    if (parentWidget()) {
+        QPoint globalPos = mapToGlobal(rect().center());
+        QWidget* child = QApplication::widgetAt(globalPos);
+        if (child && child != this) {
+            LOG("WARNING: Another widget is overlapping our viewport: " + child->objectName().toStdString());
+        }
+    }
+
+    // Check native window status
+    if (!testAttribute(Qt::WA_WState_Created)) {
+        LOG("ERROR: Widget native window not created");
+    }
+    if (!internalWinId()) {
+        LOG("ERROR: No native window ID");
+    }
+
+    // Bring to front and request focus
+    raise();
+    activateWindow();
+    
+    // Force the widget to be visible and on top
+    show();
+    setWindowState(windowState() | Qt::WindowActive);
+    
     if (!m_Initialized)
     {
         // Ensure we have a valid window handle
@@ -74,32 +120,9 @@ void DirectXViewport::showEvent(QShowEvent* event)
 
         // Set the window handle
         LOG("Setting window handle");
-        m_SystemManager->SetWindowHandle((HWND)winId());
-
-        // Get the actual window size
-        RECT rect;
-        GetClientRect((HWND)winId(), &rect);
-        int width = rect.right - rect.left;
-        int height = rect.bottom - rect.top;
-
-        if (width == 0 || height == 0)
+        if (m_SystemManager)
         {
-            std::stringstream ss;
-            ss << "Invalid window size: " << width << "x" << height;
-            LOG_ERROR(ss.str());
-            return;
-        }
-
-        // Ensure the window is fully created and visible
-        LOG("Showing window");
-        ShowWindow((HWND)winId(), SW_SHOW);
-        UpdateWindow((HWND)winId());
-
-        LOG("Initializing SystemManager");
-        if (!m_SystemManager->Initialize())
-        {
-            LOG_ERROR("Failed to initialize SystemManager");
-            return;
+            m_SystemManager->SetWindowHandle((HWND)winId());
         }
 
         // Get the monitor's refresh rate
@@ -115,14 +138,18 @@ void DirectXViewport::showEvent(QShowEvent* event)
         m_UpdateTimer->start(1000 / refreshRate); // Use monitor's refresh rate
 
         m_Initialized = true;
-        std::stringstream ss;
-        ss << "DirectX viewport initialized successfully with size: " << width << "x" << height << " and refresh rate: " << refreshRate << "Hz";
-        LOG(ss.str());
+        LOG("DirectX viewport initialized successfully");
     }
 }
 
 void DirectXViewport::paintEvent(QPaintEvent* event)
 {
+    // For testing, draw a blue background with text
+    QPainter p(this);
+    p.fillRect(rect(), Qt::blue);
+    p.setPen(Qt::white);
+    p.drawText(rect(), Qt::AlignCenter, "Mouse Test Widget");
+    
     // Let Qt know we're handling the painting
     Q_UNUSED(event);
 }
@@ -155,10 +182,44 @@ void DirectXViewport::resizeEvent(QResizeEvent* event)
 
 bool DirectXViewport::nativeEvent(const QByteArray& eventType, void* message, qintptr* result)
 {
-    // Forward Windows messages to the system manager
     if (eventType == "windows_generic_MSG")
     {
         MSG* msg = static_cast<MSG*>(message);
+        
+        // Handle mouse events first
+        if (msg->message >= WM_MOUSEFIRST && msg->message <= WM_MOUSELAST)
+        {
+            // Convert Windows mouse message to Qt mouse event
+            QMouseEvent* mouseEvent = nullptr;
+            QPoint pos(LOWORD(msg->lParam), HIWORD(msg->lParam));
+            
+            switch (msg->message)
+            {
+                case WM_LBUTTONDOWN:
+                    mouseEvent = new QMouseEvent(QEvent::MouseButtonPress, pos, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+                    break;
+                case WM_LBUTTONUP:
+                    mouseEvent = new QMouseEvent(QEvent::MouseButtonRelease, pos, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+                    break;
+                case WM_RBUTTONDOWN:
+                    mouseEvent = new QMouseEvent(QEvent::MouseButtonPress, pos, Qt::RightButton, Qt::RightButton, Qt::NoModifier);
+                    break;
+                case WM_RBUTTONUP:
+                    mouseEvent = new QMouseEvent(QEvent::MouseButtonRelease, pos, Qt::RightButton, Qt::NoButton, Qt::NoModifier);
+                    break;
+                case WM_MOUSEMOVE:
+                    mouseEvent = new QMouseEvent(QEvent::MouseMove, pos, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+                    break;
+            }
+            
+            if (mouseEvent)
+            {
+                QApplication::sendEvent(this, mouseEvent);
+                delete mouseEvent;
+            }
+        }
+        
+        // Then pass to SystemManager
         if (m_SystemManager)
         {
             *result = m_SystemManager->MessageHandler(msg->hwnd, msg->message, msg->wParam, msg->lParam);
@@ -170,7 +231,7 @@ bool DirectXViewport::nativeEvent(const QByteArray& eventType, void* message, qi
 
 void DirectXViewport::keyPressEvent(QKeyEvent* event)
 {
-    LOG("DirectXViewport::keyPressEvent called");
+    /*LOG("DirectXViewport::keyPressEvent called");*/
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleKeyEvent(event, true);
@@ -180,7 +241,7 @@ void DirectXViewport::keyPressEvent(QKeyEvent* event)
 
 void DirectXViewport::keyReleaseEvent(QKeyEvent* event)
 {
-    LOG("DirectXViewport::keyReleaseEvent called");
+    /*LOG("DirectXViewport::keyReleaseEvent called");*/
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleKeyEvent(event, false);
@@ -249,12 +310,33 @@ void DirectXViewport::updateFrame()
 
 void DirectXViewport::focusInEvent(QFocusEvent* event)
 {
-    LOG("DirectXViewport::focusInEvent called");
+    LOG("DirectXViewport GOT FOCUS");
     QWidget::focusInEvent(event);
 }
 
 void DirectXViewport::focusOutEvent(QFocusEvent* event)
 {
-    LOG("DirectXViewport::focusOutEvent called");
+    LOG("DirectXViewport LOST FOCUS");
     QWidget::focusOutEvent(event);
 } 
+
+bool DirectXViewport::event(QEvent* event)
+{
+    QString eventType;
+    switch (event->type()) {
+        case QEvent::MouseButtonPress: eventType = "MouseButtonPress"; break;
+        case QEvent::MouseButtonRelease: eventType = "MouseButtonRelease"; break;
+        case QEvent::MouseButtonDblClick: eventType = "MouseButtonDblClick"; break;
+        case QEvent::MouseMove: eventType = "MouseMove"; break;
+        case QEvent::Enter: eventType = "Enter"; break;
+        case QEvent::Leave: eventType = "Leave"; break;
+        case QEvent::HoverMove: eventType = "HoverMove"; break;
+        case QEvent::HoverEnter: eventType = "HoverEnter"; break;
+        case QEvent::HoverLeave: eventType = "HoverLeave"; break;
+        case QEvent::Wheel: eventType = "Wheel"; break;
+        default: return QWidget::event(event);
+    }
+    
+    LOG("Event received: " + eventType.toStdString());
+    return QWidget::event(event);
+}

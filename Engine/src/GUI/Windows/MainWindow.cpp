@@ -13,6 +13,11 @@ MainWindow::MainWindow(QWidget* parent)
     // Set up the main window
     setWindowTitle("DirectX11 Engine");
     resize(1280, 720);
+
+    // Create UI elements
+    CreateMenus();
+    CreateToolbars();
+    CreateDockWidgets();
     
     // Create the central widget and layout
     QWidget* centralWidget = new QWidget(this);
@@ -26,13 +31,9 @@ MainWindow::MainWindow(QWidget* parent)
     m_ViewportWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     m_MainLayout->addWidget(m_ViewportWidget);
 
-    // Create UI elements
-    CreateMenus();
-    CreateToolbars();
-    CreateDockWidgets();
-
-    // Install event filter to handle F11
+    // Install event filters
     installEventFilter(this);
+    qApp->installEventFilter(this);
 
     // Set initial window state to maximized
     showMaximized();
@@ -98,6 +99,7 @@ void MainWindow::CreateDockWidgets()
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event)
 {
+    // Handle F11 key press
     if (event->type() == QEvent::KeyPress)
     {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
@@ -107,6 +109,23 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event)
             return true;
         }
     }
+    
+    // Log all mouse events at application level
+    if (event->type() >= QEvent::MouseButtonPress && 
+        event->type() <= QEvent::MouseMove) 
+    {
+        QString eventType;
+        switch (event->type()) {
+            case QEvent::MouseButtonPress: eventType = "MouseButtonPress"; break;
+            case QEvent::MouseButtonRelease: eventType = "MouseButtonRelease"; break;
+            case QEvent::MouseButtonDblClick: eventType = "MouseButtonDblClick"; break;
+            case QEvent::MouseMove: eventType = "MouseMove"; break;
+            default: eventType = "UnknownMouseEvent"; break;
+        }
+        LOG("Global mouse event: " + eventType.toStdString() + 
+            " at " + (watched ? watched->objectName().toStdString() : "unknown"));
+    }
+    
     return QMainWindow::eventFilter(watched, event);
 }
 

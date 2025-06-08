@@ -27,6 +27,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void focusInEvent(QFocusEvent* event) override;
     void focusOutEvent(QFocusEvent* event) override;
+    bool event(QEvent* event) override;
 
 private slots:
     void updateFrame();

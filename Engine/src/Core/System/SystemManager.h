@@ -20,7 +20,7 @@ public:
 	void Run();
 	bool Frame();
 	LRESULT CALLBACK MessageHandler(HWND, UINT, WPARAM, LPARAM);
-	void SetWindowHandle(HWND hwnd) { m_hwnd = hwnd; }
+	void SetWindowHandle(HWND);
 	Application* GetApplication() { return m_Application; }
 	InputManager* GetInputManager() { return m_Input; }
 
