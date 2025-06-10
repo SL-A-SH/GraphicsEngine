@@ -116,22 +116,6 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event)
         }
     }
     
-    // Log all mouse events at application level
-    if (event->type() >= QEvent::MouseButtonPress && 
-        event->type() <= QEvent::MouseMove) 
-    {
-        QString eventType;
-        switch (event->type()) {
-            case QEvent::MouseButtonPress: eventType = "MouseButtonPress"; break;
-            case QEvent::MouseButtonRelease: eventType = "MouseButtonRelease"; break;
-            case QEvent::MouseButtonDblClick: eventType = "MouseButtonDblClick"; break;
-            case QEvent::MouseMove: eventType = "MouseMove"; break;
-            default: eventType = "UnknownMouseEvent"; break;
-        }
-        LOG("Global mouse event: " + eventType.toStdString() + 
-            " at " + (watched ? watched->objectName().toStdString() : "unknown"));
-    }
-    
     return QMainWindow::eventFilter(watched, event);
 }
 
@@ -140,10 +124,9 @@ void MainWindow::ToggleFullscreen()
     LOG("MainWindow::ToggleFullscreen called");
     if (isFullScreen())
     {
-        LOG("Exiting fullscreen mode");
-        showMaximized();  // Return to maximized state instead of normal
-        // Restore UI elements
+        showMaximized();
         menuBar()->show();
+
         for (auto toolbar : findChildren<QToolBar*>())
         {
             toolbar->show();
@@ -155,8 +138,6 @@ void MainWindow::ToggleFullscreen()
     }
     else
     {
-        LOG("Entering fullscreen mode");
-        // Hide UI elements before going fullscreen
         menuBar()->hide();
         for (auto toolbar : findChildren<QToolBar*>())
         {

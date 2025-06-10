@@ -14,7 +14,6 @@ public:
     void ToggleFullscreen();
 
 protected:
-    void paintEvent(QPaintEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
     void showEvent(QShowEvent* event) override;
     bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;

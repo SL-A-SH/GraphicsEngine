@@ -142,18 +142,6 @@ void DirectXViewport::showEvent(QShowEvent* event)
     }
 }
 
-void DirectXViewport::paintEvent(QPaintEvent* event)
-{
-    // For testing, draw a blue background with text
-    QPainter p(this);
-    p.fillRect(rect(), Qt::blue);
-    p.setPen(Qt::white);
-    p.drawText(rect(), Qt::AlignCenter, "Mouse Test Widget");
-    
-    // Let Qt know we're handling the painting
-    Q_UNUSED(event);
-}
-
 void DirectXViewport::resizeEvent(QResizeEvent* event)
 {
     LOG("DirectXViewport::resizeEvent called");
