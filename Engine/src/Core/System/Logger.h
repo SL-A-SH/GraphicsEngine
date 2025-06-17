@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _LOGGER_H_
+#define _LOGGER_H_
 
 #include <string>
 #include <fstream>
@@ -63,4 +64,6 @@ private:
 
 // Convenience macros
 #define LOG(message) Logger::GetInstance().Log(message)
-#define LOG_ERROR(message) Logger::GetInstance().LogError(message) 
+#define LOG_ERROR(message) Logger::GetInstance().LogError(message)
+
+#endif

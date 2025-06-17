@@ -1,5 +1,6 @@
 #include "application.h"
 #include "../../Core/System/Logger.h"
+#include "../../Core/System/PerformanceProfiler.h"
 
 
 Application::Application()
@@ -58,6 +59,9 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 		return false;
 	}
 	LOG("Direct3D initialized successfully");
+
+	// Initialize the performance profiler
+	PerformanceProfiler::GetInstance().Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext());
 
 	// Create the camera object.
 	LOG("Creating camera object");
@@ -287,6 +291,9 @@ void Application::Shutdown()
 
 bool Application::Frame(InputManager* Input)
 {
+	// Start profiling the frame
+	PerformanceProfiler::GetInstance().BeginFrame();
+
 	float frameTime, rotationY, rotationX;
 	float positionX, positionY, positionZ;
 	int mouseX, mouseY;
@@ -420,6 +427,8 @@ bool Application::Frame(InputManager* Input)
 		return false;
 	}
 
+	// End profiling the frame
+	PerformanceProfiler::GetInstance().EndFrame();
 
 	return true;
 }

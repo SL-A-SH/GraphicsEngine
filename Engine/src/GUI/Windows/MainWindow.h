@@ -1,35 +1,45 @@
-#pragma once
+#ifndef _MAIN_WINDOW_H_
+#define _MAIN_WINDOW_H_
 
 #include <QMainWindow>
-#include <QWidget>
 #include <QVBoxLayout>
 #include <QMenuBar>
 #include <QToolBar>
 #include <QDockWidget>
-#include "DirectXViewport.h"
+#include <QTabWidget>
+
+class DirectXViewport;
+class PerformanceWidget;
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    MainWindow(QWidget* parent = nullptr);
+    explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
+
+private slots:
+    void ToggleFullscreen();
+    void ToggleFPS(bool show);
+    void RunBenchmark();
+    void ToggleProfiler(bool show);
+    void OnTabCloseRequested(int index);
+    void OnTabChanged(int index);
 
 private:
     void CreateMenus();
     void CreateToolbars();
     void CreateDockWidgets();
 
-    void ToggleFullscreen();
-    void ToggleFPS(bool show);
-
-    // DirectX viewport widget
     DirectXViewport* m_ViewportWidget;
-    
-    // Layout for the main window
     QVBoxLayout* m_MainLayout;
-}; 
+    PerformanceWidget* m_PerformanceWidget;
+    QTabWidget* m_TabWidget;
+    QDockWidget* m_PropertiesDock;
+};
+
+#endif

@@ -3,12 +3,20 @@
 #include <QMenu>
 #include <QAction>
 #include <QFileDialog>
+#include <QTabWidget>
+#include <QTabBar>
+
+#include "DirectXViewport.h"
+#include "PerformanceWidget.h"
 #include "../../Core/System/Logger.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , m_ViewportWidget(nullptr)
     , m_MainLayout(nullptr)
+    , m_PerformanceWidget(nullptr)
+    , m_TabWidget(nullptr)
+    , m_PropertiesDock(nullptr)
 {
     // Set up the main window
     setWindowTitle("DirectX11 Engine");
@@ -25,11 +33,27 @@ MainWindow::MainWindow(QWidget* parent)
     m_MainLayout->setContentsMargins(0, 0, 0, 0);
     setCentralWidget(centralWidget);
 
+    // Create tab widget
+    m_TabWidget = new QTabWidget(centralWidget);
+    m_TabWidget->setTabPosition(QTabWidget::North);
+    m_TabWidget->setMovable(true);
+    m_TabWidget->setTabsClosable(true); // Enable close button on tabs
+    m_TabWidget->tabBar()->setVisible(false); // Hide tab bar initially
+    m_MainLayout->addWidget(m_TabWidget);
+
     // Create the DirectX viewport widget
     m_ViewportWidget = new DirectXViewport(centralWidget);
     m_ViewportWidget->setMinimumSize(800, 600);
     m_ViewportWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    m_MainLayout->addWidget(m_ViewportWidget);
+    m_TabWidget->addTab(m_ViewportWidget, "Viewport");
+
+    // Create performance widget
+    m_PerformanceWidget = new PerformanceWidget(centralWidget);
+    m_TabWidget->addTab(m_PerformanceWidget, "Performance");
+
+    // Connect signals
+    connect(m_TabWidget, &QTabWidget::tabCloseRequested, this, &MainWindow::OnTabCloseRequested);
+    connect(m_TabWidget, &QTabWidget::currentChanged, this, &MainWindow::OnTabChanged);
 
     // Install event filters
     installEventFilter(this);
@@ -74,6 +98,22 @@ void MainWindow::CreateMenus()
     connect(showFPSAction, &QAction::toggled, this, &MainWindow::ToggleFPS);
     viewMenu->addAction(showFPSAction);
     
+    // Tools menu
+    QMenu* toolsMenu = menuBar()->addMenu("Tools");
+    
+    // Performance submenu
+    QMenu* performanceMenu = toolsMenu->addMenu("Performance");
+    
+    QAction* benchmarkAction = new QAction("Run Benchmark", this);
+    connect(benchmarkAction, &QAction::triggered, this, &MainWindow::RunBenchmark);
+    performanceMenu->addAction(benchmarkAction);
+    
+    QAction* showProfilerAction = new QAction("Show Profiler", this);
+    showProfilerAction->setCheckable(true);
+    showProfilerAction->setChecked(false);
+    connect(showProfilerAction, &QAction::toggled, this, &MainWindow::ToggleProfiler);
+    performanceMenu->addAction(showProfilerAction);
+    
     // Help menu
     QMenu* helpMenu = menuBar()->addMenu("Help");
 }
@@ -94,13 +134,13 @@ void MainWindow::CreateToolbars()
 void MainWindow::CreateDockWidgets()
 {
     // Create a dock widget for properties
-    QDockWidget* propertiesDock = new QDockWidget("Properties", this);
-    propertiesDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    addDockWidget(Qt::RightDockWidgetArea, propertiesDock);
+    m_PropertiesDock = new QDockWidget("Properties", this);
+    m_PropertiesDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    addDockWidget(Qt::RightDockWidgetArea, m_PropertiesDock);
     
     // Set the initial size of the dock widget to 20% of the window width
-    propertiesDock->setMinimumWidth(width() * 0.2);
-    propertiesDock->setMaximumWidth(width() * 0.3);
+    m_PropertiesDock->setMinimumWidth(width() * 0.2);
+    m_PropertiesDock->setMaximumWidth(width() * 0.3);
 }
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event)
@@ -165,4 +205,44 @@ void MainWindow::ToggleFPS(bool show)
     {
         m_ViewportWidget->GetSystemManager()->GetApplication()->GetUserInterface()->SetShowFps(show);
     }
-} 
+}
+
+void MainWindow::RunBenchmark()
+{
+    // Show tab bar and enable performance tab
+    m_TabWidget->tabBar()->setVisible(true);
+    m_TabWidget->setCurrentIndex(1);
+    LOG("Benchmark started");
+}
+
+void MainWindow::ToggleProfiler(bool show)
+{
+    if (show)
+    {
+        m_TabWidget->tabBar()->setVisible(true);
+        m_TabWidget->setCurrentIndex(1);
+    }
+    else
+    {
+        m_TabWidget->setCurrentIndex(0);
+        m_TabWidget->tabBar()->setVisible(false);
+    }
+}
+
+void MainWindow::OnTabChanged(int index)
+{
+    // Show properties dock only when viewport tab is active
+    if (m_PropertiesDock)
+    {
+        m_PropertiesDock->setVisible(index == 0);
+    }
+}
+
+void MainWindow::OnTabCloseRequested(int index)
+{
+    if (index == 1) // Performance tab
+    {
+        m_TabWidget->setCurrentIndex(0);
+        m_TabWidget->tabBar()->setVisible(false);
+    }
+}

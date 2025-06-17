@@ -1,9 +1,6 @@
 #include "DirectXViewport.h"
-#include <QPainter>
-#include <QResizeEvent>
-#include <QApplication>
-#include <QMetaEnum>
 #include <sstream>
+#include "../../Core/System/SystemManager.h"
 #include "../../Core/System/Logger.h"
 
 DirectXViewport::DirectXViewport(QWidget* parent)

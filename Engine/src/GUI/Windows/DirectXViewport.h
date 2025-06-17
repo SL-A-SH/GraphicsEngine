@@ -1,8 +1,23 @@
-#pragma once
+#ifndef _DIRECTX_VIEWPORT_H_
+#define _DIRECTX_VIEWPORT_H_
+
+#ifndef NOMINMAX
+#define NOMINMAX 1
+#endif
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN 1
+#endif
 
 #include <QWidget>
 #include <QTimer>
+#include <QPainter>
+#include <QResizeEvent>
+#include <QApplication>
+#include <QMetaEnum>
 #include "../../Core/System/SystemManager.h"
+
+class SystemManager;
 
 class DirectXViewport : public QWidget
 {
@@ -38,4 +53,6 @@ private:
 
 public:
     SystemManager* GetSystemManager() const { return m_SystemManager; }
-}; 
+};
+
+#endif

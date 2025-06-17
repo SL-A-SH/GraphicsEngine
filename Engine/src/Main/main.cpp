@@ -1,8 +1,8 @@
-#include "../Core/System/SystemManager.h"
-#include "../GUI/Windows/MainWindow.h"
-#include "../Core/System/Logger.h"
 #include <QApplication>
 #include <QWidget>
+
+#include "../GUI/Windows/MainWindow.h"
+#include "../Core/System/Logger.h"
 
 int main(int argc, char *argv[])
 {
