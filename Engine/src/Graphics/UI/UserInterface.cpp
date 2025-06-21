@@ -4,7 +4,7 @@ UserInterface::UserInterface()
 {
     m_screenWidth = 0;
     m_screenHeight = 0;
-    m_QTOffset = 100;
+    m_QTOffset = 200;
     m_Font = 0;
     m_FpsString = 0;
     m_RenderCountString = 0;
@@ -239,7 +239,7 @@ bool UserInterface::UpdateFpsString(ID3D11DeviceContext* deviceContext, int fps)
         blue = 0.0f;
     }
 
-    fpsStringX = m_screenWidth;
+    fpsStringX = m_screenWidth - 400;
     fpsStringY = m_screenHeight - m_QTOffset;
     // Update the sentence vertex buffer with the new string information.
     result = m_FpsString->UpdateText(deviceContext, m_Font, finalString, fpsStringX, fpsStringY, red, green, blue);

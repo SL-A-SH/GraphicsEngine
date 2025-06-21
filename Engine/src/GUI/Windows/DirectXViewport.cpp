@@ -1,6 +1,6 @@
 #include "DirectXViewport.h"
 #include <sstream>
-#include "../../Core/System/SystemManager.h"
+
 #include "../../Core/System/Logger.h"
 
 DirectXViewport::DirectXViewport(QWidget* parent)
@@ -98,6 +98,7 @@ void DirectXViewport::showEvent(QShowEvent* event)
     // Bring to front and request focus
     raise();
     activateWindow();
+    setFocus();
     
     // Force the widget to be visible and on top
     show();
@@ -216,21 +217,23 @@ bool DirectXViewport::nativeEvent(const QByteArray& eventType, void* message, qi
 
 void DirectXViewport::keyPressEvent(QKeyEvent* event)
 {
-    /*LOG("DirectXViewport::keyPressEvent called");*/
+    LOG("DirectXViewport::keyPressEvent called - Key: " + QString::number(event->key()).toStdString());
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleKeyEvent(event, true);
     }
+    event->accept();  // Explicitly accept the event
     QWidget::keyPressEvent(event);
 }
 
 void DirectXViewport::keyReleaseEvent(QKeyEvent* event)
 {
-    /*LOG("DirectXViewport::keyReleaseEvent called");*/
+    LOG("DirectXViewport::keyReleaseEvent called - Key: " + QString::number(event->key()).toStdString());
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleKeyEvent(event, false);
     }
+    event->accept();  // Explicitly accept the event
     QWidget::keyReleaseEvent(event);
 }
 

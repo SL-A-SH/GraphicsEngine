@@ -1,6 +1,7 @@
 #include "systemmanager.h"
-#include "../../Core/System/Logger.h"
 #include <sstream>
+
+#include "../../Core/System/Logger.h"
 
 SystemManager::SystemManager()
 {

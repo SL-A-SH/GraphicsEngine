@@ -236,6 +236,16 @@ void MainWindow::OnTabChanged(int index)
     {
         m_PropertiesDock->setVisible(index == 0);
     }
+    
+    // Set focus to the appropriate widget based on the active tab
+    if (index == 0) // Viewport tab
+    {
+        m_ViewportWidget->setFocus();
+    }
+    else if (index == 1) // Performance tab
+    {
+        m_PerformanceWidget->setFocus();
+    }
 }
 
 void MainWindow::OnTabCloseRequested(int index)

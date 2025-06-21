@@ -306,13 +306,6 @@ bool Application::Frame(InputManager* Input)
 	// Get the current FPS
 	m_Fps = m_Timer->GetFps();
 
-	// Check if the user pressed escape and wants to exit the application.
-	if (Input->IsEscapePressed())
-	{
-		LOG("Escape key pressed, exiting application");
-		return false;
-	}
-
 	// Check for F11 fullscreen toggle
 	static bool wasF11Pressed = false;
 	if (Input->IsF11Pressed() && !wasF11Pressed)
