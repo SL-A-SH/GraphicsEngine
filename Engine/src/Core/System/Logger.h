@@ -53,6 +53,17 @@ public:
         }
     }
 
+    template<typename T>
+    void LogWarning(const T& message)
+    {
+        std::cout << "WARNING: " << message << std::endl;
+        if (m_LogFile.is_open())
+        {
+            m_LogFile << "WARNING: " << message << std::endl;
+            m_LogFile.flush();
+        }
+    }
+
 private:
     Logger() = default;
     ~Logger() { Shutdown(); }
@@ -65,5 +76,6 @@ private:
 // Convenience macros
 #define LOG(message) Logger::GetInstance().Log(message)
 #define LOG_ERROR(message) Logger::GetInstance().LogError(message)
+#define LOG_WARNING(message) Logger::GetInstance().LogWarning(message)
 
 #endif

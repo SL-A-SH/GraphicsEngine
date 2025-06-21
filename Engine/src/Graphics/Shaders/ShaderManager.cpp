@@ -2,6 +2,7 @@
 
 ShaderManager::ShaderManager()
 {
+    m_ColorShader = 0;
     m_TextureShader = 0;
     m_LightShader = 0;
     m_NormalMapShader = 0;
@@ -24,6 +25,20 @@ ShaderManager::~ShaderManager()
 bool ShaderManager::Initialize(ID3D11Device* device, HWND hwnd)
 {
     bool result;
+
+    // Create the color shader object.
+    m_ColorShader = new ColorShader;
+    if (!m_ColorShader)
+    {
+        return false;
+    }
+
+    // Initialize the color shader object.
+    result = m_ColorShader->Initialize(device, hwnd);
+    if (!result)
+    {
+        return false;
+    }
 
     // Create and initialize the texture shader object.
     m_TextureShader = new TextureShader;
@@ -150,19 +165,13 @@ bool ShaderManager::RenderTextureShader(ID3D11DeviceContext* deviceContext, int 
 }
 
 
-bool ShaderManager::RenderLightShader(ID3D11DeviceContext* deviceContext, int indexCount, XMMATRIX worldMatrix, XMMATRIX viewMatrix, XMMATRIX projectionMatrix,
-    ID3D11ShaderResourceView* texture, XMFLOAT3 lightDirection, XMFLOAT4 ambientColor, XMFLOAT4 diffuseColor, XMFLOAT3 cameraPosition, XMFLOAT4 specularColor, float specularPower)
+bool ShaderManager::RenderLightShader(ID3D11DeviceContext* deviceContext, int indexCount, const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix,
+									   const XMMATRIX& projectionMatrix, ID3D11ShaderResourceView* texture, const XMFLOAT3& lightDirection,
+									   const XMFLOAT4& ambientColor, const XMFLOAT4& diffuseColor, const XMFLOAT3& cameraPosition,
+									   const XMFLOAT4& specularColor, float specularPower)
 {
-    bool result;
-
-
-    result = m_LightShader->Render(deviceContext, indexCount, worldMatrix, viewMatrix, projectionMatrix, texture, lightDirection, ambientColor, diffuseColor, cameraPosition, specularColor, specularPower);
-    if (!result)
-    {
-        return false;
-    }
-
-    return true;
+	return m_LightShader->Render(deviceContext, indexCount, worldMatrix, viewMatrix, projectionMatrix, texture, lightDirection, ambientColor,
+								  diffuseColor, cameraPosition, specularColor, specularPower);
 }
 
 
@@ -223,4 +232,10 @@ bool ShaderManager::RenderSkyboxShader(ID3D11DeviceContext* deviceContext, int i
     }
 
     return true;
+}
+
+bool ShaderManager::RenderColorShader(ID3D11DeviceContext* deviceContext, int indexCount, const XMMATRIX& worldMatrix,
+									   const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, const XMFLOAT4& color)
+{
+	return m_ColorShader->Render(deviceContext, indexCount, worldMatrix, viewMatrix, projectionMatrix, color);
 }

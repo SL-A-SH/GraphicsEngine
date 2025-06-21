@@ -87,14 +87,14 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	LOG("Zone initialized successfully");
 
 	// Set the file name of the model.
-	strcpy_s(modelFilename, "../Engine/assets/models/Thriller.fbx");
-	strcpy_s(textureFilename1, "../Engine/assets/textures/Stone02/stone02.tga");
+	strcpy_s(modelFilename, "../Engine/assets/models/spaceship/low-poly/nave-modelo.fbx");
 
 	// Create and initialize the model object.
 	LOG("Creating model object");
 	m_Model = new Model;
 
-	result = m_Model->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, textureFilename1);
+	// Use InitializeFBX for FBX files to automatically load textures from the FBX
+	result = m_Model->InitializeFBX(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename);
 	if (!result)
 	{
 		LOG_ERROR("Could not initialize the model object");
@@ -166,7 +166,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	// Create and initialize the model list object.
 	LOG("Creating model list");
 	m_ModelList = new ModelList;
-	m_ModelList->Initialize(6);
+	m_ModelList->Initialize(1);
 	LOG("Model list initialized successfully");
 
 	// Create the position class object.
@@ -514,16 +514,34 @@ bool Application::Render()
 			// Move the model to the location it should be rendered at.
 			worldMatrix = XMMatrixTranslation(positionX, positionY, positionZ);
 
-			// Render the model using the light shader.
+			// Render the model's buffers.
 			m_Model->Render(m_Direct3D->GetDeviceContext());
 
-			result = m_ShaderManager->RenderLightShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
-				m_Model->GetTexture(), m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
-				m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
-			if (!result)
+			// Get the texture from the model.
+			ID3D11ShaderResourceView* modelTexture = m_Model->GetTexture();
+
+			// Only render with the light shader if the model has a texture.
+			if (modelTexture)
 			{
-				LOG_ERROR("Model render failed");
-				return false;
+				result = m_ShaderManager->RenderLightShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
+					modelTexture, m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
+					m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
+				if (!result)
+				{
+					LOG_ERROR("Model render with LightShader failed");
+					return false;
+				}
+			}
+			else
+			{
+				// If there is no texture, render the model with a solid color.
+				LOG_WARNING("Model has no texture, rendering with ColorShader.");
+				result = m_ShaderManager->RenderColorShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix, XMFLOAT4(0.7f, 0.7f, 0.7f, 1.0f));
+				if (!result)
+				{
+					LOG_ERROR("Model render with ColorShader failed");
+					return false;
+				}
 			}
 
 			// Since this model was rendered then increase the count for this frame.

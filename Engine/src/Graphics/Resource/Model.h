@@ -61,6 +61,11 @@ private:
 	{
 		string diffuseTexturePath;
 		string normalTexturePath;
+		string specularTexturePath;
+		string roughnessTexturePath;
+		string metallicTexturePath;
+		string emissionTexturePath;
+		string aoTexturePath;
 		XMFLOAT4 diffuseColor;
 		XMFLOAT4 ambientColor;
 		XMFLOAT4 specularColor;
@@ -75,6 +80,7 @@ public:
 	bool Initialize(ID3D11Device*, ID3D11DeviceContext*, char*, char*);
 	bool Initialize(ID3D11Device*, ID3D11DeviceContext*, char*, char*, char*);
 	bool Initialize(ID3D11Device*, ID3D11DeviceContext*, char*, char*, char*, char*);
+	bool InitializeFBX(ID3D11Device*, ID3D11DeviceContext*, char*);
 	void Shutdown();
 	void Render(ID3D11DeviceContext*);
 
@@ -83,6 +89,7 @@ public:
 	ID3D11ShaderResourceView* GetTexture(int);
 	bool HasFBXMaterial() const { return m_hasFBXMaterial; }
 	const AABB& GetBoundingBox() const { return m_boundingBox; }
+	const MaterialInfo& GetMaterialInfo() const { return m_materialInfo; }
 
 private:
 	bool InitializeBuffers(ID3D11Device*);
@@ -92,6 +99,7 @@ private:
 	bool LoadTexture(ID3D11Device*, ID3D11DeviceContext*, char*);
 	bool LoadTextures(ID3D11Device*, ID3D11DeviceContext*, char*, char*);
 	bool LoadTextures(ID3D11Device*, ID3D11DeviceContext*, char*, char*, char*);
+	bool LoadFBXTextures(ID3D11Device*, ID3D11DeviceContext*);
 	void ReleaseTextures();
 
 	bool LoadModel(char*);
@@ -101,7 +109,11 @@ private:
 	void ProcessMesh(FbxNode* pNode);
 	void ProcessMaterials(FbxNode* pNode);
 	void ExtractMaterialInfo(FbxSurfaceMaterial* material);
-	string GetTexturePath(FbxProperty& property);
+	const FbxFileTexture* FindConnectedFileTexture(const FbxProperty& property);
+	void SearchSceneForTextures(FbxScene* scene);
+	void SearchDirectoryForTextures();
+	void ListAllMaterialProperties(FbxSurfaceMaterial* material);
+	string ConvertTexturePath(const string& originalPath);
 	void ReleaseModel();
 	void CalculateBoundingBox();
 
@@ -117,6 +129,7 @@ private:
 	MaterialInfo m_materialInfo;
 	bool m_hasFBXMaterial;
 	AABB m_boundingBox;
+	string m_currentFBXPath;
 };
 
 #endif

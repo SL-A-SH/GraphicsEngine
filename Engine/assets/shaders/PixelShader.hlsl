@@ -7,6 +7,10 @@ struct PixelInputType
     float4 color : COLOR;
 };
 
+cbuffer ColorBuffer : register(b0)
+{
+    float4 pixelColor;
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Pixel Shader

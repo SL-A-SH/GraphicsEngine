@@ -1,5 +1,6 @@
 #include "model.h"
 #include <algorithm>
+#include "../../Core/System/Logger.h"
 
 Model::Model()
 {
@@ -12,6 +13,7 @@ Model::Model()
 	m_materialInfo.ambientColor = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 	m_materialInfo.specularColor = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	m_materialInfo.shininess = 32.0f;
+	m_currentFBXPath = "";
 }
 
 
@@ -43,38 +45,8 @@ bool Model::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceContext,
 		return false;
 	}
 
-	// Load the texture for this model.
-	if (m_hasFBXMaterial && !m_materialInfo.diffuseTexturePath.empty())
-	{
-		OutputDebugStringA(("Using FBX texture: " + m_materialInfo.diffuseTexturePath + "\n").c_str());
-		
-		// Convert the texture path to a relative path if it's absolute
-		string texturePath = m_materialInfo.diffuseTexturePath;
-		size_t pos = texturePath.find("Engine\\assets\\");
-		if (pos != string::npos)
-		{
-			// Extract just the assets/models/... part
-			texturePath = "../" + texturePath.substr(pos);
-			// Replace backslashes with forward slashes
-			replace(texturePath.begin(), texturePath.end(), '\\', '/');
-			OutputDebugStringA(("Converted texture path: " + texturePath + "\n").c_str());
-		}
-
-		// Use the FBX texture path
-		result = LoadTexture(device, deviceContext, (char*)texturePath.c_str());
-		if (!result)
-		{
-			OutputDebugStringA("Failed to load FBX texture, falling back to default texture\n");
-			result = LoadTexture(device, deviceContext, textureFilename);
-		}
-	}
-	else
-	{
-		OutputDebugStringA(("Using fallback texture: " + std::string(textureFilename) + "\n").c_str());
-		// Use the provided texture
-		result = LoadTexture(device, deviceContext, textureFilename);
-	}
-
+	// Load the textures for this model.
+	result = LoadTexture(device, deviceContext, textureFilename);
 	if (!result)
 	{
 		return false;
@@ -145,6 +117,47 @@ bool Model::Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceContext,
 	return true;
 }
 
+bool Model::InitializeFBX(ID3D11Device* device, ID3D11DeviceContext* deviceContext, char* modelFilename)
+{
+	bool result;
+
+	LOG("Initializing FBX model: " + std::string(modelFilename));
+
+	// Load in the model data.
+	result = LoadModel(modelFilename);
+	if (!result)
+	{
+		LOG_ERROR("Failed to load FBX model");
+		return false;
+	}
+
+	// Initialize the vertex and index buffers.
+	result = InitializeBuffers(device);
+	if (!result)
+	{
+		LOG_ERROR("Failed to initialize buffers");
+		return false;
+	}
+
+	// Load textures from FBX materials
+	if (m_hasFBXMaterial)
+	{
+		LOG("Loading textures from FBX materials...");
+		result = LoadFBXTextures(device, deviceContext);
+		if (!result)
+		{
+			LOG_ERROR("Failed to load FBX textures");
+			return false;
+		}
+	}
+	else
+	{
+		LOG_WARNING("No FBX materials found, model will be rendered without textures");
+	}
+
+	return true;
+}
+
 
 void Model::Shutdown()
 {
@@ -178,7 +191,11 @@ int Model::GetIndexCount()
 
 ID3D11ShaderResourceView* Model::GetTexture()
 {
-	return m_Texture->GetTexture();
+	if (m_Texture)
+	{
+		return m_Texture->GetTexture();
+	}
+	return nullptr;
 }
 
 
@@ -322,18 +339,18 @@ bool Model::LoadTexture(ID3D11Device* device, ID3D11DeviceContext* deviceContext
 	bool result;
 
 	// Debug output for texture loading
-	OutputDebugStringA(("Attempting to load texture: " + std::string(filename) + "\n").c_str());
+	LOG("Attempting to load texture: " + std::string(filename));
 
 	// Check if file exists
 	FILE* file;
 	errno_t err = fopen_s(&file, filename, "rb");
 	if (err != 0)
 	{
-		OutputDebugStringA(("Failed to open texture file. Error code: " + std::to_string(err) + "\n").c_str());
+		LOG_ERROR("Failed to open texture file. Error code: " + std::to_string(err));
 		return false;
 	}
 	fclose(file);
-	OutputDebugStringA("Texture file exists and is accessible\n");
+	LOG("Texture file exists and is accessible");
 
 	// Create and initialize the texture object.
 	m_Texture = new Texture;
@@ -341,11 +358,11 @@ bool Model::LoadTexture(ID3D11Device* device, ID3D11DeviceContext* deviceContext
 	result = m_Texture->Initialize(device, deviceContext, filename);
 	if (!result)
 	{
-		OutputDebugStringA("Failed to initialize texture object\n");
+		LOG_ERROR("Failed to initialize texture object");
 		return false;
 	}
 
-	OutputDebugStringA("Texture loaded successfully\n");
+	LOG("Texture loaded successfully");
 	return true;
 }
 
@@ -507,6 +524,9 @@ bool Model::LoadTextModel(char* filename)
 
 bool Model::LoadFBXModel(char* filename)
 {
+	// Store the current FBX file path for texture searching
+	m_currentFBXPath = filename;
+
 	// Initialize the FBX SDK manager
 	FbxManager* lSdkManager = FbxManager::Create();
 	if (!lSdkManager)
@@ -591,33 +611,323 @@ void Model::ProcessNode(FbxNode* pNode)
 
 void Model::ProcessMaterials(FbxNode* pNode)
 {
-	if (!pNode)
-		return;
+	if (!pNode) return;
 
-	// Get the number of materials
+	LOG("--- Processing Node: " + std::string(pNode->GetName()) + " ---");
+
+	// First, try to find textures connected to materials
 	int materialCount = pNode->GetMaterialCount();
-	OutputDebugStringA(("Number of materials found: " + std::to_string(materialCount) + "\n").c_str());
-
 	if (materialCount > 0)
 	{
-		// Get the first material
-		FbxSurfaceMaterial* material = pNode->GetMaterial(0);
-		if (material)
+		for (int i = 0; i < materialCount; ++i)
 		{
-			OutputDebugStringA(("Material name: " + std::string(material->GetName()) + "\n").c_str());
-			ExtractMaterialInfo(material);
-			m_hasFBXMaterial = true;
+			if (FbxSurfaceMaterial* material = pNode->GetMaterial(i))
+			{
+				if (m_materialInfo.diffuseTexturePath.empty())
+				{
+					ExtractMaterialInfo(material);
+				}
+			}
+		}
+	}
+
+	// If no textures found in materials, try to search the entire scene for textures
+	if (m_materialInfo.diffuseTexturePath.empty())
+	{
+		LOG("  -> No textures found in materials, searching scene for textures...");
+		SearchSceneForTextures(pNode->GetScene());
+	}
+
+	// If still no textures found, try to find textures in the same directory as the FBX file
+	if (m_materialInfo.diffuseTexturePath.empty())
+	{
+		LOG("  -> No textures found in scene, trying to find textures in FBX directory...");
+		SearchDirectoryForTextures();
+	}
+
+	if (!m_materialInfo.diffuseTexturePath.empty() || !m_materialInfo.normalTexturePath.empty())
+	{
+		m_hasFBXMaterial = true;
+	}
+}
+
+void Model::SearchSceneForTextures(FbxScene* scene)
+{
+	if (!scene) return;
+
+	LOG("    -> Searching scene for textures...");
+	
+	// Get all textures in the scene
+	int textureCount = scene->GetTextureCount();
+	LOG("    -> Found " + std::to_string(textureCount) + " textures in scene");
+	
+	for (int i = 0; i < textureCount; i++)
+	{
+		FbxTexture* texture = scene->GetTexture(i);
+		if (texture)
+		{
+			FbxFileTexture* fileTexture = FbxCast<FbxFileTexture>(texture);
+			if (fileTexture)
+			{
+				string texturePath = fileTexture->GetFileName();
+				LOG("    -> Found texture: " + texturePath);
+				
+				// Try to determine texture type from filename
+				std::string filename = texturePath;
+				std::transform(filename.begin(), filename.end(), filename.begin(), ::tolower);
+				
+				if (m_materialInfo.diffuseTexturePath.empty() && 
+					(filename.find("color") != std::string::npos || 
+					 filename.find("albedo") != std::string::npos || 
+					 filename.find("diffuse") != std::string::npos ||
+					 filename.find("textura-color") != std::string::npos))
+				{
+					m_materialInfo.diffuseTexturePath = texturePath;
+					LOG("    -> Assigned as diffuse texture");
+				}
+				else if (m_materialInfo.normalTexturePath.empty() && 
+						 (filename.find("normal") != std::string::npos ||
+						  filename.find("textura-normal") != std::string::npos))
+				{
+					m_materialInfo.normalTexturePath = texturePath;
+					LOG("    -> Assigned as normal texture");
+				}
+				else if (m_materialInfo.specularTexturePath.empty() && 
+						 (filename.find("specular") != std::string::npos || 
+						  filename.find("metallic") != std::string::npos ||
+						  filename.find("roughness") != std::string::npos ||
+						  filename.find("textura-metallic") != std::string::npos ||
+						  filename.find("textura-roughness") != std::string::npos))
+				{
+					m_materialInfo.specularTexturePath = texturePath;
+					LOG("    -> Assigned as specular/metallic texture");
+				}
+			}
 		}
 	}
 }
 
+void Model::SearchDirectoryForTextures()
+{
+	// Get the directory of the FBX file
+	string fbxPath = m_currentFBXPath;
+	size_t lastSlash = fbxPath.find_last_of("/\\");
+	if (lastSlash == string::npos) return;
+	
+	string fbxDir = fbxPath.substr(0, lastSlash + 1);
+	string texturesDir = fbxDir + "textures/";
+	
+	LOG("    -> Looking for textures in: " + texturesDir);
+	
+	// Check if textures directory exists and look for common texture files
+	vector<string> possibleTextures = {
+		"color.png",
+		"color.tga",
+		"color.jpg",
+		"diffuse.png",
+		"diffuse.tga",
+		"diffuse.jpg",
+		"albedo.png",
+		"albedo.tga",
+		"albedo.jpg"
+	};
+	
+	for (const string& textureName : possibleTextures)
+	{
+		string fullPath = texturesDir + textureName;
+		FILE* file;
+		errno_t err = fopen_s(&file, fullPath.c_str(), "rb");
+		if (err == 0)
+		{
+			fclose(file);
+			if (m_materialInfo.diffuseTexturePath.empty())
+			{
+				m_materialInfo.diffuseTexturePath = fullPath;
+				LOG("    -> Found diffuse texture: " + fullPath);
+				break;
+			}
+		}
+	}
+	
+	// Look for normal maps
+	vector<string> normalTextures = {
+		"normal.png",
+		"normal.tga",
+		"normal.jpg"
+	};
+	
+	for (const string& textureName : normalTextures)
+	{
+		string fullPath = texturesDir + textureName;
+		FILE* file;
+		errno_t err = fopen_s(&file, fullPath.c_str(), "rb");
+		if (err == 0)
+		{
+			fclose(file);
+			if (m_materialInfo.normalTexturePath.empty())
+			{
+				m_materialInfo.normalTexturePath = fullPath;
+				LOG("    -> Found normal texture: " + fullPath);
+				break;
+			}
+		}
+	}
+	
+	// Look for metallic textures
+	vector<string> metallicTextures = {
+		"metallic.png",
+		"metallic.tga",
+		"metallic.jpg"
+	};
+	
+	for (const string& textureName : metallicTextures)
+	{
+		string fullPath = texturesDir + textureName;
+		FILE* file;
+		errno_t err = fopen_s(&file, fullPath.c_str(), "rb");
+		if (err == 0)
+		{
+			fclose(file);
+			if (m_materialInfo.metallicTexturePath.empty())
+			{
+				m_materialInfo.metallicTexturePath = fullPath;
+				LOG("    -> Found metallic texture: " + fullPath);
+				break;
+			}
+		}
+	}
+	
+	// Look for roughness textures
+	vector<string> roughnessTextures = {
+		"roughness.png",
+		"roughness.tga",
+		"roughness.jpg"
+	};
+	
+	for (const string& textureName : roughnessTextures)
+	{
+		string fullPath = texturesDir + textureName;
+		FILE* file;
+		errno_t err = fopen_s(&file, fullPath.c_str(), "rb");
+		if (err == 0)
+		{
+			fclose(file);
+			if (m_materialInfo.roughnessTexturePath.empty())
+			{
+				m_materialInfo.roughnessTexturePath = fullPath;
+				LOG("    -> Found roughness texture: " + fullPath);
+				break;
+			}
+		}
+	}
+	
+	// Look for emission textures
+	vector<string> emissionTextures = {
+		"emission.png",
+		"emission.tga",
+		"emission.jpg"
+	};
+	
+	for (const string& textureName : emissionTextures)
+	{
+		string fullPath = texturesDir + textureName;
+		FILE* file;
+		errno_t err = fopen_s(&file, fullPath.c_str(), "rb");
+		if (err == 0)
+		{
+			fclose(file);
+			if (m_materialInfo.emissionTexturePath.empty())
+			{
+				m_materialInfo.emissionTexturePath = fullPath;
+				LOG("    -> Found emission texture: " + fullPath);
+				break;
+			}
+		}
+	}
+	
+	// Look for AO (Ambient Occlusion) textures
+	vector<string> aoTextures = {
+		"internal_ground_ao_texture.jpeg",
+		"ao.png",
+		"ao.tga",
+		"ao.jpg"
+	};
+	
+	for (const string& textureName : aoTextures)
+	{
+		string fullPath = texturesDir + textureName;
+		FILE* file;
+		errno_t err = fopen_s(&file, fullPath.c_str(), "rb");
+		if (err == 0)
+		{
+			fclose(file);
+			if (m_materialInfo.aoTexturePath.empty())
+			{
+				m_materialInfo.aoTexturePath = fullPath;
+				LOG("    -> Found AO texture: " + fullPath);
+				break;
+			}
+		}
+	}
+}
+
+void Model::ListAllMaterialProperties(FbxSurfaceMaterial* material)
+{
+	if (!material)
+		return;
+
+	LOG("=== Listing All Material Properties ===");
+	
+	// Get all properties from the material
+	FbxProperty prop = material->GetFirstProperty();
+	while (prop.IsValid())
+	{
+		string propName = prop.GetName().Buffer();
+		string propType = prop.GetPropertyDataType().GetName();
+		
+		LOG("Property: " + propName + " (Type: " + propType + ")");
+		
+		// Check if this property has textures
+		int textureCount = prop.GetSrcObjectCount<FbxTexture>();
+		if (textureCount > 0)
+		{
+			LOG("  -> Has " + std::to_string(textureCount) + " texture(s)");
+			for (int i = 0; i < textureCount; i++)
+			{
+				FbxTexture* texture = prop.GetSrcObject<FbxTexture>(i);
+				if (texture)
+				{
+					FbxFileTexture* fileTexture = FbxCast<FbxFileTexture>(texture);
+					if (fileTexture)
+					{
+						string texturePath = fileTexture->GetFileName();
+						LOG("  -> Texture " + std::to_string(i) + ": " + texturePath);
+					}
+					else
+					{
+						LOG("  -> Texture " + std::to_string(i) + ": (not a file texture)");
+					}
+				}
+			}
+		}
+		
+		prop = material->GetNextProperty(prop);
+	}
+	
+	LOG("=== End Material Properties ===");
+}
 
 void Model::ExtractMaterialInfo(FbxSurfaceMaterial* material)
 {
 	if (!material)
 		return;
 
-	OutputDebugStringA("Extracting material info...\n");
+	LOG("=== Extracting Material Info ===");
+	LOG("Material name: " + std::string(material->GetName()));
+	LOG("Material type: " + std::string(material->GetClassId().GetName()));
+
+	// List all properties first for debugging
+	ListAllMaterialProperties(material);
 
 	// Get the material type
 	FbxSurfacePhong* phongMaterial = nullptr;
@@ -626,12 +936,12 @@ void Model::ExtractMaterialInfo(FbxSurfaceMaterial* material)
 	if (material->GetClassId().Is(FbxSurfacePhong::ClassId))
 	{
 		phongMaterial = (FbxSurfacePhong*)material;
-		OutputDebugStringA("Material type: Phong\n");
+		LOG("Material type: Phong");
 	}
 	else if (material->GetClassId().Is(FbxSurfaceLambert::ClassId))
 	{
 		lambertMaterial = (FbxSurfaceLambert*)material;
-		OutputDebugStringA("Material type: Lambert\n");
+		LOG("Material type: Lambert");
 	}
 
 	// Extract diffuse color
@@ -639,13 +949,13 @@ void Model::ExtractMaterialInfo(FbxSurfaceMaterial* material)
 	{
 		FbxDouble3 diffuse = phongMaterial->Diffuse.Get();
 		m_materialInfo.diffuseColor = XMFLOAT4((float)diffuse[0], (float)diffuse[1], (float)diffuse[2], 1.0f);
-		OutputDebugStringA(("Diffuse color: " + std::to_string(diffuse[0]) + ", " + std::to_string(diffuse[1]) + ", " + std::to_string(diffuse[2]) + "\n").c_str());
+		LOG("Diffuse color: " + std::to_string(diffuse[0]) + ", " + std::to_string(diffuse[1]) + ", " + std::to_string(diffuse[2]));
 	}
 	else if (lambertMaterial)
 	{
 		FbxDouble3 diffuse = lambertMaterial->Diffuse.Get();
 		m_materialInfo.diffuseColor = XMFLOAT4((float)diffuse[0], (float)diffuse[1], (float)diffuse[2], 1.0f);
-		OutputDebugStringA(("Diffuse color: " + std::to_string(diffuse[0]) + ", " + std::to_string(diffuse[1]) + ", " + std::to_string(diffuse[2]) + "\n").c_str());
+		LOG("Diffuse color: " + std::to_string(diffuse[0]) + ", " + std::to_string(diffuse[1]) + ", " + std::to_string(diffuse[2]));
 	}
 
 	// Extract ambient color
@@ -653,13 +963,13 @@ void Model::ExtractMaterialInfo(FbxSurfaceMaterial* material)
 	{
 		FbxDouble3 ambient = phongMaterial->Ambient.Get();
 		m_materialInfo.ambientColor = XMFLOAT4((float)ambient[0], (float)ambient[1], (float)ambient[2], 1.0f);
-		OutputDebugStringA(("Ambient color: " + std::to_string(ambient[0]) + ", " + std::to_string(ambient[1]) + ", " + std::to_string(ambient[2]) + "\n").c_str());
+		LOG("Ambient color: " + std::to_string(ambient[0]) + ", " + std::to_string(ambient[1]) + ", " + std::to_string(ambient[2]));
 	}
 	else if (lambertMaterial)
 	{
 		FbxDouble3 ambient = lambertMaterial->Ambient.Get();
 		m_materialInfo.ambientColor = XMFLOAT4((float)ambient[0], (float)ambient[1], (float)ambient[2], 1.0f);
-		OutputDebugStringA(("Ambient color: " + std::to_string(ambient[0]) + ", " + std::to_string(ambient[1]) + ", " + std::to_string(ambient[2]) + "\n").c_str());
+		LOG("Ambient color: " + std::to_string(ambient[0]) + ", " + std::to_string(ambient[1]) + ", " + std::to_string(ambient[2]));
 	}
 
 	// Extract specular color and shininess (Phong only)
@@ -668,44 +978,109 @@ void Model::ExtractMaterialInfo(FbxSurfaceMaterial* material)
 		FbxDouble3 specular = phongMaterial->Specular.Get();
 		m_materialInfo.specularColor = XMFLOAT4((float)specular[0], (float)specular[1], (float)specular[2], 1.0f);
 		m_materialInfo.shininess = (float)phongMaterial->Shininess.Get();
-		OutputDebugStringA(("Specular color: " + std::to_string(specular[0]) + ", " + std::to_string(specular[1]) + ", " + std::to_string(specular[2]) + "\n").c_str());
-		OutputDebugStringA(("Shininess: " + std::to_string(m_materialInfo.shininess) + "\n").c_str());
+		LOG("Specular color: " + std::to_string(specular[0]) + ", " + std::to_string(specular[1]) + ", " + std::to_string(specular[2]));
+		LOG("Shininess: " + std::to_string(m_materialInfo.shininess));
 	}
 
-	// Extract textures
-	FbxProperty diffuseProperty = material->FindProperty("DiffuseColor");
-	m_materialInfo.diffuseTexturePath = GetTexturePath(diffuseProperty);
-	OutputDebugStringA(("Diffuse texture path: " + m_materialInfo.diffuseTexturePath + "\n").c_str());
+	// Brute-force search for textures by iterating all properties
+	LOG("=== Starting Brute-Force Texture Search ===");
+	FbxProperty prop = material->GetFirstProperty();
+	while(prop.IsValid())
+	{
+		const FbxFileTexture* foundTexture = FindConnectedFileTexture(prop);
+		if(foundTexture)
+		{
+			LOG("  ----> SUCCESS! Found a texture!");
+			LOG("    -> Property Name: " + std::string(prop.GetName()));
+			LOG("    -> Texture Path: " + std::string(foundTexture->GetFileName()));
 
-	FbxProperty normalProperty = material->FindProperty("NormalMap");
-	m_materialInfo.normalTexturePath = GetTexturePath(normalProperty);
-	OutputDebugStringA(("Normal texture path: " + m_materialInfo.normalTexturePath + "\n").c_str());
+			// Naive assignment based on filename. We'll refine this later.
+			std::string filename = foundTexture->GetFileName();
+			std::transform(filename.begin(), filename.end(), filename.begin(), ::tolower);
+
+			if (m_materialInfo.diffuseTexturePath.empty() && (filename.find("color") != std::string::npos || filename.find("albedo") != std::string::npos || filename.find("diffuse") != std::string::npos))
+			{
+				m_materialInfo.diffuseTexturePath = foundTexture->GetFileName();
+			}
+			if (m_materialInfo.normalTexturePath.empty() && filename.find("normal") != std::string::npos)
+			{
+				m_materialInfo.normalTexturePath = foundTexture->GetFileName();
+			}
+			if (m_materialInfo.specularTexturePath.empty() && (filename.find("specular") != std::string::npos || filename.find("metallic") != std::string::npos))
+			{
+				m_materialInfo.specularTexturePath = foundTexture->GetFileName();
+			}
+		}
+		prop = material->GetNextProperty(prop);
+	}
+	
+	LOG("Diffuse texture: " + (m_materialInfo.diffuseTexturePath.empty() ? "NOT FOUND" : m_materialInfo.diffuseTexturePath));
+	LOG("Normal texture: " + (m_materialInfo.normalTexturePath.empty() ? "NOT FOUND" : m_materialInfo.normalTexturePath));
+	LOG("Specular texture: " + (m_materialInfo.specularTexturePath.empty() ? "NOT FOUND" : m_materialInfo.specularTexturePath));
+
+	LOG("=== End Material Info ===");
 }
 
 
-string Model::GetTexturePath(FbxProperty& property)
+const FbxFileTexture* Model::FindConnectedFileTexture(const FbxProperty& property)
 {
-	if (property.IsValid())
-	{
-		int textureCount = property.GetSrcObjectCount<FbxTexture>();
-		OutputDebugStringA(("Number of textures found for property: " + std::to_string(textureCount) + "\n").c_str());
-		
-		if (textureCount > 0)
-		{
-			FbxTexture* texture = property.GetSrcObject<FbxTexture>(0);
-			if (texture)
-			{
-				FbxFileTexture* fileTexture = FbxCast<FbxFileTexture>(texture);
-				if (fileTexture)
-				{
-					string texturePath = fileTexture->GetFileName();
-					OutputDebugStringA(("Found texture: " + texturePath + "\n").c_str());
-					return texturePath;
-				}
-			}
-		}
-	}
-	return "";
+    if (!property.IsValid())
+    {
+        return nullptr;
+    }
+
+	LOG("  -> Searching property: " + std::string(property.GetName()));
+
+    // Check for direct file texture connection
+    int fileTextureCount = property.GetSrcObjectCount<FbxFileTexture>();
+    if (fileTextureCount > 0)
+    {
+        const FbxFileTexture* fileTexture = property.GetSrcObject<FbxFileTexture>(0);
+		LOG("    --> Found a direct file texture connection: " + std::string(fileTexture->GetFileName()));
+        return fileTexture;
+    }
+
+    // Check for layered texture connection
+    int layeredTextureCount = property.GetSrcObjectCount<FbxLayeredTexture>();
+    if (layeredTextureCount > 0)
+    {
+        const FbxLayeredTexture* layeredTexture = property.GetSrcObject<FbxLayeredTexture>(0);
+        if (layeredTexture && layeredTexture->GetSrcObjectCount<FbxFileTexture>() > 0)
+        {
+            const FbxFileTexture* fileTexture = layeredTexture->GetSrcObject<FbxFileTexture>(0);
+			LOG("    --> Found a layered texture connection: " + std::string(fileTexture->GetFileName()));
+            return fileTexture;
+        }
+    }
+
+    // If no direct texture, search upstream in the connection graph
+    int srcObjectCount = property.GetSrcObjectCount<FbxObject>();
+    if (srcObjectCount > 0)
+    {
+		LOG("    --> Property is connected to " + std::to_string(srcObjectCount) + " upstream object(s). Traversing...");
+        for (int i = 0; i < srcObjectCount; ++i)
+        {
+            const FbxObject* srcObject = property.GetSrcObject<FbxObject>(i);
+            if (srcObject)
+            {
+				LOG("      --> Checking connected object: " + std::string(srcObject->GetName()));
+                // Recursively search the properties of the connected object
+                FbxProperty srcProp = srcObject->GetFirstProperty();
+                while (srcProp.IsValid())
+                {
+                    const FbxFileTexture* texture = FindConnectedFileTexture(srcProp);
+                    if (texture)
+                    {
+						LOG("        --> Found texture through recursion!");
+                        return texture;
+                    }
+                    srcProp = srcObject->GetNextProperty(srcProp);
+                }
+            }
+        }
+    }
+
+    return nullptr;
 }
 
 
@@ -978,4 +1353,127 @@ void Model::CalculateBoundingBox()
 	}
 
 	m_boundingBox.radius = sqrt(maxDistSq);
+}
+
+bool Model::LoadFBXTextures(ID3D11Device* device, ID3D11DeviceContext* deviceContext)
+{
+	bool result = true;
+	int loadedTextures = 0;
+
+	LOG("=== FBX Texture Loading Report ===");
+	LOG("Diffuse texture: " + (m_materialInfo.diffuseTexturePath.empty() ? "NOT FOUND" : m_materialInfo.diffuseTexturePath));
+	LOG("Normal texture: " + (m_materialInfo.normalTexturePath.empty() ? "NOT FOUND" : m_materialInfo.normalTexturePath));
+	LOG("Metallic texture: " + (m_materialInfo.metallicTexturePath.empty() ? "NOT FOUND" : m_materialInfo.metallicTexturePath));
+	LOG("Roughness texture: " + (m_materialInfo.roughnessTexturePath.empty() ? "NOT FOUND" : m_materialInfo.roughnessTexturePath));
+	LOG("Emission texture: " + (m_materialInfo.emissionTexturePath.empty() ? "NOT FOUND" : m_materialInfo.emissionTexturePath));
+	LOG("AO texture: " + (m_materialInfo.aoTexturePath.empty() ? "NOT FOUND" : m_materialInfo.aoTexturePath));
+
+	// Try to load diffuse texture first (most important)
+	if (!m_materialInfo.diffuseTexturePath.empty())
+	{
+		string convertedPath = ConvertTexturePath(m_materialInfo.diffuseTexturePath);
+		LOG("Attempting to load diffuse texture: " + convertedPath);
+		
+		result = LoadTexture(device, deviceContext, (char*)convertedPath.c_str());
+		if (result)
+		{
+			LOG("✓ Successfully loaded diffuse texture");
+			loadedTextures++;
+		}
+		else
+		{
+			LOG_ERROR("✗ Failed to load diffuse texture: " + convertedPath);
+		}
+	}
+
+	// Load normal texture if available
+	if (!m_materialInfo.normalTexturePath.empty())
+	{
+		string convertedPath = ConvertTexturePath(m_materialInfo.normalTexturePath);
+		LOG("Attempting to load normal texture: " + convertedPath);
+		
+		// For now, we'll just log that we found it
+		// In a full implementation, you'd load this into a separate texture slot
+		LOG("✓ Found normal texture (not yet implemented for loading): " + convertedPath);
+		loadedTextures++;
+	}
+
+	// Load metallic texture if available
+	if (!m_materialInfo.metallicTexturePath.empty())
+	{
+		string convertedPath = ConvertTexturePath(m_materialInfo.metallicTexturePath);
+		LOG("Attempting to load metallic texture: " + convertedPath);
+		
+		// For now, we'll just log that we found it
+		LOG("✓ Found metallic texture (not yet implemented for loading): " + convertedPath);
+		loadedTextures++;
+	}
+
+	// Load roughness texture if available
+	if (!m_materialInfo.roughnessTexturePath.empty())
+	{
+		string convertedPath = ConvertTexturePath(m_materialInfo.roughnessTexturePath);
+		LOG("Attempting to load roughness texture: " + convertedPath);
+		
+		// For now, we'll just log that we found it
+		LOG("✓ Found roughness texture (not yet implemented for loading): " + convertedPath);
+		loadedTextures++;
+	}
+
+	// Load emission texture if available
+	if (!m_materialInfo.emissionTexturePath.empty())
+	{
+		string convertedPath = ConvertTexturePath(m_materialInfo.emissionTexturePath);
+		LOG("Attempting to load emission texture: " + convertedPath);
+		
+		// For now, we'll just log that we found it
+		LOG("✓ Found emission texture (not yet implemented for loading): " + convertedPath);
+		loadedTextures++;
+	}
+
+	// Load AO texture if available
+	if (!m_materialInfo.aoTexturePath.empty())
+	{
+		string convertedPath = ConvertTexturePath(m_materialInfo.aoTexturePath);
+		LOG("Attempting to load AO texture: " + convertedPath);
+		
+		// For now, we'll just log that we found it
+		LOG("✓ Found AO texture (not yet implemented for loading): " + convertedPath);
+		loadedTextures++;
+	}
+
+	LOG("Total textures found: " + std::to_string(loadedTextures));
+	LOG("=== End FBX Texture Loading Report ===");
+
+	// Don't fail if no textures were loaded - just log a warning
+	if (loadedTextures == 0)
+	{
+		LOG_WARNING("No textures were loaded from FBX materials");
+	}
+
+	return true; // Always return true for now to see the debug output
+}
+
+string Model::ConvertTexturePath(const string& originalPath)
+{
+	string texturePath = originalPath;
+	
+	// Try to find the Engine/assets/ pattern
+	size_t pos = texturePath.find("Engine\\assets\\");
+	if (pos != string::npos)
+	{
+		// Extract just the assets/models/... part
+		texturePath = "../" + texturePath.substr(pos);
+		// Replace backslashes with forward slashes
+		replace(texturePath.begin(), texturePath.end(), '\\', '/');
+		LOG("Converted absolute path to relative: " + texturePath);
+	}
+	else
+	{
+		// If it's already a relative path, just normalize slashes
+		replace(texturePath.begin(), texturePath.end(), '\\', '/');
+		LOG("Normalized path slashes: " + texturePath);
+	}
+
+	return texturePath;
 }

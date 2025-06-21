@@ -6,6 +6,7 @@ ColorShader::ColorShader()
 	m_pixelShader = 0;
 	m_layout = 0;
 	m_matrixBuffer = 0;
+	m_colorBuffer = 0;
 }
 
 
@@ -27,14 +28,14 @@ bool ColorShader::Initialize(ID3D11Device* device, HWND hwnd)
 
 
 	// Set the filename of the vertex shader.
-	error = wcscpy_s(vsFilename, 128, L"../Engine/src/Graphics/Shaders/VertexShader.hlsl");
+	error = wcscpy_s(vsFilename, 128, L"../Engine/assets/shaders/VertexShader.hlsl");
 	if (error != 0)
 	{
 		return false;
 	}
 
 	// Set the filename of the pixel shader.
-	error = wcscpy_s(psFilename, 128, L"../Engine/src/Graphics/Shaders/PixelShader.hlsl");
+	error = wcscpy_s(psFilename, 128, L"../Engine/assets/shaders/PixelShader.hlsl");
 	if (error != 0)
 	{
 		return false;
@@ -58,14 +59,15 @@ void ColorShader::Shutdown()
 	return;
 }
 
-bool ColorShader::Render(ID3D11DeviceContext* deviceContext, int indexCount, XMMATRIX worldMatrix, XMMATRIX viewMatrix, XMMATRIX projectionMatrix)
+bool ColorShader::Render(ID3D11DeviceContext* deviceContext, int indexCount, const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix,
+						 const XMMATRIX& projectionMatrix, const XMFLOAT4& pixelColor)
 {
 	bool result;
 
 
 	// Set the shader parameters that it will use for rendering.
-	result = SetShaderParameters(deviceContext, worldMatrix, viewMatrix, projectionMatrix);
-	if (!result)
+	result = SetShaderParameters(deviceContext, worldMatrix, viewMatrix, projectionMatrix, pixelColor);
+	if(!result)
 	{
 		return false;
 	}
@@ -85,6 +87,7 @@ bool ColorShader::InitializeShader(ID3D11Device* device, HWND hwnd, WCHAR* vsFil
 	D3D11_INPUT_ELEMENT_DESC polygonLayout[2];
 	unsigned int numElements;
 	D3D11_BUFFER_DESC matrixBufferDesc;
+	D3D11_BUFFER_DESC colorBufferDesc;
 
 
 	// Initialize the pointers this function will use to null.
@@ -190,7 +193,22 @@ bool ColorShader::InitializeShader(ID3D11Device* device, HWND hwnd, WCHAR* vsFil
 
 	// Create the constant buffer pointer so we can access the vertex shader constant buffer from within this class.
 	result = device->CreateBuffer(&matrixBufferDesc, NULL, &m_matrixBuffer);
-	if (FAILED(result))
+	if(FAILED(result))
+	{
+		return false;
+	}
+
+	// Setup the description of the color constant buffer that is in the pixel shader.
+	colorBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+	colorBufferDesc.ByteWidth = sizeof(ColorBufferType);
+	colorBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	colorBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	colorBufferDesc.MiscFlags = 0;
+	colorBufferDesc.StructureByteStride = 0;
+
+	// Create the constant buffer pointer so we can access the pixel shader constant buffer from within this class.
+	result = device->CreateBuffer(&colorBufferDesc, NULL, &m_colorBuffer);
+	if(FAILED(result))
 	{
 		return false;
 	}
@@ -200,8 +218,15 @@ bool ColorShader::InitializeShader(ID3D11Device* device, HWND hwnd, WCHAR* vsFil
 
 void ColorShader::ShutdownShader()
 {
+	// Release the color constant buffer.
+	if(m_colorBuffer)
+	{
+		m_colorBuffer->Release();
+		m_colorBuffer = 0;
+	}
+
 	// Release the matrix constant buffer.
-	if (m_matrixBuffer)
+	if(m_matrixBuffer)
 	{
 		m_matrixBuffer->Release();
 		m_matrixBuffer = 0;
@@ -266,18 +291,19 @@ void ColorShader::OutputShaderErrorMessage(ID3D10Blob* errorMessage, HWND hwnd, 
 	return;
 }
 
-bool ColorShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, XMMATRIX worldMatrix, XMMATRIX viewMatrix,
-	XMMATRIX projectionMatrix)
+bool ColorShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX& worldMatrix, const XMMATRIX& viewMatrix,
+									   const XMMATRIX& projectionMatrix, const XMFLOAT4& pixelColor)
 {
 	HRESULT result;
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 	MatrixBufferType* dataPtr;
+	ColorBufferType* dataPtr2;
 	unsigned int bufferNumber;
 
 	// Transpose the matrices to prepare them for the shader.
-	worldMatrix = XMMatrixTranspose(worldMatrix);
-	viewMatrix = XMMatrixTranspose(viewMatrix);
-	projectionMatrix = XMMatrixTranspose(projectionMatrix);
+	XMMATRIX world = XMMatrixTranspose(worldMatrix);
+	XMMATRIX view = XMMatrixTranspose(viewMatrix);
+	XMMATRIX projection = XMMatrixTranspose(projectionMatrix);
 
 	// Lock the constant buffer so it can be written to.
 	result = deviceContext->Map(m_matrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
@@ -290,9 +316,9 @@ bool ColorShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, XMMATR
 	dataPtr = (MatrixBufferType*)mappedResource.pData;
 
 	// Copy the matrices into the constant buffer.
-	dataPtr->world = worldMatrix;
-	dataPtr->view = viewMatrix;
-	dataPtr->projection = projectionMatrix;
+	dataPtr->world = world;
+	dataPtr->view = view;
+	dataPtr->projection = projection;
 
 	// Unlock the constant buffer.
 	deviceContext->Unmap(m_matrixBuffer, 0);
@@ -302,6 +328,28 @@ bool ColorShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, XMMATR
 
 	// Finally set the constant buffer in the vertex shader with the updated values.
 	deviceContext->VSSetConstantBuffers(bufferNumber, 1, &m_matrixBuffer);
+
+	// Lock the color constant buffer so it can be written to.
+	result = deviceContext->Map(m_colorBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+	if(FAILED(result))
+	{
+		return false;
+	}
+
+	// Get a pointer to the data in the constant buffer.
+	dataPtr2 = (ColorBufferType*)mappedResource.pData;
+
+	// Copy the color into the constant buffer.
+	dataPtr2->pixelColor = pixelColor;
+
+	// Unlock the constant buffer.
+	deviceContext->Unmap(m_colorBuffer, 0);
+
+	// Set the position of the color constant buffer in the pixel shader.
+	bufferNumber = 0;
+
+	// Finally set the color constant buffer in the pixel shader with the updated values.
+	deviceContext->PSSetConstantBuffers(bufferNumber, 1, &m_colorBuffer);
 
 	return true;
 }
