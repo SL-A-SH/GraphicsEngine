@@ -9,6 +9,7 @@ ShaderManager::ShaderManager()
     m_SpecMapShader = 0;
     m_FontShader = 0;
     m_SkyboxShader = 0;
+    m_PBRShader = 0;
 }
 
 
@@ -99,6 +100,16 @@ bool ShaderManager::Initialize(ID3D11Device* device, HWND hwnd)
         return false;
     }
 
+    // Create and initialize the PBR shader object.
+    m_PBRShader = new PBRShader;
+
+    // Initialize the PBR shader object.
+    result = m_PBRShader->Initialize(device, hwnd);
+    if (!result)
+    {
+        return false;
+    }
+
     return true;
 }
 
@@ -111,6 +122,14 @@ void ShaderManager::Shutdown()
         m_SkyboxShader->Shutdown();
         delete m_SkyboxShader;
         m_SkyboxShader = 0;
+    }
+
+    // Release the PBR shader object.
+    if (m_PBRShader)
+    {
+        m_PBRShader->Shutdown();
+        delete m_PBRShader;
+        m_PBRShader = 0;
     }
 
     // Release the specular map shader object.
@@ -238,4 +257,15 @@ bool ShaderManager::RenderColorShader(ID3D11DeviceContext* deviceContext, int in
 									   const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, const XMFLOAT4& color)
 {
 	return m_ColorShader->Render(deviceContext, indexCount, worldMatrix, viewMatrix, projectionMatrix, color);
+}
+
+bool ShaderManager::RenderPBRShader(ID3D11DeviceContext* deviceContext, int indexCount, XMMATRIX worldMatrix, XMMATRIX viewMatrix, XMMATRIX projectionMatrix,
+                                   ID3D11ShaderResourceView* diffuseTexture, ID3D11ShaderResourceView* normalTexture, ID3D11ShaderResourceView* metallicTexture,
+                                   ID3D11ShaderResourceView* roughnessTexture, ID3D11ShaderResourceView* emissionTexture, ID3D11ShaderResourceView* aoTexture,
+                                   XMFLOAT3 lightDirection, XMFLOAT4 ambientColor, XMFLOAT4 diffuseColor, XMFLOAT4 baseColor,
+                                   float metallic, float roughness, float ao, float emissionStrength, XMFLOAT3 cameraPosition)
+{
+    return m_PBRShader->Render(deviceContext, indexCount, worldMatrix, viewMatrix, projectionMatrix,
+                              diffuseTexture, normalTexture, metallicTexture, roughnessTexture, emissionTexture, aoTexture,
+                              lightDirection, ambientColor, diffuseColor, baseColor, metallic, roughness, ao, emissionStrength, cameraPosition);
 }

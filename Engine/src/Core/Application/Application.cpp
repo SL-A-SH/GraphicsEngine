@@ -517,30 +517,87 @@ bool Application::Render()
 			// Render the model's buffers.
 			m_Model->Render(m_Direct3D->GetDeviceContext());
 
-			// Get the texture from the model.
-			ID3D11ShaderResourceView* modelTexture = m_Model->GetTexture();
-
-			// Only render with the light shader if the model has a texture.
-			if (modelTexture)
+			// Check if this is an FBX model with PBR materials first
+			if (m_Model->HasFBXMaterial())
 			{
-				result = m_ShaderManager->RenderLightShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
-					modelTexture, m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
-					m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
+				// Debug logging for PBR shader
+				LOG("Rendering with PBR shader");
+				if (m_Model->GetDiffuseTexture() != nullptr)
+					LOG("Diffuse texture: VALID");
+				else
+					LOG("Diffuse texture: NULL");
+				if (m_Model->GetNormalTexture() != nullptr)
+					LOG("Normal texture: VALID");
+				else
+					LOG("Normal texture: NULL");
+				if (m_Model->GetMetallicTexture() != nullptr)
+					LOG("Metallic texture: VALID");
+				else
+					LOG("Metallic texture: NULL");
+				if (m_Model->GetRoughnessTexture() != nullptr)
+					LOG("Roughness texture: VALID");
+				else
+					LOG("Roughness texture: NULL");
+				if (m_Model->GetEmissionTexture() != nullptr)
+					LOG("Emission texture: VALID");
+				else
+					LOG("Emission texture: NULL");
+				if (m_Model->GetAOTexture() != nullptr)
+					LOG("AO texture: VALID");
+				else
+					LOG("AO texture: NULL");
+				
+				// Debug lighting parameters
+				XMFLOAT3 lightDir = m_Light->GetDirection();
+				XMFLOAT4 ambientColor = m_Light->GetAmbientColor();
+				XMFLOAT4 diffuseColor = m_Light->GetDiffuseColor();
+				XMFLOAT3 cameraPos = m_Camera->GetPosition();
+				
+				LOG("Light direction: " + std::to_string(lightDir.x) + ", " + std::to_string(lightDir.y) + ", " + std::to_string(lightDir.z));
+				LOG("Ambient color: " + std::to_string(ambientColor.x) + ", " + std::to_string(ambientColor.y) + ", " + std::to_string(ambientColor.z) + ", " + std::to_string(ambientColor.w));
+				LOG("Diffuse color: " + std::to_string(diffuseColor.x) + ", " + std::to_string(diffuseColor.y) + ", " + std::to_string(diffuseColor.z) + ", " + std::to_string(diffuseColor.w));
+				LOG("Camera position: " + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z));
+				
+				// Use PBR shader for FBX models with multiple textures
+				result = m_ShaderManager->RenderPBRShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
+					m_Model->GetDiffuseTexture(), m_Model->GetNormalTexture(), m_Model->GetMetallicTexture(),
+					m_Model->GetRoughnessTexture(), m_Model->GetEmissionTexture(), m_Model->GetAOTexture(),
+					m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(), m_Model->GetBaseColor(),
+					m_Model->GetMetallic(), m_Model->GetRoughness(), m_Model->GetAO(), m_Model->GetEmissionStrength(), m_Camera->GetPosition());
 				if (!result)
 				{
-					LOG_ERROR("Model render with LightShader failed");
+					LOG_ERROR("Model render with PBRShader failed");
 					return false;
 				}
 			}
 			else
 			{
-				// If there is no texture, render the model with a solid color.
-				LOG_WARNING("Model has no texture, rendering with ColorShader.");
-				result = m_ShaderManager->RenderColorShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix, XMFLOAT4(0.7f, 0.7f, 0.7f, 1.0f));
-				if (!result)
+				// Get the texture from the model for non-FBX models
+				ID3D11ShaderResourceView* modelTexture = m_Model->GetTexture();
+
+				// Only render with the light shader if the model has a texture.
+				if (modelTexture)
 				{
-					LOG_ERROR("Model render with ColorShader failed");
-					return false;
+					// Use regular light shader for simple textured models
+					result = m_ShaderManager->RenderLightShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
+						modelTexture, m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
+						m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
+					if (!result)
+					{
+						LOG_ERROR("Model render with LightShader failed");
+						return false;
+					}
+				}
+				else
+				{
+					// If there is no texture, render the model with a solid color.
+					LOG_WARNING("Model has no texture, rendering with ColorShader.");
+					result = m_ShaderManager->RenderColorShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix, XMFLOAT4(0.7f, 0.7f, 0.7f, 1.0f));
+					if (!result)
+					{
+						LOG_ERROR("Model render with ColorShader failed");
+						return false;
+					}
 				}
 			}
 

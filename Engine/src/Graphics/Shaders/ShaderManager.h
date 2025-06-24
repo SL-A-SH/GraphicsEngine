@@ -8,6 +8,7 @@
 #include "FontShader.h"
 #include "./Environment/SkyboxShader.h"
 #include "ColorShader.h"
+#include "PBRShader.h"
 
 class ShaderManager
 {
@@ -27,6 +28,10 @@ public:
     bool RenderFontShader(ID3D11DeviceContext*, int, XMMATRIX, XMMATRIX, XMMATRIX, ID3D11ShaderResourceView*, XMFLOAT4);
     bool RenderSkyboxShader(ID3D11DeviceContext*, int, XMMATRIX, XMMATRIX, XMMATRIX, ID3D11ShaderResourceView*[6]);
     bool RenderColorShader(ID3D11DeviceContext*, int, const XMMATRIX&, const XMMATRIX&, const XMMATRIX&, const XMFLOAT4&);
+    bool RenderPBRShader(ID3D11DeviceContext*, int, XMMATRIX, XMMATRIX, XMMATRIX, 
+                        ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, 
+                        ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, ID3D11ShaderResourceView*,
+                        XMFLOAT3, XMFLOAT4, XMFLOAT4, XMFLOAT4, float, float, float, float, XMFLOAT3);
 
 private:
     TextureShader* m_TextureShader;
@@ -36,6 +41,7 @@ private:
     FontShader* m_FontShader;
     SkyboxShader* m_SkyboxShader;
     ColorShader* m_ColorShader;
+    PBRShader* m_PBRShader;
 };
 
 #endif

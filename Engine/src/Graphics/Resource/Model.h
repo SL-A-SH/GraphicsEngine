@@ -70,6 +70,10 @@ private:
 		XMFLOAT4 ambientColor;
 		XMFLOAT4 specularColor;
 		float shininess;
+		float metallic;
+		float roughness;
+		float ao;
+		float emissionStrength;
 	};
 
 public:
@@ -86,10 +90,25 @@ public:
 
 	int GetIndexCount();
 	ID3D11ShaderResourceView* GetTexture();
-	ID3D11ShaderResourceView* GetTexture(int);
+	ID3D11ShaderResourceView* GetTexture(int index);
 	bool HasFBXMaterial() const { return m_hasFBXMaterial; }
 	const AABB& GetBoundingBox() const { return m_boundingBox; }
 	const MaterialInfo& GetMaterialInfo() const { return m_materialInfo; }
+
+	// PBR texture getters
+	ID3D11ShaderResourceView* GetDiffuseTexture();
+	ID3D11ShaderResourceView* GetNormalTexture();
+	ID3D11ShaderResourceView* GetMetallicTexture();
+	ID3D11ShaderResourceView* GetRoughnessTexture();
+	ID3D11ShaderResourceView* GetEmissionTexture();
+	ID3D11ShaderResourceView* GetAOTexture();
+	
+	// PBR material properties
+	XMFLOAT4 GetBaseColor() const { return m_materialInfo.diffuseColor; }
+	float GetMetallic() const { return m_materialInfo.metallic; }
+	float GetRoughness() const { return m_materialInfo.roughness; }
+	float GetAO() const { return m_materialInfo.ao; }
+	float GetEmissionStrength() const { return m_materialInfo.emissionStrength; }
 
 private:
 	bool InitializeBuffers(ID3D11Device*);
@@ -125,6 +144,15 @@ private:
 	int m_vertexCount, m_indexCount;
 	Texture* m_Texture;
 	vector<Texture> m_Textures;
+	
+	// PBR textures
+	Texture* m_diffuseTexture;
+	Texture* m_normalTexture;
+	Texture* m_metallicTexture;
+	Texture* m_roughnessTexture;
+	Texture* m_emissionTexture;
+	Texture* m_aoTexture;
+	
 	ModelType* m_model;
 	MaterialInfo m_materialInfo;
 	bool m_hasFBXMaterial;

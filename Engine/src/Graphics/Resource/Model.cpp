@@ -13,7 +13,19 @@ Model::Model()
 	m_materialInfo.ambientColor = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 	m_materialInfo.specularColor = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	m_materialInfo.shininess = 32.0f;
+	m_materialInfo.metallic = 0.0f;
+	m_materialInfo.roughness = 0.5f;
+	m_materialInfo.ao = 1.0f;
+	m_materialInfo.emissionStrength = 0.0f;
 	m_currentFBXPath = "";
+	
+	// Initialize PBR texture pointers
+	m_diffuseTexture = nullptr;
+	m_normalTexture = nullptr;
+	m_metallicTexture = nullptr;
+	m_roughnessTexture = nullptr;
+	m_emissionTexture = nullptr;
+	m_aoTexture = nullptr;
 }
 
 
@@ -131,6 +143,8 @@ bool Model::InitializeFBX(ID3D11Device* device, ID3D11DeviceContext* deviceConte
 		return false;
 	}
 
+	CalculateModelVectors();
+
 	// Initialize the vertex and index buffers.
 	result = InitializeBuffers(device);
 	if (!result)
@@ -202,6 +216,61 @@ ID3D11ShaderResourceView* Model::GetTexture()
 ID3D11ShaderResourceView* Model::GetTexture(int index)
 {
 	return m_Textures[index].GetTexture();
+}
+
+
+ID3D11ShaderResourceView* Model::GetDiffuseTexture()
+{
+	if (m_diffuseTexture)
+	{
+		return m_diffuseTexture->GetTexture();
+	}
+	return nullptr;
+}
+
+ID3D11ShaderResourceView* Model::GetNormalTexture()
+{
+	if (m_normalTexture)
+	{
+		return m_normalTexture->GetTexture();
+	}
+	return nullptr;
+}
+
+ID3D11ShaderResourceView* Model::GetMetallicTexture()
+{
+	if (m_metallicTexture)
+	{
+		return m_metallicTexture->GetTexture();
+	}
+	return nullptr;
+}
+
+ID3D11ShaderResourceView* Model::GetRoughnessTexture()
+{
+	if (m_roughnessTexture)
+	{
+		return m_roughnessTexture->GetTexture();
+	}
+	return nullptr;
+}
+
+ID3D11ShaderResourceView* Model::GetEmissionTexture()
+{
+	if (m_emissionTexture)
+	{
+		return m_emissionTexture->GetTexture();
+	}
+	return nullptr;
+}
+
+ID3D11ShaderResourceView* Model::GetAOTexture()
+{
+	if (m_aoTexture)
+	{
+		return m_aoTexture->GetTexture();
+	}
+	return nullptr;
 }
 
 
@@ -438,6 +507,49 @@ void Model::ReleaseTextures()
 		m_Texture = 0;
 	}
 
+	// Release PBR textures
+	if (m_diffuseTexture)
+	{
+		m_diffuseTexture->Shutdown();
+		delete m_diffuseTexture;
+		m_diffuseTexture = nullptr;
+	}
+
+	if (m_normalTexture)
+	{
+		m_normalTexture->Shutdown();
+		delete m_normalTexture;
+		m_normalTexture = nullptr;
+	}
+
+	if (m_metallicTexture)
+	{
+		m_metallicTexture->Shutdown();
+		delete m_metallicTexture;
+		m_metallicTexture = nullptr;
+	}
+
+	if (m_roughnessTexture)
+	{
+		m_roughnessTexture->Shutdown();
+		delete m_roughnessTexture;
+		m_roughnessTexture = nullptr;
+	}
+
+	if (m_emissionTexture)
+	{
+		m_emissionTexture->Shutdown();
+		delete m_emissionTexture;
+		m_emissionTexture = nullptr;
+	}
+
+	if (m_aoTexture)
+	{
+		m_aoTexture->Shutdown();
+		delete m_aoTexture;
+		m_aoTexture = nullptr;
+	}
+
 	return;
 }
 
@@ -661,6 +773,15 @@ void Model::SearchSceneForTextures(FbxScene* scene)
 	int textureCount = scene->GetTextureCount();
 	LOG("    -> Found " + std::to_string(textureCount) + " textures in scene");
 	
+	// Store all found textures for better assignment
+	vector<string> diffuseTextures;
+	vector<string> normalTextures;
+	vector<string> specularTextures;
+	vector<string> emissionTextures;
+	vector<string> metallicTextures;
+	vector<string> roughnessTextures;
+	vector<string> aoTextures;
+	
 	for (int i = 0; i < textureCount; i++)
 	{
 		FbxTexture* texture = scene->GetTexture(i);
@@ -676,34 +797,104 @@ void Model::SearchSceneForTextures(FbxScene* scene)
 				std::string filename = texturePath;
 				std::transform(filename.begin(), filename.end(), filename.begin(), ::tolower);
 				
-				if (m_materialInfo.diffuseTexturePath.empty() && 
-					(filename.find("color") != std::string::npos || 
-					 filename.find("albedo") != std::string::npos || 
-					 filename.find("diffuse") != std::string::npos ||
-					 filename.find("textura-color") != std::string::npos))
+				// Categorize textures by type
+				if (filename.find("diffuse") != std::string::npos || 
+					filename.find("color") != std::string::npos || 
+					filename.find("albedo") != std::string::npos ||
+					filename.find("textura-color") != std::string::npos)
 				{
-					m_materialInfo.diffuseTexturePath = texturePath;
-					LOG("    -> Assigned as diffuse texture");
+					diffuseTextures.push_back(texturePath);
+					LOG("    -> Categorized as diffuse texture");
 				}
-				else if (m_materialInfo.normalTexturePath.empty() && 
-						 (filename.find("normal") != std::string::npos ||
-						  filename.find("textura-normal") != std::string::npos))
+				else if (filename.find("normal") != std::string::npos ||
+						 filename.find("textura-normal") != std::string::npos)
 				{
-					m_materialInfo.normalTexturePath = texturePath;
-					LOG("    -> Assigned as normal texture");
+					normalTextures.push_back(texturePath);
+					LOG("    -> Categorized as normal texture");
 				}
-				else if (m_materialInfo.specularTexturePath.empty() && 
-						 (filename.find("specular") != std::string::npos || 
-						  filename.find("metallic") != std::string::npos ||
-						  filename.find("roughness") != std::string::npos ||
-						  filename.find("textura-metallic") != std::string::npos ||
-						  filename.find("textura-roughness") != std::string::npos))
+				else if (filename.find("specular") != std::string::npos)
 				{
-					m_materialInfo.specularTexturePath = texturePath;
-					LOG("    -> Assigned as specular/metallic texture");
+					specularTextures.push_back(texturePath);
+					LOG("    -> Categorized as specular texture");
+				}
+				else if (filename.find("glow") != std::string::npos ||
+						 filename.find("emission") != std::string::npos ||
+						 filename.find("textura-emission") != std::string::npos)
+				{
+					emissionTextures.push_back(texturePath);
+					LOG("    -> Categorized as emission texture");
+				}
+				else if (filename.find("metallic") != std::string::npos ||
+						 filename.find("textura-metallic") != std::string::npos)
+				{
+					metallicTextures.push_back(texturePath);
+					LOG("    -> Categorized as metallic texture");
+				}
+				else if (filename.find("roughness") != std::string::npos ||
+						 filename.find("textura-roughness") != std::string::npos)
+				{
+					roughnessTextures.push_back(texturePath);
+					LOG("    -> Categorized as roughness texture");
+				}
+				else if (filename.find("ao") != std::string::npos ||
+						 filename.find("ambient") != std::string::npos)
+				{
+					aoTextures.push_back(texturePath);
+					LOG("    -> Categorized as AO texture");
+				}
+				else
+				{
+					LOG("    -> Could not categorize texture: " + texturePath);
 				}
 			}
 		}
+	}
+	
+	// Assign the first texture of each type found
+	if (!diffuseTextures.empty() && m_materialInfo.diffuseTexturePath.empty())
+	{
+		m_materialInfo.diffuseTexturePath = diffuseTextures[0];
+		LOG("    -> Assigned diffuse texture: " + diffuseTextures[0]);
+		if (diffuseTextures.size() > 1)
+		{
+			LOG("    -> Note: " + std::to_string(diffuseTextures.size()) + " diffuse textures found, using first one");
+		}
+	}
+	
+	if (!normalTextures.empty() && m_materialInfo.normalTexturePath.empty())
+	{
+		m_materialInfo.normalTexturePath = normalTextures[0];
+		LOG("    -> Assigned normal texture: " + normalTextures[0]);
+	}
+	
+	if (!specularTextures.empty() && m_materialInfo.specularTexturePath.empty())
+	{
+		m_materialInfo.specularTexturePath = specularTextures[0];
+		LOG("    -> Assigned specular texture: " + specularTextures[0]);
+	}
+	
+	if (!emissionTextures.empty() && m_materialInfo.emissionTexturePath.empty())
+	{
+		m_materialInfo.emissionTexturePath = emissionTextures[0];
+		LOG("    -> Assigned emission texture: " + emissionTextures[0]);
+	}
+	
+	if (!metallicTextures.empty() && m_materialInfo.metallicTexturePath.empty())
+	{
+		m_materialInfo.metallicTexturePath = metallicTextures[0];
+		LOG("    -> Assigned metallic texture: " + metallicTextures[0]);
+	}
+	
+	if (!roughnessTextures.empty() && m_materialInfo.roughnessTexturePath.empty())
+	{
+		m_materialInfo.roughnessTexturePath = roughnessTextures[0];
+		LOG("    -> Assigned roughness texture: " + roughnessTextures[0]);
+	}
+	
+	if (!aoTextures.empty() && m_materialInfo.aoTexturePath.empty())
+	{
+		m_materialInfo.aoTexturePath = aoTextures[0];
+		LOG("    -> Assigned AO texture: " + aoTextures[0]);
 	}
 }
 
@@ -1363,18 +1554,20 @@ bool Model::LoadFBXTextures(ID3D11Device* device, ID3D11DeviceContext* deviceCon
 	LOG("=== FBX Texture Loading Report ===");
 	LOG("Diffuse texture: " + (m_materialInfo.diffuseTexturePath.empty() ? "NOT FOUND" : m_materialInfo.diffuseTexturePath));
 	LOG("Normal texture: " + (m_materialInfo.normalTexturePath.empty() ? "NOT FOUND" : m_materialInfo.normalTexturePath));
+	LOG("Specular texture: " + (m_materialInfo.specularTexturePath.empty() ? "NOT FOUND" : m_materialInfo.specularTexturePath));
 	LOG("Metallic texture: " + (m_materialInfo.metallicTexturePath.empty() ? "NOT FOUND" : m_materialInfo.metallicTexturePath));
 	LOG("Roughness texture: " + (m_materialInfo.roughnessTexturePath.empty() ? "NOT FOUND" : m_materialInfo.roughnessTexturePath));
 	LOG("Emission texture: " + (m_materialInfo.emissionTexturePath.empty() ? "NOT FOUND" : m_materialInfo.emissionTexturePath));
 	LOG("AO texture: " + (m_materialInfo.aoTexturePath.empty() ? "NOT FOUND" : m_materialInfo.aoTexturePath));
 
-	// Try to load diffuse texture first (most important)
+	// Load diffuse texture (most important)
 	if (!m_materialInfo.diffuseTexturePath.empty())
 	{
 		string convertedPath = ConvertTexturePath(m_materialInfo.diffuseTexturePath);
 		LOG("Attempting to load diffuse texture: " + convertedPath);
 		
-		result = LoadTexture(device, deviceContext, (char*)convertedPath.c_str());
+		m_diffuseTexture = new Texture();
+		result = m_diffuseTexture->Initialize(device, deviceContext, (char*)convertedPath.c_str());
 		if (result)
 		{
 			LOG("✓ Successfully loaded diffuse texture");
@@ -1383,66 +1576,117 @@ bool Model::LoadFBXTextures(ID3D11Device* device, ID3D11DeviceContext* deviceCon
 		else
 		{
 			LOG_ERROR("✗ Failed to load diffuse texture: " + convertedPath);
+			delete m_diffuseTexture;
+			m_diffuseTexture = nullptr;
 		}
 	}
 
-	// Load normal texture if available
+	// Load normal texture
 	if (!m_materialInfo.normalTexturePath.empty())
 	{
 		string convertedPath = ConvertTexturePath(m_materialInfo.normalTexturePath);
 		LOG("Attempting to load normal texture: " + convertedPath);
 		
-		// For now, we'll just log that we found it
-		// In a full implementation, you'd load this into a separate texture slot
-		LOG("✓ Found normal texture (not yet implemented for loading): " + convertedPath);
-		loadedTextures++;
+		m_normalTexture = new Texture();
+		result = m_normalTexture->Initialize(device, deviceContext, (char*)convertedPath.c_str());
+		if (result)
+		{
+			LOG("✓ Successfully loaded normal texture");
+			loadedTextures++;
+		}
+		else
+		{
+			LOG_ERROR("✗ Failed to load normal texture: " + convertedPath);
+			delete m_normalTexture;
+			m_normalTexture = nullptr;
+		}
 	}
 
-	// Load metallic texture if available
+	// Load metallic texture
 	if (!m_materialInfo.metallicTexturePath.empty())
 	{
 		string convertedPath = ConvertTexturePath(m_materialInfo.metallicTexturePath);
 		LOG("Attempting to load metallic texture: " + convertedPath);
 		
-		// For now, we'll just log that we found it
-		LOG("✓ Found metallic texture (not yet implemented for loading): " + convertedPath);
-		loadedTextures++;
+		m_metallicTexture = new Texture();
+		result = m_metallicTexture->Initialize(device, deviceContext, (char*)convertedPath.c_str());
+		if (result)
+		{
+			LOG("✓ Successfully loaded metallic texture");
+			loadedTextures++;
+		}
+		else
+		{
+			LOG_ERROR("✗ Failed to load metallic texture: " + convertedPath);
+			delete m_metallicTexture;
+			m_metallicTexture = nullptr;
+		}
 	}
 
-	// Load roughness texture if available
+	// Load roughness texture
 	if (!m_materialInfo.roughnessTexturePath.empty())
 	{
 		string convertedPath = ConvertTexturePath(m_materialInfo.roughnessTexturePath);
 		LOG("Attempting to load roughness texture: " + convertedPath);
 		
-		// For now, we'll just log that we found it
-		LOG("✓ Found roughness texture (not yet implemented for loading): " + convertedPath);
-		loadedTextures++;
+		m_roughnessTexture = new Texture();
+		result = m_roughnessTexture->Initialize(device, deviceContext, (char*)convertedPath.c_str());
+		if (result)
+		{
+			LOG("✓ Successfully loaded roughness texture");
+			loadedTextures++;
+		}
+		else
+		{
+			LOG_ERROR("✗ Failed to load roughness texture: " + convertedPath);
+			delete m_roughnessTexture;
+			m_roughnessTexture = nullptr;
+		}
 	}
 
-	// Load emission texture if available
+	// Load emission texture
 	if (!m_materialInfo.emissionTexturePath.empty())
 	{
 		string convertedPath = ConvertTexturePath(m_materialInfo.emissionTexturePath);
 		LOG("Attempting to load emission texture: " + convertedPath);
 		
-		// For now, we'll just log that we found it
-		LOG("✓ Found emission texture (not yet implemented for loading): " + convertedPath);
-		loadedTextures++;
+		m_emissionTexture = new Texture();
+		result = m_emissionTexture->Initialize(device, deviceContext, (char*)convertedPath.c_str());
+		if (result)
+		{
+			LOG("✓ Successfully loaded emission texture");
+			loadedTextures++;
+		}
+		else
+		{
+			LOG_ERROR("✗ Failed to load emission texture: " + convertedPath);
+			delete m_emissionTexture;
+			m_emissionTexture = nullptr;
+		}
 	}
 
-	// Load AO texture if available
+	// Load AO texture
 	if (!m_materialInfo.aoTexturePath.empty())
 	{
 		string convertedPath = ConvertTexturePath(m_materialInfo.aoTexturePath);
 		LOG("Attempting to load AO texture: " + convertedPath);
 		
-		// For now, we'll just log that we found it
-		LOG("✓ Found AO texture (not yet implemented for loading): " + convertedPath);
-		loadedTextures++;
+		m_aoTexture = new Texture();
+		result = m_aoTexture->Initialize(device, deviceContext, (char*)convertedPath.c_str());
+		if (result)
+		{
+			LOG("✓ Successfully loaded AO texture");
+			loadedTextures++;
+		}
+		else
+		{
+			LOG_ERROR("✗ Failed to load AO texture: " + convertedPath);
+			delete m_aoTexture;
+			m_aoTexture = nullptr;
+		}
 	}
 
-	LOG("Total textures found: " + std::to_string(loadedTextures));
+	LOG("Total textures loaded: " + std::to_string(loadedTextures));
 	LOG("=== End FBX Texture Loading Report ===");
 
 	// Don't fail if no textures were loaded - just log a warning

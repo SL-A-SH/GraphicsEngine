@@ -131,11 +131,32 @@ bool SystemManager::Frame()
 {
 	bool result;
 
+	// Check if we have a valid input manager
+	if (!m_Input)
+	{
+		LOG_ERROR("Input manager is null in Frame()");
+		return false;
+	}
+
 	// Do the input frame processing.
 	result = m_Input->Frame();
 	if (!result)
 	{
 		return false;
+	}
+
+	// Check if we have a valid application and if it's been initialized
+	if (!m_Application)
+	{
+		LOG_ERROR("Application is null in Frame()");
+		return false;
+	}
+
+	// Check if the application has been initialized (has a valid window handle)
+	if (!m_hwnd)
+	{
+		LOG_WARNING("Window handle is null, skipping application frame");
+		return true; // Don't fail, just skip the frame
 	}
 
 	// Do the frame processing for the application class object.

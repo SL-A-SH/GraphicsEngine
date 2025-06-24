@@ -126,15 +126,14 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${QT_ROOT}/plugins/platforms/qwindows.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms/qwindows.dll"
+        "$<$<CONFIG:Debug>:${QT_ROOT}/plugins/platforms/qwindowsd.dll>$<$<CONFIG:Release>:${QT_ROOT}/plugins/platforms/qwindows.dll>"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms/qwindowsd.dll"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${FBX_SDK_ROOT}/bin/libfbxsdk.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${QT_ROOT}/bin/Qt6Cored.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${QT_ROOT}/bin/Qt6Guid.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${QT_ROOT}/bin/Qt6Widgets.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${QT_ROOT}/bin/Qt6Chartsd.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -235,6 +234,8 @@ source_group("src\\Graphics\\Shaders" FILES
     ${SRC_DIR}/Graphics/Shaders/SpecularMapShader.h
     ${SRC_DIR}/Graphics/Shaders/TextureShader.cpp
     ${SRC_DIR}/Graphics/Shaders/TextureShader.h
+    ${SRC_DIR}/Graphics/Shaders/PBRShader.h
+    ${SRC_DIR}/Graphics/Shaders/PBRShader.cpp
 )
 source_group("src\\Graphics\\Shaders\\Environment" FILES
     ${SRC_DIR}/Graphics/Shaders/Environment/SkyboxShader.cpp

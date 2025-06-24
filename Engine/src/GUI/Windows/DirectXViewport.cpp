@@ -121,6 +121,16 @@ void DirectXViewport::showEvent(QShowEvent* event)
         if (m_SystemManager)
         {
             m_SystemManager->SetWindowHandle((HWND)winId());
+            
+            // Wait a moment for the Application to initialize
+            QApplication::processEvents();
+            
+            // Verify that the Application was initialized successfully
+            if (!m_SystemManager->GetApplication())
+            {
+                LOG_ERROR("Application failed to initialize after setting window handle");
+                return;
+            }
         }
 
         // Get the monitor's refresh rate
@@ -291,8 +301,20 @@ void DirectXViewport::updateFrame()
 {
     if (m_Initialized && m_SystemManager)
     {
-        m_SystemManager->Frame();
+        // Additional check to ensure the Application is properly initialized
+        if (m_SystemManager->GetApplication())
+        {
+            m_SystemManager->Frame();
+        }
+        else
+        {
+            LOG_WARNING("Application not yet initialized, skipping frame");
+        }
         // Don't call update() here as it triggers Qt's paint system
+    }
+    else
+    {
+        LOG_WARNING("DirectXViewport not yet initialized, skipping frame");
     }
 }
 
