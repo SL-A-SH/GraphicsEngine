@@ -21,6 +21,10 @@ public:
         {
             std::cerr << "Failed to open log file: " << filename << std::endl;
         }
+        else
+        {
+            std::cout << "Log file opened: " << filename << std::endl;
+        }
     }
 
     void Shutdown()

@@ -405,6 +405,12 @@ void Model::RenderBuffers(ID3D11DeviceContext* deviceContext)
 
 bool Model::LoadTexture(ID3D11Device* device, ID3D11DeviceContext* deviceContext, char* filename)
 {
+	if (!filename) {
+		// No texture to load
+		m_Texture = nullptr;
+		return true;
+	}
+
 	bool result;
 
 	// Debug output for texture loading
@@ -636,6 +642,8 @@ bool Model::LoadTextModel(char* filename)
 
 bool Model::LoadFBXModel(char* filename)
 {
+	LOG("LoadFBXModel - Starting to load FBX file: " + std::string(filename));
+	
 	// Store the current FBX file path for texture searching
 	m_currentFBXPath = filename;
 
@@ -643,54 +651,70 @@ bool Model::LoadFBXModel(char* filename)
 	FbxManager* lSdkManager = FbxManager::Create();
 	if (!lSdkManager)
 	{
+		LOG_ERROR("LoadFBXModel - Failed to create FBX SDK manager");
 		return false;
 	}
+	LOG("LoadFBXModel - FBX SDK manager created successfully");
 
 	// Create an IOSettings object
 	FbxIOSettings* ios = FbxIOSettings::Create(lSdkManager, IOSROOT);
 	lSdkManager->SetIOSettings(ios);
+	LOG("LoadFBXModel - FBX IOSettings created");
 
 	// Create an importer
 	FbxImporter* lImporter = FbxImporter::Create(lSdkManager, "");
 	if (!lImporter->Initialize(filename, -1, lSdkManager->GetIOSettings()))
 	{
+		LOG_ERROR("LoadFBXModel - Failed to initialize FBX importer");
 		lImporter->Destroy();
 		lSdkManager->Destroy();
 		return false;
 	}
+	LOG("LoadFBXModel - FBX importer initialized successfully");
 
 	// Create a new scene
 	FbxScene* lScene = FbxScene::Create(lSdkManager, "myScene");
 	if (!lScene)
 	{
+		LOG_ERROR("LoadFBXModel - Failed to create FBX scene");
 		lImporter->Destroy();
 		lSdkManager->Destroy();
 		return false;
 	}
+	LOG("LoadFBXModel - FBX scene created successfully");
 
 	// Import the scene
+	LOG("LoadFBXModel - Importing scene...");
 	lImporter->Import(lScene);
 	lImporter->Destroy();
+	LOG("LoadFBXModel - Scene imported successfully");
 
 	// Convert the scene to triangle meshes
+	LOG("LoadFBXModel - Converting scene to triangle meshes...");
 	FbxGeometryConverter lGeomConverter(lSdkManager);
 	lGeomConverter.Triangulate(lScene, true);
+	LOG("LoadFBXModel - Scene triangulated successfully");
 
 	// Get the root node
 	FbxNode* lRootNode = lScene->GetRootNode();
 	if (!lRootNode)
 	{
+		LOG_ERROR("LoadFBXModel - Failed to get root node");
 		lScene->Destroy();
 		lSdkManager->Destroy();
 		return false;
 	}
+	LOG("LoadFBXModel - Root node obtained successfully");
 
 	// Process the scene
+	LOG("LoadFBXModel - Processing scene nodes...");
 	ProcessNode(lRootNode);
+	LOG("LoadFBXModel - Scene processing completed");
 
 	// Clean up
 	lScene->Destroy();
 	lSdkManager->Destroy();
+	LOG("LoadFBXModel - FBX loading completed successfully");
 
 	return true;
 }
@@ -1506,8 +1530,11 @@ void Model::CalculateBoundingBox()
 		m_boundingBox.min = XMFLOAT3(0.0f, 0.0f, 0.0f);
 		m_boundingBox.max = XMFLOAT3(0.0f, 0.0f, 0.0f);
 		m_boundingBox.radius = 0.0f;
+		LOG_WARNING("CalculateBoundingBox - No model data available, using default bounding box");
 		return;
 	}
+
+	LOG("CalculateBoundingBox - Calculating bounding box for " + std::to_string(m_vertexCount) + " vertices");
 
 	// Initialize min/max with the first vertex
 	m_boundingBox.min = XMFLOAT3(m_model[0].x, m_model[0].y, m_model[0].z);
@@ -1544,6 +1571,12 @@ void Model::CalculateBoundingBox()
 	}
 
 	m_boundingBox.radius = sqrt(maxDistSq);
+	
+	LOG("CalculateBoundingBox - Bounding box calculated:");
+	LOG("  Min: (" + std::to_string(m_boundingBox.min.x) + ", " + std::to_string(m_boundingBox.min.y) + ", " + std::to_string(m_boundingBox.min.z) + ")");
+	LOG("  Max: (" + std::to_string(m_boundingBox.max.x) + ", " + std::to_string(m_boundingBox.max.y) + ", " + std::to_string(m_boundingBox.max.z) + ")");
+	LOG("  Center: (" + std::to_string(center.x) + ", " + std::to_string(center.y) + ", " + std::to_string(center.z) + ")");
+	LOG("  Radius: " + std::to_string(m_boundingBox.radius));
 }
 
 bool Model::LoadFBXTextures(ID3D11Device* device, ID3D11DeviceContext* deviceContext)

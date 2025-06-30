@@ -325,3 +325,28 @@ bool Frustum::CheckAABB(const XMFLOAT3& min, const XMFLOAT3& max)
 
     return true;
 }
+
+bool Frustum::CheckAABB(const XMFLOAT3& min, const XMFLOAT3& max) const
+{
+    // Check each plane of the frustum
+    for (int i = 0; i < 6; i++)
+    {
+        // Get the plane normal
+        XMFLOAT3 normal(m_planes[i].x, m_planes[i].y, m_planes[i].z);
+        float d = m_planes[i].w;
+
+        // Find the point on the AABB that is furthest in the negative direction of the plane normal
+        XMFLOAT3 p;
+        p.x = (normal.x >= 0.0f) ? min.x : max.x;
+        p.y = (normal.y >= 0.0f) ? min.y : max.y;
+        p.z = (normal.z >= 0.0f) ? min.z : max.z;
+
+        // If the furthest point is behind the plane, the AABB is outside the frustum
+        if (XMVectorGetX(XMVector3Dot(XMLoadFloat3(&normal), XMLoadFloat3(&p))) + d < 0.0f)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}

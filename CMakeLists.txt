@@ -212,6 +212,8 @@ source_group("src\\Graphics\\Resource\\Environment" FILES
 source_group("src\\Graphics\\Scene" FILES
     ${SRC_DIR}/Graphics/Scene/ModelList.cpp
     ${SRC_DIR}/Graphics/Scene/ModelList.h
+    ${SRC_DIR}/Graphics/Scene/SelectionManager.cpp
+    ${SRC_DIR}/Graphics/Scene/SelectionManager.h
 )
 source_group("src\\Graphics\\Shaders" FILES
     ${SRC_DIR}/Graphics/Shaders/AlphaMapShader.cpp
@@ -246,6 +248,8 @@ source_group("src\\Graphics\\Shaders\\Environment" FILES
 source_group("src\\Graphics\\UI" FILES
     ${SRC_DIR}/Graphics/UI/UserInterface.cpp
     ${SRC_DIR}/Graphics/UI/UserInterface.h
+    ${SRC_DIR}/Graphics/UI/TransformUI.cpp
+    ${SRC_DIR}/Graphics/UI/TransformUI.h
 )
 
 # Math

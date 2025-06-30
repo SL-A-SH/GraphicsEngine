@@ -17,11 +17,19 @@ Application::Application()
 	m_Position = 0;
 	m_Frustum = 0;
 	m_Floor = 0;
+	m_DisplayPlane = 0;
 	m_screenWidth = 0;
 	m_screenHeight = 0;
 	m_Fps = 0;
 	m_RenderCount = 0;
 	m_UserInterface = 0;
+	
+	// New components
+	m_SelectionManager = 0;
+	m_TransformUI = 0;
+	m_PositionGizmo = 0;
+	m_RotationGizmo = 0;
+	m_ScaleGizmo = 0;
 }
 
 
@@ -88,20 +96,22 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 
 	// Set the file name of the model.
 	strcpy_s(modelFilename, "../Engine/assets/models/spaceship/low-poly/nave-modelo.fbx");
+	LOG("Attempting to load spaceship model: " + std::string(modelFilename));
 
 	// Create and initialize the model object.
 	LOG("Creating model object");
 	m_Model = new Model;
 
-	// Use InitializeFBX for FBX files to automatically load textures from the FBX
+	// Use spaceship FBX model with proper FBX initialization
 	result = m_Model->InitializeFBX(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename);
 	if (!result)
 	{
 		LOG_ERROR("Could not initialize the model object");
+		LOG_ERROR("Model file path: " + std::string(modelFilename));
 		MessageBox(hwnd, L"Could not initialize the model object.", L"Error", MB_OK);
 		return false;
 	}
-	LOG("Model initialized successfully");
+	LOG("Spaceship model initialized successfully");
 
 	// Create and initialize the floor model
 	LOG("Creating floor model");
@@ -116,6 +126,41 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 		return false;
 	}
 	LOG("Floor model initialized successfully");
+
+	// Create and initialize gizmo models
+	LOG("Creating gizmo models");
+	
+	// Position gizmo (arrow)
+	m_PositionGizmo = new Model;
+	strcpy_s(modelFilename, "../Engine/assets/models/Arrow.txt");
+	result = m_PositionGizmo->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, nullptr);
+	if (!result)
+	{
+		LOG_ERROR("Could not initialize position gizmo");
+		return false;
+	}
+	
+	// Rotation gizmo (arc)
+	m_RotationGizmo = new Model;
+	strcpy_s(modelFilename, "../Engine/assets/models/Arc.txt");
+	result = m_RotationGizmo->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, nullptr);
+	if (!result)
+	{
+		LOG_ERROR("Could not initialize rotation gizmo");
+		return false;
+	}
+	
+	// Scale gizmo (line with cube)
+	m_ScaleGizmo = new Model;
+	strcpy_s(modelFilename, "../Engine/assets/models/ScaleHandle.txt");
+	result = m_ScaleGizmo->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, nullptr);
+	if (!result)
+	{
+		LOG_ERROR("Could not initialize scale gizmo");
+		return false;
+	}
+	
+	LOG("Gizmo models initialized successfully");
 
 	// Create and initialize the light object.
 	LOG("Creating light object");
@@ -166,8 +211,19 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	// Create and initialize the model list object.
 	LOG("Creating model list");
 	m_ModelList = new ModelList;
-	m_ModelList->Initialize(1);
+	m_ModelList->Initialize(6);
 	LOG("Model list initialized successfully");
+
+	// Create and initialize the selection manager
+	LOG("Creating selection manager");
+	m_SelectionManager = new SelectionManager;
+	result = m_SelectionManager->Initialize(m_Direct3D);
+	if (!result)
+	{
+		LOG_ERROR("Could not initialize selection manager");
+		return false;
+	}
+	LOG("Selection manager initialized successfully");
 
 	// Create the position class object.
 	LOG("Creating position object");
@@ -194,6 +250,27 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	}
 	LOG("User interface initialized successfully");
 
+	// Create and initialize the transform UI object.
+	LOG("Creating transform UI");
+	m_TransformUI = new TransformUI;
+	if (!m_TransformUI)
+	{
+		LOG_ERROR("Could not create Transform UI");
+		return false;
+	}
+
+	result = m_TransformUI->Initialize(m_Direct3D, screenHeight, screenWidth);
+	if (!result)
+	{
+		LOG_ERROR("Could not initialize Transform UI");
+		return false;
+	}
+	
+	// Set up connections between components
+	m_TransformUI->SetSelectionManager(m_SelectionManager);
+	
+	LOG("Transform UI initialized successfully");
+
 	LOG("Application initialization completed successfully");
 	return true;
 }
@@ -202,6 +279,23 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 void Application::Shutdown()
 {
 	LOG("Application::Shutdown called");
+	
+	// Release the transform UI object.
+	if (m_TransformUI)
+	{
+		m_TransformUI->Shutdown();
+		delete m_TransformUI;
+		m_TransformUI = 0;
+	}
+
+	// Release the selection manager object.
+	if (m_SelectionManager)
+	{
+		m_SelectionManager->Shutdown();
+		delete m_SelectionManager;
+		m_SelectionManager = 0;
+	}
+
 	// Release the user interface object.
 	if (m_UserInterface)
 	{
@@ -284,6 +378,26 @@ void Application::Shutdown()
 		m_Floor = 0;
 	}
 
+	// Release gizmo models
+	if (m_PositionGizmo)
+	{
+		m_PositionGizmo->Shutdown();
+		delete m_PositionGizmo;
+		m_PositionGizmo = 0;
+	}
+	if (m_RotationGizmo)
+	{
+		m_RotationGizmo->Shutdown();
+		delete m_RotationGizmo;
+		m_RotationGizmo = 0;
+	}
+	if (m_ScaleGizmo)
+	{
+		m_ScaleGizmo->Shutdown();
+		delete m_ScaleGizmo;
+		m_ScaleGizmo = 0;
+	}
+
 	LOG("Application shutdown completed");
 	return;
 }
@@ -327,6 +441,108 @@ bool Application::Frame(InputManager* Input)
 
 	// Check if the mouse has been pressed.
 	mouseDown = Input->IsMousePressed();
+
+	// Handle model selection with left mouse click
+	static bool wasLeftMousePressed = false;
+	if (Input->IsMousePressed() && !wasLeftMousePressed)
+	{
+		wasLeftMousePressed = true;
+		
+		LOG("=== MODEL SELECTION DEBUG ===");
+		LOG("Mouse click detected at screen coordinates: (" + std::to_string(mouseX) + ", " + std::to_string(mouseY) + ")");
+		LOG("Screen dimensions: " + std::to_string(m_screenWidth) + "x" + std::to_string(m_screenHeight));
+		
+		// Convert mouse coordinates to normalized screen coordinates (0-1)
+		XMFLOAT2 screenPos;
+		screenPos.x = static_cast<float>(mouseX) / static_cast<float>(m_screenWidth);
+		screenPos.y = static_cast<float>(mouseY) / static_cast<float>(m_screenHeight);
+		
+		LOG("Normalized screen position: (" + std::to_string(screenPos.x) + ", " + std::to_string(screenPos.y) + ")");
+		
+		// Get view and projection matrices for raycasting
+		XMMATRIX viewMatrix, projectionMatrix;
+		m_Camera->GetViewMatrix(viewMatrix);
+		m_Direct3D->GetProjectionMatrix(projectionMatrix);
+		
+		LOG("Got view and projection matrices");
+		
+		// Get model instances from ModelList
+		std::vector<ModelInstance> modelInstances;
+		int modelCount = m_ModelList->GetModelCount();
+		LOG("ModelList contains " + std::to_string(modelCount) + " models");
+		
+		for (int i = 0; i < modelCount; i++)
+		{
+			float posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ;
+			m_ModelList->GetTransformData(i, posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ);
+			
+			LOG("Model " + std::to_string(i) + " transform from ModelList:");
+			LOG("  Position: (" + std::to_string(posX) + ", " + std::to_string(posY) + ", " + std::to_string(posZ) + ")");
+			LOG("  Rotation: (" + std::to_string(rotX) + ", " + std::to_string(rotY) + ", " + std::to_string(rotZ) + ")");
+			LOG("  Scale: (" + std::to_string(scaleX) + ", " + std::to_string(scaleY) + ", " + std::to_string(scaleZ) + ")");
+			
+			ModelInstance instance;
+			instance.transform.position = XMFLOAT3(posX, posY, posZ);
+			instance.transform.rotation = XMFLOAT3(rotX, rotY, rotZ);
+			instance.transform.scale = XMFLOAT3(scaleX, scaleY, scaleZ);
+			modelInstances.push_back(instance);
+		}
+		
+		LOG("Created " + std::to_string(modelInstances.size()) + " model instances for picking");
+		
+		// Debug: Print model bounding box information
+		if (m_Model)
+		{
+			const Model::AABB& bbox = m_Model->GetBoundingBox();
+			LOG("Model bounding box:");
+			LOG("  Min: (" + std::to_string(bbox.min.x) + ", " + std::to_string(bbox.min.y) + ", " + std::to_string(bbox.min.z) + ")");
+			LOG("  Max: (" + std::to_string(bbox.max.x) + ", " + std::to_string(bbox.max.y) + ", " + std::to_string(bbox.max.z) + ")");
+			LOG("  Radius: " + std::to_string(bbox.radius));
+		}
+		else
+		{
+			LOG_ERROR("Model template is null!");
+		}
+		
+		// Perform raycasting to pick a model
+		int pickedModel = m_SelectionManager->PickModel(screenPos, viewMatrix, projectionMatrix, 
+		                                               modelInstances, m_Model, m_Frustum, m_Camera);
+		
+		LOG("PickModel returned: " + std::to_string(pickedModel));
+		LOG("=== END MODEL SELECTION DEBUG ===");
+		
+		if (pickedModel >= 0)
+		{
+			// Model was picked, select it
+			LOG("Model " + std::to_string(pickedModel) + " was selected");
+			m_SelectionManager->SelectModel(pickedModel);
+			
+			// Update TransformUI with the selected model's data
+			if (m_TransformUI)
+			{
+				TransformData transformData = modelInstances[pickedModel].transform;
+				m_TransformUI->SetTransformData(transformData);
+				LOG("Updated TransformUI with selected model data");
+			}
+		}
+		else
+		{
+			// No model was picked, deselect all
+			LOG("No model was picked, deselecting all");
+			m_SelectionManager->DeselectAll();
+			
+			// Clear TransformUI
+			if (m_TransformUI)
+			{
+				m_TransformUI->ClearTransformData();
+				LOG("Cleared TransformUI data");
+			}
+		}
+	}
+	else if (!Input->IsMousePressed())
+	{
+		wasLeftMousePressed = false;
+	}
 
 	// Set the frame time for calculating the updated position.
 	m_Position->SetFrameTime(frameTime);
@@ -490,20 +706,21 @@ bool Application::Render()
 	// Go through all the models and render them only if they can be seen by the camera view.
 	for (i = 0; i < modelCount; i++)
 	{
-		// Get the position and color of the sphere model at this index.
-		m_ModelList->GetData(i, positionX, positionY, positionZ);
+		// Get the full transform data for this model
+		float posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ;
+		m_ModelList->GetTransformData(i, posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ);
 
 		// Get the model's bounding box
 		const Model::AABB& bbox = m_Model->GetBoundingBox();
 
-		// Transform the bounding box to world space
+		// Transform the bounding box to world space (considering scale)
 		XMFLOAT3 worldMin, worldMax;
-		worldMin.x = bbox.min.x + positionX;
-		worldMin.y = bbox.min.y + positionY;
-		worldMin.z = bbox.min.z + positionZ;
-		worldMax.x = bbox.max.x + positionX;
-		worldMax.y = bbox.max.y + positionY;
-		worldMax.z = bbox.max.z + positionZ;
+		worldMin.x = bbox.min.x * scaleX + posX;
+		worldMin.y = bbox.min.y * scaleY + posY;
+		worldMin.z = bbox.min.z * scaleZ + posZ;
+		worldMax.x = bbox.max.x * scaleX + posX;
+		worldMax.y = bbox.max.y * scaleY + posY;
+		worldMax.z = bbox.max.z * scaleZ + posZ;
 
 		// Check if the model's AABB is in the view frustum
 		renderModel = m_Frustum->CheckAABB(worldMin, worldMax);
@@ -511,52 +728,26 @@ bool Application::Render()
 		// If it can be seen then render it, if not skip this model and check the next one
 		if (renderModel)
 		{
-			// Move the model to the location it should be rendered at.
-			worldMatrix = XMMatrixTranslation(positionX, positionY, positionZ);
+			// Create world matrix with position, rotation, and scale
+			XMMATRIX translationMatrix = XMMatrixTranslation(posX, posY, posZ);
+			XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(rotX, rotY, rotZ);
+			XMMATRIX scaleMatrix = XMMatrixScaling(scaleX, scaleY, scaleZ);
+			worldMatrix = XMMatrixMultiply(XMMatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix);
 
 			// Render the model's buffers.
 			m_Model->Render(m_Direct3D->GetDeviceContext());
 
+			// Check if this model is selected for visual feedback
+			bool isSelected = m_SelectionManager->IsModelSelected(i);
+			
 			// Check if this is an FBX model with PBR materials first
 			if (m_Model->HasFBXMaterial())
 			{
-				// Debug logging for PBR shader
-				LOG("Rendering with PBR shader");
-				if (m_Model->GetDiffuseTexture() != nullptr)
-					LOG("Diffuse texture: VALID");
-				else
-					LOG("Diffuse texture: NULL");
-				if (m_Model->GetNormalTexture() != nullptr)
-					LOG("Normal texture: VALID");
-				else
-					LOG("Normal texture: NULL");
-				if (m_Model->GetMetallicTexture() != nullptr)
-					LOG("Metallic texture: VALID");
-				else
-					LOG("Metallic texture: NULL");
-				if (m_Model->GetRoughnessTexture() != nullptr)
-					LOG("Roughness texture: VALID");
-				else
-					LOG("Roughness texture: NULL");
-				if (m_Model->GetEmissionTexture() != nullptr)
-					LOG("Emission texture: VALID");
-				else
-					LOG("Emission texture: NULL");
-				if (m_Model->GetAOTexture() != nullptr)
-					LOG("AO texture: VALID");
-				else
-					LOG("AO texture: NULL");
-				
 				// Debug lighting parameters
 				XMFLOAT3 lightDir = m_Light->GetDirection();
 				XMFLOAT4 ambientColor = m_Light->GetAmbientColor();
 				XMFLOAT4 diffuseColor = m_Light->GetDiffuseColor();
 				XMFLOAT3 cameraPos = m_Camera->GetPosition();
-				
-				LOG("Light direction: " + std::to_string(lightDir.x) + ", " + std::to_string(lightDir.y) + ", " + std::to_string(lightDir.z));
-				LOG("Ambient color: " + std::to_string(ambientColor.x) + ", " + std::to_string(ambientColor.y) + ", " + std::to_string(ambientColor.z) + ", " + std::to_string(ambientColor.w));
-				LOG("Diffuse color: " + std::to_string(diffuseColor.x) + ", " + std::to_string(diffuseColor.y) + ", " + std::to_string(diffuseColor.z) + ", " + std::to_string(diffuseColor.w));
-				LOG("Camera position: " + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z));
 				
 				// Use PBR shader for FBX models with multiple textures
 				result = m_ShaderManager->RenderPBRShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
@@ -591,7 +782,7 @@ bool Application::Render()
 				else
 				{
 					// If there is no texture, render the model with a solid color.
-					LOG_WARNING("Model has no texture, rendering with ColorShader.");
+					/*LOG_WARNING("Model has no texture, rendering with ColorShader.");*/
 					result = m_ShaderManager->RenderColorShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix, XMFLOAT4(0.7f, 0.7f, 0.7f, 1.0f));
 					if (!result)
 					{
@@ -601,8 +792,50 @@ bool Application::Render()
 				}
 			}
 
+			// Render selection highlight if this model is selected
+			if (isSelected)
+			{
+				// Render a wireframe outline or different colored version
+				// For now, we'll render a simple colored version on top
+				m_Direct3D->TurnOffCulling();
+				m_Direct3D->TurnZBufferOff();
+				
+				// Render selection highlight with bright color
+				XMFLOAT4 selectionColor = XMFLOAT4(1.0f, 1.0f, 0.0f, 0.3f); // Yellow with transparency
+				result = m_ShaderManager->RenderColorShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix, selectionColor);
+				
+				m_Direct3D->TurnOnCulling();
+				m_Direct3D->TurnZBufferOn();
+				
+				if (!result)
+				{
+					LOG_ERROR("Selection highlight render failed");
+				}
+			}
+
 			// Since this model was rendered then increase the count for this frame.
 			m_RenderCount++;
+		}
+	}
+
+	// Render gizmos for selected model
+	if (m_SelectionManager)
+	{
+		int selectedIndex = m_SelectionManager->GetSelectedModelIndex();
+		if (selectedIndex >= 0 && m_SelectionManager->IsModelSelected(selectedIndex))
+		{
+			// Get the selected model's full transform data for gizmo placement
+			float posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ;
+			m_ModelList->GetTransformData(selectedIndex, posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ);
+			
+			// Create world matrix for gizmo at selected model position with rotation and scale
+			XMMATRIX translationMatrix = XMMatrixTranslation(posX, posY, posZ);
+			XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(rotX, rotY, rotZ);
+			XMMATRIX scaleMatrix = XMMatrixScaling(scaleX, scaleY, scaleZ);
+			XMMATRIX gizmoWorldMatrix = XMMatrixMultiply(XMMatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix);
+			
+			// Render gizmos
+			m_SelectionManager->RenderGizmos(m_Direct3D, viewMatrix, projectionMatrix, gizmoWorldMatrix);
 		}
 	}
 
@@ -618,6 +851,17 @@ bool Application::Render()
 	{
 		LOG_ERROR("User interface render failed");
 		return false;
+	}
+
+	// Render the transform UI.
+	if (m_TransformUI)
+	{
+		result = m_TransformUI->Render(m_Direct3D, m_ShaderManager, worldMatrix, viewMatrix2D, orthoMatrix);
+		if (!result)
+		{
+			LOG_ERROR("Transform UI render failed");
+			return false;
+		}
 	}
 
 	// Present the rendered scene to the screen.

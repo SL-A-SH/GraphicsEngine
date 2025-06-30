@@ -1,22 +1,27 @@
-#ifndef _MAIN_WINDOW_H_
-#define _MAIN_WINDOW_H_
+#ifndef MAINWINDOW_H
+#define MAINWINDOW_H
 
 #include <QMainWindow>
 #include <QVBoxLayout>
-#include <QMenuBar>
-#include <QToolBar>
-#include <QDockWidget>
 #include <QTabWidget>
-
-class DirectXViewport;
-class PerformanceWidget;
+#include <QDockWidget>
+#include <QMenu>
+#include <QMenuBar>
+#include <QAction>
+#include <QToolBar>
+#include <QEvent>
+#include <QKeyEvent>
+#include <QObject>
+#include "DirectXViewport.h"
+#include "PerformanceWidget.h"
+#include "../../Graphics/UI/TransformUI.h"
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget* parent = nullptr);
+    MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
 
 protected:
@@ -27,14 +32,15 @@ private slots:
     void ToggleFPS(bool show);
     void RunBenchmark();
     void ToggleProfiler(bool show);
-    void OnTabCloseRequested(int index);
     void OnTabChanged(int index);
+    void OnTabCloseRequested(int index);
 
 private:
     void CreateMenus();
     void CreateToolbars();
     void CreateDockWidgets();
 
+private:
     DirectXViewport* m_ViewportWidget;
     QVBoxLayout* m_MainLayout;
     PerformanceWidget* m_PerformanceWidget;
@@ -42,4 +48,4 @@ private:
     QDockWidget* m_PropertiesDock;
 };
 
-#endif
+#endif // MAINWINDOW_H

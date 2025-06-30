@@ -16,8 +16,10 @@
 #include <QApplication>
 #include <QMetaEnum>
 #include "../../Core/System/SystemManager.h"
+#include "../../Graphics/UI/TransformUI.h"
 
 class SystemManager;
+class TransformUI;
 
 class DirectXViewport : public QWidget
 {
@@ -27,6 +29,7 @@ public:
     DirectXViewport(QWidget* parent = nullptr);
     ~DirectXViewport();
     void ToggleFullscreen();
+    void SetTransformUI(TransformUI* transformUI);
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -50,6 +53,7 @@ private:
     SystemManager* m_SystemManager;
     QTimer* m_UpdateTimer;
     bool m_Initialized;
+    TransformUI* m_TransformUI;
 
 public:
     SystemManager* GetSystemManager() const { return m_SystemManager; }

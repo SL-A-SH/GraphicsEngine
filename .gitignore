@@ -58,3 +58,5 @@ Release/
 build/
 
 Engine/ThirdParty/Qt/*
+PBR Rendering Pipeline.png
+debug_output.txt

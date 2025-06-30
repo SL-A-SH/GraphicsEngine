@@ -8,6 +8,7 @@ DirectXViewport::DirectXViewport(QWidget* parent)
     , m_SystemManager(nullptr)
     , m_UpdateTimer(nullptr)
     , m_Initialized(false)
+    , m_TransformUI(nullptr)
 {
     LOG("DirectXViewport constructor called");
     
@@ -286,9 +287,6 @@ void DirectXViewport::mouseReleaseEvent(QMouseEvent* event)
 
 void DirectXViewport::mouseMoveEvent(QMouseEvent* event)
 {
-    LOG("DirectXViewport::mouseMoveEvent called - Position: " + 
-        QString::number(event->pos().x()).toStdString() + "," + 
-        QString::number(event->pos().y()).toStdString());
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleMouseMoveEvent(event);
@@ -347,6 +345,11 @@ bool DirectXViewport::event(QEvent* event)
         default: return QWidget::event(event);
     }
     
-    LOG("Event received: " + eventType.toStdString());
     return QWidget::event(event);
+}
+
+void DirectXViewport::SetTransformUI(TransformUI* transformUI)
+{
+    m_TransformUI = transformUI;
+    LOG("TransformUI reference set in DirectXViewport");
 }

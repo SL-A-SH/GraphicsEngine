@@ -18,6 +18,7 @@ public:
     bool CheckSphere(float, float, float, float);
     bool CheckRectangle(float, float, float, float, float, float);
     bool CheckAABB(const XMFLOAT3& min, const XMFLOAT3& max);
+    bool CheckAABB(const XMFLOAT3& min, const XMFLOAT3& max) const;
 
 private:
     XMFLOAT4 m_planes[6];

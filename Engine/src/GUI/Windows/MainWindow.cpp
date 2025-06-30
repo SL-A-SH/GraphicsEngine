@@ -9,6 +9,7 @@
 #include "DirectXViewport.h"
 #include "PerformanceWidget.h"
 #include "../../Core/System/Logger.h"
+#include "../../Graphics/UI/TransformUI.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -137,6 +138,17 @@ void MainWindow::CreateDockWidgets()
     m_PropertiesDock = new QDockWidget("Properties", this);
     m_PropertiesDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
     addDockWidget(Qt::RightDockWidgetArea, m_PropertiesDock);
+    
+    // Create TransformUI and add it to the properties dock
+    // Note: TransformUI will be initialized later when Direct3D is available
+    TransformUI* transformUI = new TransformUI(m_PropertiesDock);
+    m_PropertiesDock->setWidget(transformUI);
+    
+    // Store reference to TransformUI in the viewport widget for communication
+    if (m_ViewportWidget)
+    {
+        m_ViewportWidget->SetTransformUI(transformUI);
+    }
     
     // Set the initial size of the dock widget to 20% of the window width
     m_PropertiesDock->setMinimumWidth(width() * 0.2);

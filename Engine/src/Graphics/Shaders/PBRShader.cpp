@@ -383,7 +383,7 @@ bool PBRShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, XMMATRIX
 	MaterialBufferType* dataPtr3;
 
 	// Debug logging
-	LOG("PBR Shader SetShaderParameters called");
+	/*LOG("PBR Shader SetShaderParameters called");
 	LOG("Diffuse texture: " + std::string(diffuseTexture != nullptr ? "VALID" : "NULL"));
 	LOG("Normal texture: " + std::string(normalTexture != nullptr ? "VALID" : "NULL"));
 	LOG("Metallic texture: " + std::string(metallicTexture != nullptr ? "VALID" : "NULL"));
@@ -398,7 +398,7 @@ bool PBRShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, XMMATRIX
 	LOG("Light direction: " + std::to_string(lightDirection.x) + ", " + std::to_string(lightDirection.y) + ", " + std::to_string(lightDirection.z));
 	LOG("Ambient color: " + std::to_string(ambientColor.x) + ", " + std::to_string(ambientColor.y) + ", " + std::to_string(ambientColor.z) + ", " + std::to_string(ambientColor.w));
 	LOG("Diffuse color: " + std::to_string(diffuseColor.x) + ", " + std::to_string(diffuseColor.y) + ", " + std::to_string(diffuseColor.z) + ", " + std::to_string(diffuseColor.w));
-	LOG("Camera position: " + std::to_string(cameraPosition.x) + ", " + std::to_string(cameraPosition.y) + ", " + std::to_string(cameraPosition.z));
+	LOG("Camera position: " + std::to_string(cameraPosition.x) + ", " + std::to_string(cameraPosition.y) + ", " + std::to_string(cameraPosition.z));*/
 
 	// Transpose the matrices to prepare them for the shader.
 	worldMatrix = XMMatrixTranspose(worldMatrix);

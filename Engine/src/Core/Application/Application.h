@@ -1,6 +1,9 @@
 #ifndef _APPLICATION_H_
 #define _APPLICATION_H_
 
+#include <d3d11.h>
+#include <directxmath.h>
+#include <dinput.h>
 #include "../Input/InputManager.h"
 #include "../../Core/System/Timer.h"
 #include "../../Graphics/D3D11/D3D11Device.h"
@@ -9,18 +12,25 @@
 #include "../../Graphics/Resource/Model.h"
 #include "../../Graphics/Rendering/Sprite.h"
 #include "../../Graphics/Rendering/Font.h"
-#include "../../Graphics//Resource/Text.h"
+#include "../../Graphics/Resource/Text.h"
 #include "../../Graphics/Shaders/ShaderManager.h"
 #include "../../Graphics/Scene/ModelList.h"
+#include "../../Graphics/Scene/SelectionManager.h"
 #include "../../Graphics/Math/Frustum.h"
 #include "../../Graphics/Math/Position.h"
 #include "../../Graphics/Resource/Environment/Zone.h"
 #include "../../Graphics/UI/UserInterface.h"
+#include "../../Graphics/UI/TransformUI.h"
+#include "../../Graphics/Rendering/DisplayPlane.h"
+#include "../../Core/System/PerformanceProfiler.h"
 
-const bool FULL_SCREEN = true;
+using namespace DirectX;
+
+// Globals
+const bool FULL_SCREEN = false;
 const bool VSYNC_ENABLED = true;
 const float SCREEN_DEPTH = 1000.0f;
-const float SCREEN_NEAR = 0.3f;
+const float SCREEN_NEAR = 0.1f;
 
 class Application
 {
@@ -32,7 +42,12 @@ public:
 	bool Initialize(int, int, HWND);
 	void Shutdown();
 	bool Frame(InputManager*);
-	bool Resize(int width, int height);
+	bool Resize(int, int);
+
+	// Getters for UI components
+	UserInterface* GetUserInterface() { return m_UserInterface; }
+	TransformUI* GetTransformUI() { return m_TransformUI; }
+	SelectionManager* GetSelectionManager() { return m_SelectionManager; }
 
 private:
 	bool Render();
@@ -65,8 +80,16 @@ private:
 	XMMATRIX m_projectionMatrix;
 	XMMATRIX m_orthoMatrix;
 
-public:
-	UserInterface* GetUserInterface() const { return m_UserInterface; }
+	// New components for selection and transformation
+	SelectionManager* m_SelectionManager;
+	TransformUI* m_TransformUI;
+	
+	// Gizmo models
+	Model* m_PositionGizmo;
+	Model* m_RotationGizmo;
+	Model* m_ScaleGizmo;
+	
+	DisplayPlane* m_DisplayPlane;
 };
 
 #endif

@@ -38,9 +38,7 @@ bool InputManager::Frame()
 
 void InputManager::HandleKeyEvent(QKeyEvent* event, bool pressed)
 {
-	/*LOG("InputManager::HandleKeyEvent called");*/
 	int key = event->key();
-	/*LOG("Key: " + std::to_string(key) + " Pressed: " + std::to_string(pressed));*/
 
 	switch (key)
 	{
@@ -113,10 +111,9 @@ void InputManager::HandleMouseEvent(QMouseEvent* event)
 
 void InputManager::HandleMouseMoveEvent(QMouseEvent* event)
 {
-	LOG("InputManager::HandleMouseMoveEvent called");
 	m_mouseX = event->x();
 	m_mouseY = event->y();
-	LOG("Mouse position: " + std::to_string(m_mouseX) + ", " + std::to_string(m_mouseY));
+	//LOG("Mouse position: " + std::to_string(m_mouseX) + ", " + std::to_string(m_mouseY));
 }
 
 void InputManager::GetMouseLocation(int& mouseX, int& mouseY) const

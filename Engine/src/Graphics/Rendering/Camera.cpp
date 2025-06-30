@@ -49,6 +49,16 @@ XMFLOAT3 Camera::GetRotation()
 	return XMFLOAT3(m_rotationX, m_rotationY, m_rotationZ);
 }
 
+XMFLOAT3 Camera::GetPosition() const
+{
+	return XMFLOAT3(m_positionX, m_positionY, m_positionZ);
+}
+
+XMFLOAT3 Camera::GetRotation() const
+{
+	return XMFLOAT3(m_rotationX, m_rotationY, m_rotationZ);
+}
+
 void Camera::Render()
 {
 	XMFLOAT3 up, position, lookAt;
