@@ -17,19 +17,24 @@
 #include <QMetaEnum>
 #include "../../Core/System/SystemManager.h"
 #include "../../Graphics/UI/TransformUI.h"
+#include "../../Graphics/UI/ModelListUI.h"
 
 class SystemManager;
 class TransformUI;
+class ModelListUI;
+class MainWindow;
 
 class DirectXViewport : public QWidget
 {
     Q_OBJECT
 
 public:
-    DirectXViewport(QWidget* parent = nullptr);
+    DirectXViewport(QWidget* parent = nullptr, MainWindow* mainWindow = nullptr);
     ~DirectXViewport();
     void ToggleFullscreen();
     void SetTransformUI(TransformUI* transformUI);
+    void SetModelListUI(ModelListUI* modelListUI);
+    void SetupUISwitchingCallbacks();
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -50,10 +55,12 @@ private slots:
     void updateFrame();
 
 private:
+    MainWindow* m_mainWindow;
     SystemManager* m_SystemManager;
     QTimer* m_UpdateTimer;
     bool m_Initialized;
     TransformUI* m_TransformUI;
+    ModelListUI* m_ModelListUI;
 
 public:
     SystemManager* GetSystemManager() const { return m_SystemManager; }

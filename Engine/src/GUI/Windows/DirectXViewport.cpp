@@ -2,13 +2,15 @@
 #include <sstream>
 
 #include "../../Core/System/Logger.h"
+#include "MainWindow.h"
 
-DirectXViewport::DirectXViewport(QWidget* parent)
+DirectXViewport::DirectXViewport(QWidget* parent, MainWindow* mainWindow)
     : QWidget(parent)
     , m_SystemManager(nullptr)
     , m_UpdateTimer(nullptr)
     , m_Initialized(false)
     , m_TransformUI(nullptr)
+    , m_ModelListUI(nullptr)
 {
     LOG("DirectXViewport constructor called");
     
@@ -42,6 +44,8 @@ DirectXViewport::DirectXViewport(QWidget* parent)
     
     // Set a minimum size to ensure the widget is visible
     setMinimumSize(100, 100);
+
+    m_mainWindow = mainWindow;
 
     // Create system manager
     LOG("Creating SystemManager");
@@ -121,7 +125,7 @@ void DirectXViewport::showEvent(QShowEvent* event)
         LOG("Setting window handle");
         if (m_SystemManager)
         {
-            m_SystemManager->SetWindowHandle((HWND)winId());
+            m_SystemManager->SetWindowHandle((HWND)winId(), m_mainWindow);
             
             // Wait a moment for the Application to initialize
             QApplication::processEvents();
@@ -148,6 +152,9 @@ void DirectXViewport::showEvent(QShowEvent* event)
 
         m_Initialized = true;
         LOG("DirectX viewport initialized successfully");
+
+        // Setup UI switching callbacks
+        SetupUISwitchingCallbacks();
     }
 }
 
@@ -352,4 +359,35 @@ void DirectXViewport::SetTransformUI(TransformUI* transformUI)
 {
     m_TransformUI = transformUI;
     LOG("TransformUI reference set in DirectXViewport");
+}
+
+void DirectXViewport::SetModelListUI(ModelListUI* modelListUI)
+{
+    m_ModelListUI = modelListUI;
+    LOG("ModelListUI reference set in DirectXViewport");
+}
+
+void DirectXViewport::SetupUISwitchingCallbacks()
+{
+    if (!m_SystemManager || !m_SystemManager->GetApplication())
+    {
+        LOG_ERROR("Cannot setup UI switching callbacks - Application not available");
+        return;
+    }
+    
+    // Get the parent MainWindow
+    MainWindow* mainWindow = qobject_cast<MainWindow*>(window());
+    if (!mainWindow)
+    {
+        LOG_ERROR("Cannot setup UI switching callbacks - MainWindow not found");
+        return;
+    }
+    
+    // Set up the callbacks
+    m_SystemManager->GetApplication()->SetUISwitchingCallbacks(
+        [mainWindow]() { mainWindow->SwitchToModelList(); },
+        [mainWindow]() { mainWindow->SwitchToTransformUI(); }
+    );
+    
+    LOG("UI switching callbacks setup completed");
 }

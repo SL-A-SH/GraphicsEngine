@@ -250,6 +250,8 @@ source_group("src\\Graphics\\UI" FILES
     ${SRC_DIR}/Graphics/UI/UserInterface.h
     ${SRC_DIR}/Graphics/UI/TransformUI.cpp
     ${SRC_DIR}/Graphics/UI/TransformUI.h
+    ${SRC_DIR}/Graphics/UI/ModelListUI.cpp
+    ${SRC_DIR}/Graphics/UI/ModelListUI.h
 )
 
 # Math

@@ -44,6 +44,7 @@ TransformUI::TransformUI(QWidget* parent)
     , m_iconMargin(20)
 {
     InitializeUI();
+    HideUI(); // Hide by default
     LOG("TransformUI created (Direct3D components will be initialized later)");
 }
 
@@ -479,4 +480,16 @@ void TransformUI::SetTransformModeChangedCallback(std::function<void(TransformMo
 void TransformUI::SetTransformValuesChangedCallback(std::function<void(const TransformData&)> callback)
 {
     m_transformValuesChangedCallback = callback;
+}
+
+void TransformUI::ShowUI()
+{
+    LOG("TransformUI: Showing UI");
+    show();
+}
+
+void TransformUI::HideUI()
+{
+    LOG("TransformUI: Hiding UI");
+    hide();
 } 

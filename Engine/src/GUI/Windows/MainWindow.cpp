@@ -6,10 +6,11 @@
 #include <QTabWidget>
 #include <QTabBar>
 
-#include "DirectXViewport.h"
-#include "PerformanceWidget.h"
 #include "../../Core/System/Logger.h"
 #include "../../Graphics/UI/TransformUI.h"
+#include "../../Graphics/UI/ModelListUI.h"
+#include "DirectXViewport.h"
+#include "PerformanceWidget.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -18,6 +19,8 @@ MainWindow::MainWindow(QWidget* parent)
     , m_PerformanceWidget(nullptr)
     , m_TabWidget(nullptr)
     , m_PropertiesDock(nullptr)
+    , m_TransformUI(nullptr)
+    , m_ModelListUI(nullptr)
 {
     // Set up the main window
     setWindowTitle("DirectX11 Engine");
@@ -43,7 +46,7 @@ MainWindow::MainWindow(QWidget* parent)
     m_MainLayout->addWidget(m_TabWidget);
 
     // Create the DirectX viewport widget
-    m_ViewportWidget = new DirectXViewport(centralWidget);
+    m_ViewportWidget = new DirectXViewport(centralWidget, this);
     m_ViewportWidget->setMinimumSize(800, 600);
     m_ViewportWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     m_TabWidget->addTab(m_ViewportWidget, "Viewport");
@@ -139,20 +142,42 @@ void MainWindow::CreateDockWidgets()
     m_PropertiesDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
     addDockWidget(Qt::RightDockWidgetArea, m_PropertiesDock);
     
-    // Create TransformUI and add it to the properties dock
-    // Note: TransformUI will be initialized later when Direct3D is available
-    TransformUI* transformUI = new TransformUI(m_PropertiesDock);
-    m_PropertiesDock->setWidget(transformUI);
+    // Create ModelListUI and TransformUI
+    // Note: These will be initialized later when Direct3D is available
+    m_ModelListUI = new ModelListUI(m_PropertiesDock);
+    m_TransformUI = new TransformUI(m_PropertiesDock);
     
-    // Store reference to TransformUI in the viewport widget for communication
+    // Show ModelListUI by default
+    m_PropertiesDock->setWidget(m_ModelListUI);
+    
+    // Store references in the viewport widget for communication
     if (m_ViewportWidget)
     {
-        m_ViewportWidget->SetTransformUI(transformUI);
+        m_ViewportWidget->SetTransformUI(m_TransformUI);
+        m_ViewportWidget->SetModelListUI(m_ModelListUI);
     }
     
     // Set the initial size of the dock widget to 20% of the window width
     m_PropertiesDock->setMinimumWidth(width() * 0.2);
     m_PropertiesDock->setMaximumWidth(width() * 0.3);
+}
+
+void MainWindow::SwitchToModelList()
+{
+    if (m_ModelListUI && m_PropertiesDock)
+    {
+        m_PropertiesDock->setWidget(m_ModelListUI);
+        LOG("MainWindow: Switched to ModelListUI");
+    }
+}
+
+void MainWindow::SwitchToTransformUI()
+{
+    if (m_TransformUI && m_PropertiesDock)
+    {
+        m_PropertiesDock->setWidget(m_TransformUI);
+        LOG("MainWindow: Switched to TransformUI");
+    }
 }
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event)

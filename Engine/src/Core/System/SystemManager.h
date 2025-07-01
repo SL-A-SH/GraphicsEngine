@@ -5,6 +5,8 @@
 #include "../Input/InputManager.h"
 #include "../Application/Application.h"
 
+class MainWindow;
+
 class SystemManager
 {
 public:
@@ -17,7 +19,7 @@ public:
 	void Run();
 	bool Frame();
 	LRESULT CALLBACK MessageHandler(HWND, UINT, WPARAM, LPARAM);
-	void SetWindowHandle(HWND);
+	void SetWindowHandle(HWND, MainWindow*);
 
 private:
 	void InitializeWindows(int&, int&);

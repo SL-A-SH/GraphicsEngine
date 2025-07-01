@@ -1,12 +1,15 @@
 #include "application.h"
 #include "../../Core/System/Logger.h"
 #include "../../Core/System/PerformanceProfiler.h"
-
+#include "../../GUI/Windows/MainWindow.h"
+#include "../../Graphics/UI/TransformUI.h"
+#include "../../Graphics/UI/ModelListUI.h"
 
 Application::Application()
 {
 	LOG("Application constructor called");
 	m_Direct3D = 0;
+	m_mainWindow = 0;
 	m_Camera = 0;
 	m_Model = 0;
 	m_Light = 0;
@@ -26,7 +29,6 @@ Application::Application()
 	
 	// New components
 	m_SelectionManager = 0;
-	m_TransformUI = 0;
 	m_PositionGizmo = 0;
 	m_RotationGizmo = 0;
 	m_ScaleGizmo = 0;
@@ -43,7 +45,7 @@ Application::~Application()
 }
 
 
-bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
+bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainWindow* mainWindow)
 {
 	LOG("Application::Initialize called");
 	char textureFilename1[128], textureFilename2[128], textureFilename3[128];
@@ -52,6 +54,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	bool result;
 
 	// Store screen dimensions
+	m_mainWindow = mainWindow;
 	m_screenWidth = screenWidth;
 	m_screenHeight = screenHeight;
 
@@ -250,25 +253,65 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd)
 	}
 	LOG("User interface initialized successfully");
 
-	// Create and initialize the transform UI object.
-	LOG("Creating transform UI");
-	m_TransformUI = new TransformUI;
-	if (!m_TransformUI)
+	// Set up connections between components
+	if (m_mainWindow && m_mainWindow->GetTransformUI())
 	{
-		LOG_ERROR("Could not create Transform UI");
-		return false;
+		m_mainWindow->GetTransformUI()->SetSelectionManager(m_SelectionManager);
+	}
+	if (m_mainWindow && m_mainWindow->GetModelListUI())
+	{
+		m_mainWindow->GetModelListUI()->SetSelectionManager(m_SelectionManager);
 	}
 
-	result = m_TransformUI->Initialize(m_Direct3D, screenHeight, screenWidth);
-	if (!result)
+	// Set up callbacks for model selection
+	if (m_mainWindow && m_mainWindow->GetModelListUI())
 	{
-		LOG_ERROR("Could not initialize Transform UI");
-		return false;
+		m_mainWindow->GetModelListUI()->SetModelSelectedCallback([this](int modelIndex) {
+			LOG("Model selected via UI: " + std::to_string(modelIndex));
+			m_SelectionManager->SelectModel(modelIndex);
+			// Get the selected model's transform data
+			float posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ;
+			m_ModelList->GetTransformData(modelIndex, posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ);
+			TransformData transformData;
+			transformData.position = XMFLOAT3(posX, posY, posZ);
+			transformData.rotation = XMFLOAT3(rotX, rotY, rotZ);
+			transformData.scale = XMFLOAT3(scaleX, scaleY, scaleZ);
+			// Update TransformUI with the selected model's data and switch UI
+			if (m_mainWindow && m_mainWindow->GetTransformUI())
+			{
+				m_mainWindow->GetTransformUI()->SetTransformData(transformData);
+				m_mainWindow->SwitchToTransformUI();
+			}
+			// Call the UI switching callback
+			if (m_switchToTransformUICallback)
+			{
+				m_switchToTransformUICallback();
+			}
+		});
+		m_mainWindow->GetModelListUI()->SetModelDeselectedCallback([this]() {
+			LOG("Model deselected via UI");
+			m_SelectionManager->DeselectAll();
+			if (m_mainWindow && m_mainWindow->GetTransformUI())
+			{
+				m_mainWindow->GetTransformUI()->ClearTransformData();
+			}
+			if (m_mainWindow)
+			{
+				m_mainWindow->SwitchToModelList();
+			}
+			// Call the UI switching callback
+			if (m_switchToModelListCallback)
+			{
+				m_switchToModelListCallback();
+			}
+		});
+		// Update model list with current models
+		m_mainWindow->GetModelListUI()->UpdateModelList(m_ModelList);
+		// Show model list UI by default
+		m_mainWindow->SwitchToModelList();
 	}
-	
-	// Set up connections between components
-	m_TransformUI->SetSelectionManager(m_SelectionManager);
-	
+
+	LOG("Model List UI initialized successfully");
 	LOG("Transform UI initialized successfully");
 
 	LOG("Application initialization completed successfully");
@@ -280,22 +323,6 @@ void Application::Shutdown()
 {
 	LOG("Application::Shutdown called");
 	
-	// Release the transform UI object.
-	if (m_TransformUI)
-	{
-		m_TransformUI->Shutdown();
-		delete m_TransformUI;
-		m_TransformUI = 0;
-	}
-
-	// Release the selection manager object.
-	if (m_SelectionManager)
-	{
-		m_SelectionManager->Shutdown();
-		delete m_SelectionManager;
-		m_SelectionManager = 0;
-	}
-
 	// Release the user interface object.
 	if (m_UserInterface)
 	{
@@ -518,11 +545,20 @@ bool Application::Frame(InputManager* Input)
 			m_SelectionManager->SelectModel(pickedModel);
 			
 			// Update TransformUI with the selected model's data
-			if (m_TransformUI)
+			if (m_mainWindow && m_mainWindow->GetTransformUI())
 			{
 				TransformData transformData = modelInstances[pickedModel].transform;
-				m_TransformUI->SetTransformData(transformData);
+				m_mainWindow->GetTransformUI()->SetTransformData(transformData);
 				LOG("Updated TransformUI with selected model data");
+				
+				// Switch UI from model list to transform UI
+				m_mainWindow->SwitchToTransformUI();
+				
+				// Call the UI switching callback
+				if (m_switchToTransformUICallback)
+				{
+					m_switchToTransformUICallback();
+				}
 			}
 		}
 		else
@@ -531,11 +567,20 @@ bool Application::Frame(InputManager* Input)
 			LOG("No model was picked, deselecting all");
 			m_SelectionManager->DeselectAll();
 			
-			// Clear TransformUI
-			if (m_TransformUI)
+			// Clear TransformUI and switch back to model list
+			if (m_mainWindow && m_mainWindow->GetTransformUI())
 			{
-				m_TransformUI->ClearTransformData();
+				m_mainWindow->GetTransformUI()->ClearTransformData();
+				m_mainWindow->GetTransformUI()->HideUI();
 				LOG("Cleared TransformUI data");
+			}
+			
+			m_mainWindow->SwitchToModelList();
+			
+			// Call the UI switching callback
+			if (m_switchToModelListCallback)
+			{
+				m_switchToModelListCallback();
 			}
 		}
 	}
@@ -853,17 +898,6 @@ bool Application::Render()
 		return false;
 	}
 
-	// Render the transform UI.
-	if (m_TransformUI)
-	{
-		result = m_TransformUI->Render(m_Direct3D, m_ShaderManager, worldMatrix, viewMatrix2D, orthoMatrix);
-		if (!result)
-		{
-			LOG_ERROR("Transform UI render failed");
-			return false;
-		}
-	}
-
 	// Present the rendered scene to the screen.
 	m_Direct3D->EndScene();
 
@@ -899,4 +933,11 @@ bool Application::Resize(int width, int height)
 
 	LOG("Resize completed successfully");
 	return true;
+}
+
+void Application::SetUISwitchingCallbacks(std::function<void()> switchToModelList, std::function<void()> switchToTransformUI)
+{
+	m_switchToModelListCallback = switchToModelList;
+	m_switchToTransformUICallback = switchToTransformUI;
+	LOG("UI switching callbacks set");
 }

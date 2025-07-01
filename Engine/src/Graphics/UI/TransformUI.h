@@ -49,6 +49,11 @@ public:
     void SetTransformData(const TransformData& transform);
     void ClearTransformData();
     
+    // Show/Hide UI
+    void ShowUI();
+    void HideUI();
+    bool IsVisible() const { return isVisible(); }
+    
     // Set selection manager reference
     void SetSelectionManager(SelectionManager* selectionManager) { m_selectionManager = selectionManager; }
     

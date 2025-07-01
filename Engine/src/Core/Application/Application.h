@@ -1,9 +1,13 @@
 #ifndef _APPLICATION_H_
 #define _APPLICATION_H_
 
+#define DIRECTINPUT_VERSION 0x0800
+
 #include <d3d11.h>
 #include <directxmath.h>
 #include <dinput.h>
+#include <functional>
+
 #include "../Input/InputManager.h"
 #include "../../Core/System/Timer.h"
 #include "../../Graphics/D3D11/D3D11Device.h"
@@ -20,7 +24,6 @@
 #include "../../Graphics/Math/Position.h"
 #include "../../Graphics/Resource/Environment/Zone.h"
 #include "../../Graphics/UI/UserInterface.h"
-#include "../../Graphics/UI/TransformUI.h"
 #include "../../Graphics/Rendering/DisplayPlane.h"
 #include "../../Core/System/PerformanceProfiler.h"
 
@@ -32,6 +35,8 @@ const bool VSYNC_ENABLED = true;
 const float SCREEN_DEPTH = 1000.0f;
 const float SCREEN_NEAR = 0.1f;
 
+class MainWindow;
+
 class Application
 {
 public:
@@ -39,15 +44,17 @@ public:
 	Application(const Application&);
 	~Application();
 
-	bool Initialize(int, int, HWND);
+	bool Initialize(int, int, HWND, MainWindow*);
 	void Shutdown();
 	bool Frame(InputManager*);
 	bool Resize(int, int);
 
 	// Getters for UI components
 	UserInterface* GetUserInterface() { return m_UserInterface; }
-	TransformUI* GetTransformUI() { return m_TransformUI; }
 	SelectionManager* GetSelectionManager() { return m_SelectionManager; }
+	
+	// Set UI switching callbacks
+	void SetUISwitchingCallbacks(std::function<void()> switchToModelList, std::function<void()> switchToTransformUI);
 
 private:
 	bool Render();
@@ -56,6 +63,7 @@ private:
 
 private:
 	D3D11Device* m_Direct3D;
+	MainWindow* m_mainWindow;
 	Camera* m_Camera;
 	Model* m_Model;
 	Model* m_Floor;
@@ -71,18 +79,21 @@ private:
 	ModelList* m_ModelList;
 	Position* m_Position;
 	Frustum* m_Frustum;
-	XMMATRIX m_baseViewMatrix;
 	UserInterface* m_UserInterface;
 
 	int m_screenWidth, m_screenHeight;
 	int m_Fps;
 	int m_RenderCount;
+	XMMATRIX m_baseViewMatrix;
 	XMMATRIX m_projectionMatrix;
 	XMMATRIX m_orthoMatrix;
 
 	// New components for selection and transformation
 	SelectionManager* m_SelectionManager;
-	TransformUI* m_TransformUI;
+	
+	// UI switching callbacks
+	std::function<void()> m_switchToModelListCallback;
+	std::function<void()> m_switchToTransformUICallback;
 	
 	// Gizmo models
 	Model* m_PositionGizmo;

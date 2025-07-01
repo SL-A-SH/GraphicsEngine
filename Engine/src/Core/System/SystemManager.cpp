@@ -45,7 +45,7 @@ bool SystemManager::Initialize()
 	return true;
 }
 
-void SystemManager::SetWindowHandle(HWND hwnd)
+void SystemManager::SetWindowHandle(HWND hwnd, MainWindow* mainWindow)
 {
 	m_hwnd = hwnd;
 	
@@ -58,7 +58,7 @@ void SystemManager::SetWindowHandle(HWND hwnd)
 	// Initialize the application with the window handle
 	if (m_Application)
 	{
-		bool result = m_Application->Initialize(screenWidth, screenHeight, m_hwnd);
+		bool result = m_Application->Initialize(screenWidth, screenHeight, m_hwnd, mainWindow);
 		if (!result)
 		{
 			LOG_ERROR("Failed to initialize Application");

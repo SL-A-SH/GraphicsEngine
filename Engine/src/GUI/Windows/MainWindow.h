@@ -12,9 +12,11 @@
 #include <QEvent>
 #include <QKeyEvent>
 #include <QObject>
-#include "DirectXViewport.h"
-#include "PerformanceWidget.h"
-#include "../../Graphics/UI/TransformUI.h"
+
+class DirectXViewport;
+class PerformanceWidget;
+class TransformUI;
+class ModelListUI;
 
 class MainWindow : public QMainWindow
 {
@@ -23,6 +25,10 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
+
+    // UI switching methods
+    void SwitchToModelList();
+    void SwitchToTransformUI();
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -46,6 +52,12 @@ private:
     PerformanceWidget* m_PerformanceWidget;
     QTabWidget* m_TabWidget;
     QDockWidget* m_PropertiesDock;
+    TransformUI* m_TransformUI;
+    ModelListUI* m_ModelListUI;
+
+public:
+    TransformUI* GetTransformUI() const { return m_TransformUI; }
+    ModelListUI* GetModelListUI() const { return m_ModelListUI; }
 };
 
 #endif // MAINWINDOW_H
