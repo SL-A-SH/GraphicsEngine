@@ -444,8 +444,8 @@ bool Application::Frame(InputManager* Input)
 	// Update the system stats.
 	m_Timer->Frame();
 
-	// Get the current FPS
-	m_Fps = m_Timer->GetFps();
+	// Get the current FPS from PerformanceProfiler instead of Timer for more accurate display
+	m_Fps = static_cast<int>(PerformanceProfiler::GetInstance().GetCurrentFPS());
 
 	// Check for F11 fullscreen toggle
 	static bool wasF11Pressed = false;
@@ -681,6 +681,10 @@ bool Application::Frame(InputManager* Input)
 		return false;
 	}
 
+	// Track UI rendering performance
+	PerformanceProfiler::GetInstance().IncrementDrawCalls(); // UI rendering adds draw calls
+	PerformanceProfiler::GetInstance().AddTriangles(100); // Estimate UI triangle count
+
 	// End profiling the frame
 	PerformanceProfiler::GetInstance().EndFrame();
 
@@ -720,6 +724,10 @@ bool Application::Render()
 		return false;
 	}
 
+	// Track skybox draw call
+	PerformanceProfiler::GetInstance().IncrementDrawCalls();
+	// Note: Skybox triangle count would need to be added to Zone class
+
 	// Restore render states for the rest of the scene
 	m_Direct3D->TurnOnCulling();
 	m_Direct3D->TurnZBufferOn();
@@ -741,6 +749,10 @@ bool Application::Render()
 		LOG_ERROR("Floor render failed");
 		return false;
 	}
+
+	// Track floor draw call and triangles
+	PerformanceProfiler::GetInstance().IncrementDrawCalls();
+	PerformanceProfiler::GetInstance().AddTriangles(m_Floor->GetIndexCount() / 3); // Convert indices to triangles
 
 	// Get the number of models that will be rendered.
 	modelCount = m_ModelList->GetModelCount();
@@ -837,6 +849,11 @@ bool Application::Render()
 				}
 			}
 
+			// Track model draw call and triangles
+			PerformanceProfiler::GetInstance().IncrementDrawCalls();
+			PerformanceProfiler::GetInstance().AddTriangles(m_Model->GetIndexCount() / 3); // Convert indices to triangles
+			PerformanceProfiler::GetInstance().AddInstances(1); // Each model instance counts as 1
+
 			// Render selection highlight if this model is selected
 			if (isSelected)
 			{
@@ -856,6 +873,9 @@ bool Application::Render()
 				{
 					LOG_ERROR("Selection highlight render failed");
 				}
+
+				// Track selection highlight draw call
+				PerformanceProfiler::GetInstance().IncrementDrawCalls();
 			}
 
 			// Since this model was rendered then increase the count for this frame.
@@ -881,6 +901,9 @@ bool Application::Render()
 			
 			// Render gizmos
 			m_SelectionManager->RenderGizmos(m_Direct3D, viewMatrix, projectionMatrix, gizmoWorldMatrix);
+
+			// Track gizmo draw calls (assuming gizmos add draw calls)
+			// This would need to be implemented in SelectionManager::RenderGizmos
 		}
 	}
 
@@ -897,6 +920,9 @@ bool Application::Render()
 		LOG_ERROR("User interface render failed");
 		return false;
 	}
+
+	// Track UI draw calls (UI rendering typically adds multiple draw calls)
+	// This would need to be implemented in UserInterface::Render
 
 	// Present the rendered scene to the screen.
 	m_Direct3D->EndScene();

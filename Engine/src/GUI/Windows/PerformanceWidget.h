@@ -1,22 +1,36 @@
-#ifndef _PERFORMANCE_WIDGET_H_
-#define _PERFORMANCE_WIDGET_H_
-
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
+#ifndef PERFORMANCEWIDGET_H
+#define PERFORMANCEWIDGET_H
 
 #include <QWidget>
 #include <QVBoxLayout>
-#include <QLabel>
-#include <QHeaderView>
+#include <QHBoxLayout>
+#include <QTabWidget>
 #include <QTableWidget>
+#include <QGroupBox>
+#include <QComboBox>
+#include <QSpinBox>
+#include <QCheckBox>
+#include <QPushButton>
+#include <QProgressBar>
+#include <QLabel>
+#include <QTextEdit>
 #include <QTimer>
-//#include <QPainter>
-//
-//#include <QtCharts/QChart>
-//#include <QtCharts/QChartView>
-//#include <QtCharts/QLineSeries>
-//#include <QtCharts/QValueAxis>
+#include <QHeaderView>
+#include <QApplication>
+#include <QScreen>
+#include <QListWidget>
+#include <QFrame>
+#include <algorithm>
+#include <vector>
+#include <QDateTime>
+#include <QMessageBox>
+#include <QFileDialog>
+#include <QStandardPaths>
+
+#include "../../Core/System/PerformanceProfiler.h"
+
+// Update interval for performance monitoring (16ms = 60 FPS)
+#define UPDATE_INTERVAL_MS 16
 
 class PerformanceWidget : public QWidget
 {
@@ -26,27 +40,108 @@ public:
     explicit PerformanceWidget(QWidget* parent = nullptr);
     ~PerformanceWidget();
 
-    //void UpdateData();
+    // Public method to start benchmark from MainWindow
+    void StartBenchmark();
+    
+    // Public method to switch to benchmarking tab
+    void SwitchToBenchmarkTab();
+    
+    // Set the main window tab index for proper logging
+    void SetMainWindowTabIndex(int index);
 
 private slots:
     void OnUpdateTimer();
+    void OnStartBenchmark();
+    void OnStopBenchmark();
+    void OnExportResults();
+    void OnExportComparison();
+    void OnInternalTabChanged(int index);
+    
+    // Configuration change handlers
+    void OnRenderingModeChanged(int index);
+    void OnObjectCountChanged(int value);
+    void OnBenchmarkDurationChanged(int value);
+    void OnFrustumCullingToggled(bool enabled);
+    void OnLODToggled(bool enabled);
+    void OnOcclusionCullingToggled(bool enabled);
 
 private:
-    void CreateStatsTable();
-    void UpdateStatsTable();
+    void CreateUI();
+    void CreateCharts();
+    void CreateRealTimeTab();
+    void CreateBenchmarkTab();
+    void CreateComparisonTab();
+    void UpdateRealTimeStats();
+    void UpdateBenchmarkProgress();
+    void UpdateCharts();
+    void SetupBenchmarkConfig();
+    void LoadBenchmarkResults();
+    void DisplayComparisonResults();
 
-    /*QChart* m_FPSChart;
-    QChart* m_GPUTimeChart;
-    QChart* m_CPUTimeChart;
-    QLineSeries* m_FPSSeries;
-    QLineSeries* m_GPUTimeSeries;
-    QLineSeries* m_CPUTimeSeries;
+    // UI Components
+    QTabWidget* m_TabWidget;
     QTableWidget* m_StatsTable;
-    QTimer* m_UpdateTimer;*/
-
-    QTableWidget* m_StatsTable;
+    
+    // Chart components (replaced with simple widgets)
+    QListWidget* m_RealTimeChartWidget;
+    QListWidget* m_ComparisonChartWidget;
+    
+    // Benchmark configuration
+    QGroupBox* m_BenchmarkConfigGroup;
+    QComboBox* m_RenderingModeCombo;
+    QSpinBox* m_ObjectCountSpinBox;
+    QSpinBox* m_BenchmarkDurationSpinBox;
+    QCheckBox* m_FrustumCullingCheckBox;
+    QCheckBox* m_LODCheckBox;
+    QCheckBox* m_OcclusionCullingCheckBox;
+    
+    // Benchmark controls
+    QPushButton* m_StartBenchmarkButton;
+    QPushButton* m_StopBenchmarkButton;
+    QProgressBar* m_BenchmarkProgressBar;
+    QLabel* m_BenchmarkStatusLabel;
+    QTableWidget* m_BenchmarkResultsTable;
+    
+    // Export and comparison
+    QPushButton* m_ExportResultsButton;
+    QPushButton* m_ExportComparisonButton;
+    QTextEdit* m_ComparisonTextEdit;
+    
+    // Update timer
     QTimer* m_UpdateTimer;
-    static const int UPDATE_INTERVAL_MS = 1000; // Update once per second instead of every frame
+    
+    // Chart data storage (for simple display)
+    struct ChartPoint {
+        double time;
+        double fps;
+        double cpuTime;
+        double gpuTime;
+    };
+    std::vector<ChartPoint> m_ChartData;
+    
+    // Benchmark history
+    struct BenchmarkData {
+        QString name;
+        double averageFPS;
+        double averageFrameTime;
+        double averageGPUTime;
+        double averageCPUTime;
+        double averageDrawCalls;
+        double averageTriangles;
+        double averageInstances;
+        double averageIndirectDrawCalls;
+        double averageComputeDispatches;
+        double averageGPUMemoryUsage;
+        double averageCPUMemoryUsage;
+        double averageBandwidthUsage;
+    };
+    std::vector<BenchmarkData> m_BenchmarkHistory;
+    
+    // Main window tab index for proper logging
+    int m_MainWindowTabIndex;
+    
+    // Internal tab widget index
+    int m_InternalTabIndex;
 };
 
-#endif
+#endif // PERFORMANCEWIDGET_H

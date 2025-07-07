@@ -1,5 +1,13 @@
 #include "PerformanceProfiler.h"
 #include "Logger.h"
+#include "CommonTimer.h"
+#include <fstream>
+#include <sstream>
+#include <iomanip>
+#include <algorithm>
+#include <numeric>
+#include <psapi.h>
+#include <pdh.h>
 
 PerformanceProfiler& PerformanceProfiler::GetInstance()
 {
@@ -15,8 +23,20 @@ PerformanceProfiler::PerformanceProfiler()
     , m_TimestampEndQuery(nullptr)
     , m_Enabled(false)
     , m_QueryInFlight(false)
+    , m_CurrentMode(PerformanceProfiler::RenderingMode::CPU_DRIVEN)
+    , m_BenchmarkRunning(false)
+    , m_BenchmarkCurrentFrame(0)
+    , m_Frequency(0.0)
+    , m_LastFrameTime(0.0)
 {
-    m_LastFrameTiming = { 0.0, 0.0, 0, 0, 0 };
+    m_LastFrameTiming = { 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0.0, 0.0, 0.0 };
+    
+    // Initialize QueryPerformanceCounter frequency for consistent timing
+    LARGE_INTEGER freq;
+    if (QueryPerformanceFrequency(&freq))
+    {
+        m_Frequency = static_cast<double>(freq.QuadPart);
+    }
 }
 
 PerformanceProfiler::~PerformanceProfiler()
@@ -30,11 +50,16 @@ void PerformanceProfiler::Initialize(ID3D11Device* device, ID3D11DeviceContext* 
     m_Context = context;
     CreateQueryObjects();
     m_Enabled = true;
-    LOG("Performance profiler initialized");
+    LOG("Enhanced performance profiler initialized");
 }
 
 void PerformanceProfiler::Shutdown()
 {
+    if (m_BenchmarkRunning)
+    {
+        StopBenchmark();
+    }
+    
     ReleaseQueryObjects();
     m_Device = nullptr;
     m_Context = nullptr;
@@ -67,10 +92,11 @@ void PerformanceProfiler::BeginFrame()
 {
     if (!m_Enabled) return;
 
-    auto now = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
-    m_FrameStartTime = static_cast<double>(duration.count());
-    m_LastFrameTiming = { 0.0, 0.0, 0, 0, 0 };
+    // Use CommonTimer for consistent timing
+    m_FrameStartTime = CommonTimer::GetInstance().GetCurrentTimeMs();
+    
+    // Reset frame timing data
+    m_LastFrameTiming = { 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0.0, 0.0, 0.0 };
 
     // Begin GPU timing
     if (!m_QueryInFlight)
@@ -79,6 +105,9 @@ void PerformanceProfiler::BeginFrame()
         m_Context->End(m_TimestampStartQuery);
         m_QueryInFlight = true;
     }
+
+    // Update memory usage
+    UpdateMemoryUsage();
 }
 
 void PerformanceProfiler::EndFrame()
@@ -110,22 +139,34 @@ void PerformanceProfiler::EndFrame()
         m_LastFrameTiming.gpuTime = (static_cast<double>(endTime) - static_cast<double>(startTime)) * 1000.0 / disjointData.Frequency;
     }
 
-    // Calculate CPU time
-    auto now = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
-    double frameEndTime = static_cast<double>(duration.count());
+    // Calculate CPU time using CommonTimer for consistency
+    double frameEndTime = CommonTimer::GetInstance().GetCurrentTimeMs();
     m_LastFrameTiming.cpuTime = frameEndTime - m_FrameStartTime;
+    m_LastFrameTime = m_LastFrameTiming.cpuTime;
 
     // Store frame data
     FrameData frameData;
     frameData.timing = m_LastFrameTiming;
     frameData.timestamp = frameEndTime;
+    frameData.mode = m_CurrentMode;
     m_FrameHistory.push_back(frameData);
 
     // Keep only the last MAX_FRAME_HISTORY frames
     if (m_FrameHistory.size() > MAX_FRAME_HISTORY)
     {
         m_FrameHistory.erase(m_FrameHistory.begin());
+    }
+
+    // Process benchmark if running
+    if (m_BenchmarkRunning)
+    {
+        ProcessBenchmarkFrame();
+    }
+
+    // Call real-time callback if set
+    if (m_RealTimeCallback)
+    {
+        m_RealTimeCallback(m_LastFrameTiming);
     }
 }
 
@@ -135,7 +176,7 @@ void PerformanceProfiler::BeginSection(const std::string& name)
 
     SectionData section;
     section.name = name;
-    section.timing = { 0.0, 0.0, 0, 0, 0 };
+    section.timing = { 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0.0, 0.0, 0.0 };
     auto now = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
     section.startTime = static_cast<double>(duration.count());
@@ -215,6 +256,211 @@ void PerformanceProfiler::ReleaseTimestampQuery(ID3D11Query* query)
     }
 }
 
+void PerformanceProfiler::UpdateMemoryUsage()
+{
+    // Update CPU memory usage
+    PROCESS_MEMORY_COUNTERS_EX pmc;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc)))
+    {
+        m_LastFrameTiming.cpuMemoryUsage = static_cast<double>(pmc.WorkingSetSize) / (1024.0 * 1024.0); // Convert to MB
+    }
+
+    // Calculate GPU memory usage based on actual resources
+    // This is a more sophisticated estimate based on triangles, textures, and draw calls
+    double estimatedGPUMemory = 0.0;
+    
+    // Base memory for vertex/index buffers (rough estimate)
+    estimatedGPUMemory += m_LastFrameTiming.triangles * 0.001; // ~1KB per triangle for vertex data
+    
+    // Memory for textures (rough estimate)
+    estimatedGPUMemory += m_LastFrameTiming.drawCalls * 2.0; // ~2MB per draw call for textures
+    
+    // Memory for render targets and depth buffers
+    estimatedGPUMemory += 50.0; // Base memory for render targets
+    
+    m_LastFrameTiming.gpuMemoryUsage = estimatedGPUMemory;
+    
+    // Calculate bandwidth usage (rough estimate)
+    // Based on memory transfers and rendering operations
+    double bandwidthEstimate = (m_LastFrameTiming.triangles * 0.0001) + (m_LastFrameTiming.drawCalls * 0.01);
+    m_LastFrameTiming.bandwidthUsage = bandwidthEstimate;
+}
+
+double PerformanceProfiler::GetGPUMemoryUsage()
+{
+    // This would require vendor-specific APIs (NVAPI, AMD API, etc.)
+    // For now, return the estimated value
+    return m_LastFrameTiming.gpuMemoryUsage;
+}
+
+double PerformanceProfiler::GetCPUMemoryUsage()
+{
+    PROCESS_MEMORY_COUNTERS_EX pmc;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc)))
+    {
+        return static_cast<double>(pmc.WorkingSetSize) / (1024.0 * 1024.0);
+    }
+    return 0.0;
+}
+
+void PerformanceProfiler::StartBenchmark(const BenchmarkConfig& config)
+{
+    if (m_BenchmarkRunning)
+    {
+        LOG_WARNING("Benchmark already running, stopping current benchmark");
+        StopBenchmark();
+    }
+
+    m_BenchmarkConfig = config;
+    m_BenchmarkCurrentFrame = 0;
+    m_BenchmarkFrameData.clear();
+    m_BenchmarkRunning = true;
+    m_CurrentMode = config.mode;
+
+    LOG("Starting benchmark: " + config.sceneName + " with " + std::to_string(config.objectCount) + " objects");
+    
+    std::string modeStr;
+    if (config.mode == PerformanceProfiler::RenderingMode::CPU_DRIVEN)
+        modeStr = "CPU_DRIVEN";
+    else if (config.mode == PerformanceProfiler::RenderingMode::GPU_DRIVEN)
+        modeStr = "GPU_DRIVEN";
+    else
+        modeStr = "HYBRID";
+    LOG("Rendering mode: " + modeStr);
+}
+
+void PerformanceProfiler::StopBenchmark()
+{
+    if (!m_BenchmarkRunning) return;
+
+    m_BenchmarkRunning = false;
+    
+    // Calculate final statistics
+    CalculateBenchmarkStatistics(m_LastBenchmarkResults);
+    
+    LOG("Benchmark completed. Average FPS: " + std::to_string(m_LastBenchmarkResults.averageFPS));
+    LOG("Average frame time: " + std::to_string(m_LastBenchmarkResults.averageFrameTime) + "ms");
+    LOG("Average GPU time: " + std::to_string(m_LastBenchmarkResults.averageGPUTime) + "ms");
+    LOG("Average CPU time: " + std::to_string(m_LastBenchmarkResults.averageCPUTime) + "ms");
+}
+
+void PerformanceProfiler::ProcessBenchmarkFrame()
+{
+    if (m_BenchmarkCurrentFrame >= m_BenchmarkConfig.benchmarkDuration)
+    {
+        StopBenchmark();
+        return;
+    }
+
+    // Store frame data for benchmark
+    FrameData frameData;
+    frameData.timing = m_LastFrameTiming;
+    frameData.timestamp = m_FrameStartTime;
+    frameData.mode = m_CurrentMode;
+    m_BenchmarkFrameData.push_back(frameData);
+
+    m_BenchmarkCurrentFrame++;
+
+    // Keep only the last MAX_BENCHMARK_FRAMES
+    if (m_BenchmarkFrameData.size() > MAX_BENCHMARK_FRAMES)
+    {
+        m_BenchmarkFrameData.erase(m_BenchmarkFrameData.begin());
+    }
+}
+
+void PerformanceProfiler::CalculateBenchmarkStatistics(BenchmarkResults& results)
+{
+    results.config = m_BenchmarkConfig;
+    
+    if (m_BenchmarkFrameData.empty())
+    {
+        LOG_ERROR("No benchmark data available");
+        return;
+    }
+
+    // Extract raw data
+    std::vector<double> frameTimes, gpuTimes, cpuTimes, fpsValues;
+    
+    for (const auto& frame : m_BenchmarkFrameData)
+    {
+        frameTimes.push_back(frame.timing.cpuTime);
+        gpuTimes.push_back(frame.timing.gpuTime);
+        cpuTimes.push_back(frame.timing.cpuTime);
+        
+        if (frame.timing.cpuTime > 0)
+        {
+            fpsValues.push_back(1000.0 / frame.timing.cpuTime);
+        }
+    }
+
+    // Calculate averages
+    results.averageFrameTime = std::accumulate(frameTimes.begin(), frameTimes.end(), 0.0) / static_cast<double>(frameTimes.size());
+    results.averageGPUTime = std::accumulate(gpuTimes.begin(), gpuTimes.end(), 0.0) / static_cast<double>(gpuTimes.size());
+    results.averageCPUTime = std::accumulate(cpuTimes.begin(), cpuTimes.end(), 0.0) / static_cast<double>(cpuTimes.size());
+    results.averageFPS = std::accumulate(fpsValues.begin(), fpsValues.end(), 0.0) / static_cast<double>(fpsValues.size());
+
+    // Calculate min/max FPS
+    if (!fpsValues.empty())
+    {
+        results.minFPS = *std::min_element(fpsValues.begin(), fpsValues.end());
+        results.maxFPS = *std::max_element(fpsValues.begin(), fpsValues.end());
+        results.fpsVariance = CalculateVariance(fpsValues, results.averageFPS);
+    }
+
+    // Calculate other averages
+    double totalDrawCalls = 0, totalTriangles = 0, totalInstances = 0;
+    double totalIndirectDrawCalls = 0, totalComputeDispatches = 0;
+    double totalGPUMemory = 0, totalCPUMemory = 0, totalBandwidth = 0;
+
+    for (const auto& frame : m_BenchmarkFrameData)
+    {
+        totalDrawCalls += static_cast<double>(frame.timing.drawCalls);
+        totalTriangles += static_cast<double>(frame.timing.triangles);
+        totalInstances += static_cast<double>(frame.timing.instances);
+        totalIndirectDrawCalls += static_cast<double>(frame.timing.indirectDrawCalls);
+        totalComputeDispatches += static_cast<double>(frame.timing.computeDispatches);
+        totalGPUMemory += frame.timing.gpuMemoryUsage;
+        totalCPUMemory += frame.timing.cpuMemoryUsage;
+        totalBandwidth += frame.timing.bandwidthUsage;
+    }
+
+    size_t frameCount = m_BenchmarkFrameData.size();
+    results.averageDrawCalls = totalDrawCalls / static_cast<double>(frameCount);
+    results.averageTriangles = totalTriangles / static_cast<double>(frameCount);
+    results.averageInstances = totalInstances / static_cast<double>(frameCount);
+    results.averageIndirectDrawCalls = totalIndirectDrawCalls / static_cast<double>(frameCount);
+    results.averageComputeDispatches = totalComputeDispatches / static_cast<double>(frameCount);
+    results.averageGPUMemoryUsage = totalGPUMemory / static_cast<double>(frameCount);
+    results.averageCPUMemoryUsage = totalCPUMemory / static_cast<double>(frameCount);
+    results.averageBandwidthUsage = totalBandwidth / static_cast<double>(frameCount);
+
+    // Store raw data
+    results.frameTimes = frameTimes;
+    results.gpuTimes = gpuTimes;
+    results.cpuTimes = cpuTimes;
+}
+
+double PerformanceProfiler::CalculateVariance(const std::vector<double>& values, double mean)
+{
+    if (values.empty()) return 0.0;
+    
+    double sum = 0.0;
+    for (double value : values)
+    {
+        double diff = value - mean;
+        sum += diff * diff;
+    }
+    return sum / static_cast<double>(values.size());
+}
+
+double PerformanceProfiler::GetBenchmarkProgress() const
+{
+    if (!m_BenchmarkRunning || m_BenchmarkConfig.benchmarkDuration == 0)
+        return 0.0;
+    
+    return static_cast<double>(m_BenchmarkCurrentFrame) / static_cast<double>(m_BenchmarkConfig.benchmarkDuration);
+}
+
 double PerformanceProfiler::GetAverageFPS() const
 {
     if (m_FrameHistory.empty()) return 0.0;
@@ -225,7 +471,7 @@ double PerformanceProfiler::GetAverageFPS() const
         totalFrameTime += frame.timing.cpuTime;
     }
 
-    double averageFrameTime = totalFrameTime / m_FrameHistory.size();
+    double averageFrameTime = totalFrameTime / static_cast<double>(m_FrameHistory.size());
     return 1000.0 / averageFrameTime; // Convert to FPS
 }
 
@@ -239,5 +485,179 @@ double PerformanceProfiler::GetAverageFrameTime() const
         totalFrameTime += frame.timing.cpuTime;
     }
 
-    return totalFrameTime / m_FrameHistory.size();
+    return totalFrameTime / static_cast<double>(m_FrameHistory.size());
+}
+
+double PerformanceProfiler::GetCurrentFPS() const
+{
+    if (m_LastFrameTime <= 0.0) return 0.0;
+    double fps = CommonTimer::GetInstance().CalculateFPS(m_LastFrameTime);
+    
+    return fps;
+}
+
+PerformanceProfiler::BenchmarkResults PerformanceProfiler::CompareBenchmarks(const BenchmarkResults& cpuResults, const BenchmarkResults& gpuResults)
+{
+    BenchmarkResults comparison;
+    comparison.config = cpuResults.config; // Use CPU config as base
+    
+    // Calculate performance improvements
+    comparison.averageFPS = gpuResults.averageFPS;
+    comparison.averageFrameTime = gpuResults.averageFrameTime;
+    comparison.averageGPUTime = gpuResults.averageGPUTime;
+    comparison.averageCPUTime = gpuResults.averageCPUTime;
+    
+    // Calculate percentage improvements
+    double fpsImprovement = ((gpuResults.averageFPS - cpuResults.averageFPS) / cpuResults.averageFPS) * 100.0;
+    double frameTimeImprovement = ((cpuResults.averageFrameTime - gpuResults.averageFrameTime) / cpuResults.averageFrameTime) * 100.0;
+    
+    LOG("Performance Comparison Results:");
+    LOG("FPS Improvement: " + std::to_string(fpsImprovement) + "%");
+    LOG("Frame Time Improvement: " + std::to_string(frameTimeImprovement) + "%");
+    
+    return comparison;
+}
+
+double PerformanceProfiler::CalculatePerformanceImprovement(const BenchmarkResults& cpuResults, const BenchmarkResults& gpuResults)
+{
+    if (cpuResults.averageFPS <= 0) return 0.0;
+    
+    return ((gpuResults.averageFPS - cpuResults.averageFPS) / cpuResults.averageFPS) * 100.0;
+}
+
+bool PerformanceProfiler::ExportBenchmarkResults(const std::string& filename, const BenchmarkResults& results)
+{
+    std::ofstream file(filename);
+    if (!file.is_open())
+    {
+        LOG_ERROR("Failed to open file for writing: " + filename);
+        return false;
+    }
+
+    file << "Benchmark Results Report\n";
+    file << "========================\n\n";
+    
+    file << "Configuration:\n";
+    file << "  Scene: " << results.config.sceneName << "\n";
+    file << "  Object Count: " << results.config.objectCount << "\n";
+    std::string renderModeStr;
+    if (results.config.mode == PerformanceProfiler::RenderingMode::CPU_DRIVEN)
+        renderModeStr = "CPU_DRIVEN";
+    else if (results.config.mode == PerformanceProfiler::RenderingMode::GPU_DRIVEN)
+        renderModeStr = "GPU_DRIVEN";
+    else
+        renderModeStr = "HYBRID";
+    file << "  Rendering Mode: " << renderModeStr << "\n";
+    file << "  Frustum Culling: " << (results.config.enableFrustumCulling ? "Enabled" : "Disabled") << "\n";
+    file << "  LOD: " << (results.config.enableLOD ? "Enabled" : "Disabled") << "\n";
+    file << "  Occlusion Culling: " << (results.config.enableOcclusionCulling ? "Enabled" : "Disabled") << "\n\n";
+    
+    file << "Performance Metrics:\n";
+    file << "  Average FPS: " << std::fixed << std::setprecision(2) << results.averageFPS << "\n";
+    file << "  Average Frame Time: " << results.averageFrameTime << " ms\n";
+    file << "  Average GPU Time: " << results.averageGPUTime << " ms\n";
+    file << "  Average CPU Time: " << results.averageCPUTime << " ms\n";
+    file << "  Min FPS: " << results.minFPS << "\n";
+    file << "  Max FPS: " << results.maxFPS << "\n";
+    file << "  FPS Variance: " << results.fpsVariance << "\n\n";
+    
+    file << "Rendering Statistics:\n";
+    file << "  Average Draw Calls: " << results.averageDrawCalls << "\n";
+    file << "  Average Triangles: " << results.averageTriangles << "\n";
+    file << "  Average Instances: " << results.averageInstances << "\n";
+    file << "  Average Indirect Draw Calls: " << results.averageIndirectDrawCalls << "\n";
+    file << "  Average Compute Dispatches: " << results.averageComputeDispatches << "\n\n";
+    
+    file << "Memory Usage:\n";
+    file << "  Average GPU Memory: " << results.averageGPUMemoryUsage << " MB\n";
+    file << "  Average CPU Memory: " << results.averageCPUMemoryUsage << " MB\n";
+    file << "  Average Bandwidth: " << results.averageBandwidthUsage << " GB/s\n\n";
+    
+    file << "Raw Frame Data:\n";
+    file << "Frame,CPU_Time,GPU_Time\n";
+    for (size_t i = 0; i < results.frameTimes.size(); ++i)
+    {
+        file << i << "," << results.frameTimes[i] << "," << results.gpuTimes[i] << "\n";
+    }
+
+    file.close();
+    LOG("Benchmark results exported to: " + filename);
+    return true;
+}
+
+bool PerformanceProfiler::ExportComparisonReport(const std::string& filename, const BenchmarkResults& cpuResults, const BenchmarkResults& gpuResults)
+{
+    std::ofstream file(filename);
+    if (!file.is_open())
+    {
+        LOG_ERROR("Failed to open file for writing: " + filename);
+        return false;
+    }
+
+    double fpsImprovement = CalculatePerformanceImprovement(cpuResults, gpuResults);
+    double frameTimeImprovement = ((cpuResults.averageFrameTime - gpuResults.averageFrameTime) / cpuResults.averageFrameTime) * 100.0;
+
+    file << "GPU-Driven Rendering Performance Comparison Report\n";
+    file << "==================================================\n\n";
+    
+    file << "Test Configuration:\n";
+    file << "  Scene: " << cpuResults.config.sceneName << "\n";
+    file << "  Object Count: " << cpuResults.config.objectCount << "\n";
+    file << "  Benchmark Duration: " << cpuResults.config.benchmarkDuration << " frames\n\n";
+    
+    file << "Performance Comparison:\n";
+    file << "  Metric                    CPU-Driven    GPU-Driven    Improvement\n";
+    file << "  -----------------------------------------------------------------\n";
+    file << "  Average FPS               " << std::fixed << std::setprecision(2) << std::setw(10) << cpuResults.averageFPS 
+         << "    " << std::setw(10) << gpuResults.averageFPS << "    " << std::setw(10) << fpsImprovement << "%\n";
+    file << "  Average Frame Time (ms)   " << std::setw(10) << cpuResults.averageFrameTime 
+         << "    " << std::setw(10) << gpuResults.averageFrameTime << "    " << std::setw(10) << frameTimeImprovement << "%\n";
+    file << "  Average GPU Time (ms)     " << std::setw(10) << cpuResults.averageGPUTime 
+         << "    " << std::setw(10) << gpuResults.averageGPUTime << "    " << std::setw(10) 
+         << ((cpuResults.averageGPUTime - gpuResults.averageGPUTime) / cpuResults.averageGPUTime) * 100.0 << "%\n";
+    file << "  Average CPU Time (ms)     " << std::setw(10) << cpuResults.averageCPUTime 
+         << "    " << std::setw(10) << gpuResults.averageCPUTime << "    " << std::setw(10) 
+         << ((cpuResults.averageCPUTime - gpuResults.averageCPUTime) / cpuResults.averageCPUTime) * 100.0 << "%\n\n";
+    
+    file << "Rendering Efficiency:\n";
+    file << "  Metric                    CPU-Driven    GPU-Driven    Change\n";
+    file << "  ------------------------------------------------------------\n";
+    file << "  Draw Calls                " << std::setw(10) << cpuResults.averageDrawCalls 
+         << "    " << std::setw(10) << gpuResults.averageDrawCalls << "    " << std::setw(10) 
+         << ((double)gpuResults.averageDrawCalls / cpuResults.averageDrawCalls) * 100.0 << "%\n";
+    file << "  Indirect Draw Calls       " << std::setw(10) << cpuResults.averageIndirectDrawCalls 
+         << "    " << std::setw(10) << gpuResults.averageIndirectDrawCalls << "    " << std::setw(10) 
+         << ((double)gpuResults.averageIndirectDrawCalls / (cpuResults.averageIndirectDrawCalls + 1)) * 100.0 << "%\n";
+    file << "  Compute Dispatches        " << std::setw(10) << cpuResults.averageComputeDispatches 
+         << "    " << std::setw(10) << gpuResults.averageComputeDispatches << "    " << std::setw(10) 
+         << ((double)gpuResults.averageComputeDispatches / (cpuResults.averageComputeDispatches + 1)) * 100.0 << "%\n\n";
+    
+    file << "Memory Usage:\n";
+    file << "  Metric                    CPU-Driven    GPU-Driven    Change\n";
+    file << "  ------------------------------------------------------------\n";
+    file << "  GPU Memory (MB)           " << std::setw(10) << cpuResults.averageGPUMemoryUsage 
+         << "    " << std::setw(10) << gpuResults.averageGPUMemoryUsage << "    " << std::setw(10) 
+         << ((gpuResults.averageGPUMemoryUsage - cpuResults.averageGPUMemoryUsage) / cpuResults.averageGPUMemoryUsage) * 100.0 << "%\n";
+    file << "  CPU Memory (MB)           " << std::setw(10) << cpuResults.averageCPUMemoryUsage 
+         << "    " << std::setw(10) << gpuResults.averageCPUMemoryUsage << "    " << std::setw(10) 
+         << ((gpuResults.averageCPUMemoryUsage - cpuResults.averageCPUMemoryUsage) / cpuResults.averageCPUMemoryUsage) * 100.0 << "%\n";
+    file << "  Bandwidth (GB/s)          " << std::setw(10) << cpuResults.averageBandwidthUsage 
+         << "    " << std::setw(10) << gpuResults.averageBandwidthUsage << "    " << std::setw(10) 
+         << ((gpuResults.averageBandwidthUsage - cpuResults.averageBandwidthUsage) / (cpuResults.averageBandwidthUsage + 0.1)) * 100.0 << "%\n\n";
+    
+    file << "Conclusion:\n";
+    if (fpsImprovement > 0)
+    {
+        file << "GPU-driven rendering shows a " << fpsImprovement << "% improvement in performance\n";
+        file << "compared to CPU-driven rendering for this scene configuration.\n";
+    }
+    else
+    {
+        file << "CPU-driven rendering performs " << -fpsImprovement << "% better than GPU-driven rendering\n";
+        file << "for this scene configuration. This may indicate overhead in the GPU-driven approach.\n";
+    }
+
+    file.close();
+    LOG("Comparison report exported to: " + filename);
+    return true;
 } 

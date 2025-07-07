@@ -34,6 +34,9 @@ ipch/                 # Intermediate precompiled headers
 *.tmp
 *.bak
 
+# Markdown files
+*.md
+
 # Test results
 TestResults/
 *.coverage

@@ -1,4 +1,5 @@
 #include "UserInterface.h"
+#include "../../Core/System/PerformanceProfiler.h"
 
 UserInterface::UserInterface()
 {
@@ -158,6 +159,10 @@ bool UserInterface::Render(D3D11Device* Direct3D, ShaderManager* ShaderManager, 
         {
             return false;
         }
+        
+        // Track UI rendering performance
+        PerformanceProfiler::GetInstance().IncrementDrawCalls();
+        PerformanceProfiler::GetInstance().AddTriangles(m_FpsString->GetIndexCount() / 3);
     }
 
     // Render the render count text string using the font shader.
@@ -169,6 +174,10 @@ bool UserInterface::Render(D3D11Device* Direct3D, ShaderManager* ShaderManager, 
     {
         return false;
     }
+    
+    // Track UI rendering performance
+    PerformanceProfiler::GetInstance().IncrementDrawCalls();
+    PerformanceProfiler::GetInstance().AddTriangles(m_RenderCountString->GetIndexCount() / 3);
 
     // Turn off alpha blending now that the text has been rendered.
     Direct3D->DisableAlphaBlending();
@@ -215,16 +224,22 @@ bool UserInterface::UpdateFpsString(ID3D11DeviceContext* deviceContext, int fps)
     strcpy_s(finalString, "Fps: ");
     strcat_s(finalString, tempString);
 
-    // If fps is 60 or above set the fps color to green.
-    if (fps >= 60)
+    // If fps is 144 or above set the fps color to bright green (144Hz+ performance).
+    if (fps >= 144)
     {
         red = 0.0f;
         green = 1.0f;
         blue = 0.0f;
     }
-
+    // If fps is 60 or above set the fps color to green.
+    else if (fps >= 60)
+    {
+        red = 0.0f;
+        green = 0.8f;
+        blue = 0.0f;
+    }
     // If fps is below 60 set the fps color to yellow.
-    if (fps < 60)
+    else if (fps < 60)
     {
         red = 1.0f;
         green = 1.0f;

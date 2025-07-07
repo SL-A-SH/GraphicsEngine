@@ -53,6 +53,8 @@
     <ClCompile Include="src\Graphics\Resource\Texture.cpp" />
     <ClCompile Include="src\Graphics\UI\UserInterface.cpp" />
     <ClCompile Include="src\GUI\Windows\MainWindow.cpp" />
+    <ClCompile Include="src\GUI\Windows\PerformanceWidget.cpp" />
+    <ClCompile Include="src\Core\System\PerformanceProfiler.cpp" />
     <ClCompile Include="src\Main\main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -90,6 +92,8 @@
     <ClInclude Include="src\Graphics\Resource\Texture.h" />
     <ClInclude Include="src\Graphics\UI\UserInterface.h" />
     <ClInclude Include="src\GUI\Windows\MainWindow.h" />
+    <ClInclude Include="src\GUI\Windows\PerformanceWidget.h" />
+    <ClInclude Include="src\Core\System\PerformanceProfiler.h" />
     <ClInclude Include="src\Math\Transform.h" />
   </ItemGroup>
   <ItemGroup>
@@ -213,12 +217,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(SolutionDir)Engine\ThirdParty\FBX SDK\2020.3.7\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)Engine\ThirdParty\FBX SDK\2020.3.7\lib\x64\debug;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)Engine\ThirdParty\FBX SDK\2020.3.7\include;$(SolutionDir)Engine\ThirdParty\Qt\6.8.3\msvc2022_64\include;$(SolutionDir)Engine\ThirdParty\Qt\6.8.3\msvc2022_64\include\QtCharts;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)Engine\ThirdParty\FBX SDK\2020.3.7\lib\x64\debug;$(SolutionDir)Engine\ThirdParty\Qt\6.8.3\msvc2022_64\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(SolutionDir)Engine\ThirdParty\FBX SDK\2020.3.7\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)Engine\ThirdParty\FBX SDK\2020.3.7\lib\x64\debug;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)Engine\ThirdParty\FBX SDK\2020.3.7\include;$(SolutionDir)Engine\ThirdParty\Qt\6.8.3\msvc2022_64\include;$(SolutionDir)Engine\ThirdParty\Qt\6.8.3\msvc2022_64\include\QtCharts;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)Engine\ThirdParty\FBX SDK\2020.3.7\lib\x64\debug;$(SolutionDir)Engine\ThirdParty\Qt\6.8.3\msvc2022_64\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -252,13 +256,13 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;QT_WIDGETS_LIB;QT_CHARTS_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfbxsdk.lib;Qt6Core.lib;Qt6Widgets.lib;Qt6Charts.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -267,7 +271,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;QT_WIDGETS_LIB;QT_CHARTS_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
@@ -275,9 +279,14 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfbxsdk.lib;Qt6Core.lib;Qt6Widgets.lib;Qt6Charts.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
+  
+  <!-- Qt MOC Build Step -->
+  <ItemGroup>
+    <QtMoc Include="src\GUI\Windows\PerformanceWidget.h" />
+  </ItemGroup>
 </Project>

@@ -34,11 +34,16 @@ public:
     void ToggleFullscreen();
     void SetTransformUI(TransformUI* transformUI);
     void SetModelListUI(ModelListUI* modelListUI);
+    void SetBackgroundRendering(bool enabled);
     void SetupUISwitchingCallbacks();
+
+    // Set background rendering mode (continues rendering even when not visible)
+    bool IsBackgroundRendering() const { return m_BackgroundRendering; }
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
     void showEvent(QShowEvent* event) override;
+    void hideEvent(QHideEvent* event) override;
     bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
 
     // Input event handlers
@@ -61,6 +66,7 @@ private:
     bool m_Initialized;
     TransformUI* m_TransformUI;
     ModelListUI* m_ModelListUI;
+    bool m_BackgroundRendering;
 
 public:
     SystemManager* GetSystemManager() const { return m_SystemManager; }

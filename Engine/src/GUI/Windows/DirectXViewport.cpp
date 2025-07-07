@@ -11,6 +11,7 @@ DirectXViewport::DirectXViewport(QWidget* parent, MainWindow* mainWindow)
     , m_Initialized(false)
     , m_TransformUI(nullptr)
     , m_ModelListUI(nullptr)
+    , m_BackgroundRendering(false)
 {
     LOG("DirectXViewport constructor called");
     
@@ -100,14 +101,21 @@ void DirectXViewport::showEvent(QShowEvent* event)
         LOG("ERROR: No native window ID");
     }
 
-    // Bring to front and request focus
-    raise();
-    activateWindow();
-    setFocus();
-    
-    // Force the widget to be visible and on top
-    show();
-    setWindowState(windowState() | Qt::WindowActive);
+    // Bring to front and request focus only if not in background rendering mode
+    if (!m_BackgroundRendering)
+    {
+        raise();
+        activateWindow();
+        setFocus();
+        
+        // Force the widget to be visible and on top
+        show();
+        setWindowState(windowState() | Qt::WindowActive);
+    }
+    else
+    {
+        LOG("Viewport shown but background rendering is enabled - not raising to front");
+    }
     
     if (!m_Initialized)
     {
@@ -144,17 +152,42 @@ void DirectXViewport::showEvent(QShowEvent* event)
         EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devMode);
         int refreshRate = devMode.dmDisplayFrequency;
         
-        // Create update timer with the monitor's refresh rate
+        LOG("Detected monitor refresh rate: " + std::to_string(refreshRate) + " Hz");
+        LOG("Timer interval will be: " + std::to_string(1000 / refreshRate) + " ms");
+        
+        // Create update timer with fixed 144 FPS (6.94ms) for optimal performance
+        // This allows for higher FPS while DirectX handles vsync separately
         LOG("Creating update timer");
         m_UpdateTimer = new QTimer(this);
         connect(m_UpdateTimer, &QTimer::timeout, this, &DirectXViewport::updateFrame);
-        m_UpdateTimer->start(1000 / refreshRate); // Use monitor's refresh rate
+        m_UpdateTimer->start(7); // Fixed 144+ FPS timer (6.94ms interval)
 
         m_Initialized = true;
         LOG("DirectX viewport initialized successfully");
 
         // Setup UI switching callbacks
         SetupUISwitchingCallbacks();
+    }
+}
+
+void DirectXViewport::hideEvent(QHideEvent* event)
+{
+    LOG("DirectXViewport::hideEvent called");
+    QWidget::hideEvent(event);
+    
+    // If background rendering is enabled, continue rendering even when hidden
+    if (m_BackgroundRendering)
+    {
+        LOG("Viewport hidden but continuing to render in background");
+        // Don't stop the update timer - keep rendering in background
+        // The updateFrame() method will continue to be called by the timer
+        // even when the widget is hidden
+    }
+    else
+    {
+        LOG("Viewport hidden and stopping background rendering");
+        // Could stop the update timer here if needed
+        // For now, we'll keep the timer running to maintain consistent timing
     }
 }
 
@@ -235,6 +268,13 @@ bool DirectXViewport::nativeEvent(const QByteArray& eventType, void* message, qi
 
 void DirectXViewport::keyPressEvent(QKeyEvent* event)
 {
+    // Don't process input events when in background rendering mode
+    if (m_BackgroundRendering)
+    {
+        event->ignore();
+        return;
+    }
+    
     LOG("DirectXViewport::keyPressEvent called - Key: " + QString::number(event->key()).toStdString());
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
@@ -246,6 +286,13 @@ void DirectXViewport::keyPressEvent(QKeyEvent* event)
 
 void DirectXViewport::keyReleaseEvent(QKeyEvent* event)
 {
+    // Don't process input events when in background rendering mode
+    if (m_BackgroundRendering)
+    {
+        event->ignore();
+        return;
+    }
+    
     LOG("DirectXViewport::keyReleaseEvent called - Key: " + QString::number(event->key()).toStdString());
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
@@ -257,6 +304,13 @@ void DirectXViewport::keyReleaseEvent(QKeyEvent* event)
 
 void DirectXViewport::mousePressEvent(QMouseEvent* event)
 {
+    // Don't process input events when in background rendering mode
+    if (m_BackgroundRendering)
+    {
+        event->ignore();
+        return;
+    }
+    
     LOG("DirectXViewport::mousePressEvent called - Button: " + QString::number(event->button()).toStdString());
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
@@ -276,6 +330,13 @@ void DirectXViewport::mousePressEvent(QMouseEvent* event)
 
 void DirectXViewport::mouseReleaseEvent(QMouseEvent* event)
 {
+    // Don't process input events when in background rendering mode
+    if (m_BackgroundRendering)
+    {
+        event->ignore();
+        return;
+    }
+    
     LOG("DirectXViewport::mouseReleaseEvent called - Button: " + QString::number(event->button()).toStdString());
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
@@ -294,6 +355,13 @@ void DirectXViewport::mouseReleaseEvent(QMouseEvent* event)
 
 void DirectXViewport::mouseMoveEvent(QMouseEvent* event)
 {
+    // Don't process input events when in background rendering mode
+    if (m_BackgroundRendering)
+    {
+        event->ignore();
+        return;
+    }
+    
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleMouseMoveEvent(event);
@@ -306,14 +374,24 @@ void DirectXViewport::updateFrame()
 {
     if (m_Initialized && m_SystemManager)
     {
-        // Additional check to ensure the Application is properly initialized
-        if (m_SystemManager->GetApplication())
+        // Check if we should continue rendering
+        bool shouldRender = isVisible() || m_BackgroundRendering;
+        
+        if (shouldRender)
         {
-            m_SystemManager->Frame();
+            // Additional check to ensure the Application is properly initialized
+            if (m_SystemManager->GetApplication())
+            {
+                m_SystemManager->Frame();
+            }
+            else
+            {
+                LOG_WARNING("Application not yet initialized, skipping frame");
+            }
         }
         else
         {
-            LOG_WARNING("Application not yet initialized, skipping frame");
+            LOG_WARNING("Viewport not visible and background rendering disabled, skipping frame");
         }
         // Don't call update() here as it triggers Qt's paint system
     }
@@ -367,6 +445,12 @@ void DirectXViewport::SetModelListUI(ModelListUI* modelListUI)
     LOG("ModelListUI reference set in DirectXViewport");
 }
 
+void DirectXViewport::SetBackgroundRendering(bool enabled)
+{
+    LOG("DirectXViewport::SetBackgroundRendering - " + std::string(enabled ? "ENABLED" : "DISABLED"));
+    m_BackgroundRendering = enabled;
+}
+
 void DirectXViewport::SetupUISwitchingCallbacks()
 {
     if (!m_SystemManager || !m_SystemManager->GetApplication())
@@ -391,3 +475,4 @@ void DirectXViewport::SetupUISwitchingCallbacks()
     
     LOG("UI switching callbacks setup completed");
 }
+

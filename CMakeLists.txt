@@ -20,13 +20,19 @@ set(CMAKE_PREFIX_PATH "${QT_ROOT}")
 set(Qt6_DIR "${QT_ROOT}/lib/cmake/Qt6")
 
 # Find Qt6
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Charts)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 
-# Verify Qt Charts was found
-if(TARGET Qt6::Charts)
-    message(STATUS "Qt6 Charts found")
+# Verify Qt was found
+if(TARGET Qt6::Core)
+    message(STATUS "Qt6 Core found")
 else()
-    message(FATAL_ERROR "Qt6 Charts not found!")
+    message(FATAL_ERROR "Qt6 Core not found!")
+endif()
+
+if(TARGET Qt6::Widgets)
+    message(STATUS "Qt6 Widgets found")
+else()
+    message(FATAL_ERROR "Qt6 Widgets not found!")
 endif()
 
 # Enable Qt's automatic features
@@ -81,9 +87,7 @@ target_link_directories(${PROJECT_NAME} PRIVATE
 # Link Qt and FBX SDK libraries (per configuration)
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Core 
-    Qt6::Gui 
     Qt6::Widgets 
-    Qt6::Charts
     $<$<CONFIG:Debug>:libfbxsdk-md>
     $<$<CONFIG:Release>:libfbxsdk-md>
     $<$<CONFIG:Debug>:libxml2-md>
@@ -93,7 +97,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    QT_CHARTS_LIB
     WIN32_LEAN_AND_MEAN     # Reduces Windows header bloat
     NOMINMAX                # Prevents min/max macro definitions
     UNICODE                 # Use Unicode
@@ -135,8 +138,6 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${QT_ROOT}/bin/Qt6Guid.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${QT_ROOT}/bin/Qt6Chartsd.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${QT_ROOT}/bin/Qt6OpenGLd.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${QT_ROOT}/bin/Qt6Widgetsd.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
@@ -166,6 +167,10 @@ source_group("src\\Core\\System" FILES
     ${SRC_DIR}/Core/System/Logger.h
     ${SRC_DIR}/Core/System/PerformanceProfiler.cpp
     ${SRC_DIR}/Core/System/PerformanceProfiler.h
+    ${SRC_DIR}/Core/System/CommonTimer.cpp
+    ${SRC_DIR}/Core/System/CommonTimer.h
+    ${SRC_DIR}/Core/System/PerformanceLogger.cpp
+    ${SRC_DIR}/Core/System/PerformanceLogger.h
 )
 
 # Graphics

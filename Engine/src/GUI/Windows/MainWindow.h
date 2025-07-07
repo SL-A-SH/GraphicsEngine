@@ -36,7 +36,7 @@ protected:
 private slots:
     void ToggleFullscreen();
     void ToggleFPS(bool show);
-    void RunBenchmark();
+    void OpenBenchmarking();
     void ToggleProfiler(bool show);
     void OnTabChanged(int index);
     void OnTabCloseRequested(int index);

@@ -1,4 +1,5 @@
 #include "D3D11Device.h"
+#include "../../Core/System/Logger.h"
 
 D3D11Device::D3D11Device()
 {
@@ -100,16 +101,38 @@ bool D3D11Device::Initialize(int screenWidth, int screenHeight, bool vsync, HWND
 	// When a match is found store the numerator and denominator of the refresh rate for that monitor.
 	numerator = 60;  // Default to 60Hz
 	denominator = 1;
+	
+	LOG("D3D11Device: Looking for refresh rate for resolution " + std::to_string(screenWidth) + "x" + std::to_string(screenHeight));
+	LOG("D3D11Device: Found " + std::to_string(numModes) + " display modes");
+	
+	// Find the highest refresh rate for the target resolution
+	unsigned int highestRefreshRate = 0;
 	for (i = 0; i < numModes; i++)
 	{
 		if (displayModeList[i].Width == (unsigned int)screenWidth)
 		{
 			if (displayModeList[i].Height == (unsigned int)screenHeight)
 			{
-				numerator = displayModeList[i].RefreshRate.Numerator;
-				denominator = displayModeList[i].RefreshRate.Denominator;
+				unsigned int refreshRate = displayModeList[i].RefreshRate.Numerator / displayModeList[i].RefreshRate.Denominator;
+				LOG("D3D11Device: Found mode " + std::to_string(i) + " - " + std::to_string(displayModeList[i].Width) + "x" + std::to_string(displayModeList[i].Height) + " @ " + std::to_string(refreshRate) + "Hz");
+				
+				if (refreshRate > highestRefreshRate)
+				{
+					highestRefreshRate = refreshRate;
+					numerator = displayModeList[i].RefreshRate.Numerator;
+					denominator = displayModeList[i].RefreshRate.Denominator;
+				}
 			}
 		}
+	}
+	
+	if (highestRefreshRate > 0)
+	{
+		LOG("D3D11Device: Selected highest refresh rate: " + std::to_string(highestRefreshRate) + "Hz (" + std::to_string(numerator) + "/" + std::to_string(denominator) + ")");
+	}
+	else
+	{
+		LOG("D3D11Device: No matching resolution found, using default 60Hz");
 	}
 
 	// Get the adapter (video card) description.
@@ -165,11 +188,13 @@ bool D3D11Device::Initialize(int screenWidth, int screenHeight, bool vsync, HWND
 	{
 		swapChainDesc.BufferDesc.RefreshRate.Numerator = numerator;
 		swapChainDesc.BufferDesc.RefreshRate.Denominator = denominator;
+		LOG("D3D11Device: VSYNC ENABLED - Swap chain will sync to " + std::to_string((float)numerator/denominator) + " Hz");
 	}
 	else
 	{
 		swapChainDesc.BufferDesc.RefreshRate.Numerator = 0;
 		swapChainDesc.BufferDesc.RefreshRate.Denominator = 1;
+		LOG("D3D11Device: VSYNC DISABLED - Swap chain will present as fast as possible");
 	}
 
 	// Set the usage of the back buffer.

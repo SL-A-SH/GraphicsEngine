@@ -7,6 +7,7 @@
 #include <QTabBar>
 
 #include "../../Core/System/Logger.h"
+#include "../../Core/System/PerformanceLogger.h"
 #include "../../Graphics/UI/TransformUI.h"
 #include "../../Graphics/UI/ModelListUI.h"
 #include "DirectXViewport.h"
@@ -41,8 +42,8 @@ MainWindow::MainWindow(QWidget* parent)
     m_TabWidget = new QTabWidget(centralWidget);
     m_TabWidget->setTabPosition(QTabWidget::North);
     m_TabWidget->setMovable(true);
-    m_TabWidget->setTabsClosable(true); // Enable close button on tabs
-    m_TabWidget->tabBar()->setVisible(false); // Hide tab bar initially
+    m_TabWidget->setTabsClosable(true);
+    m_TabWidget->tabBar()->setVisible(false);
     m_MainLayout->addWidget(m_TabWidget);
 
     // Create the DirectX viewport widget
@@ -97,8 +98,8 @@ void MainWindow::CreateMenus()
     QMenu* viewMenu = menuBar()->addMenu("View");
 
     QAction* showFPSAction = new QAction("Show FPS", this);
-    showFPSAction->setCheckable(true);  // Make it checkable
-    showFPSAction->setChecked(false);   // Initially unchecked
+    showFPSAction->setCheckable(true);
+    showFPSAction->setChecked(false);
     connect(showFPSAction, &QAction::toggled, this, &MainWindow::ToggleFPS);
     viewMenu->addAction(showFPSAction);
     
@@ -108,15 +109,15 @@ void MainWindow::CreateMenus()
     // Performance submenu
     QMenu* performanceMenu = toolsMenu->addMenu("Performance");
     
-    QAction* benchmarkAction = new QAction("Run Benchmark", this);
-    connect(benchmarkAction, &QAction::triggered, this, &MainWindow::RunBenchmark);
-    performanceMenu->addAction(benchmarkAction);
-    
     QAction* showProfilerAction = new QAction("Show Profiler", this);
     showProfilerAction->setCheckable(true);
     showProfilerAction->setChecked(false);
     connect(showProfilerAction, &QAction::toggled, this, &MainWindow::ToggleProfiler);
     performanceMenu->addAction(showProfilerAction);
+
+    QAction* benchmarkAction = new QAction("Open Benchmarking", this);
+    connect(benchmarkAction, &QAction::triggered, this, &MainWindow::OpenBenchmarking);
+    performanceMenu->addAction(benchmarkAction);
     
     // Help menu
     QMenu* helpMenu = menuBar()->addMenu("Help");
@@ -244,25 +245,57 @@ void MainWindow::ToggleFPS(bool show)
     }
 }
 
-void MainWindow::RunBenchmark()
+void MainWindow::OpenBenchmarking()
 {
+    // Just navigate to the benchmarking tab
+    LOG("Opening benchmarking tab...");
+    
     // Show tab bar and enable performance tab
     m_TabWidget->tabBar()->setVisible(true);
     m_TabWidget->setCurrentIndex(1);
-    LOG("Benchmark started");
+    
+    // Update PerformanceWidget with the main window tab index
+    if (m_PerformanceWidget)
+    {
+        m_PerformanceWidget->SetMainWindowTabIndex(1);
+        m_PerformanceWidget->SwitchToBenchmarkTab();
+    }
+    
+    LOG("Benchmarking tab opened");
 }
 
 void MainWindow::ToggleProfiler(bool show)
 {
     if (show)
     {
+        // Just show real-time monitoring
+        LOG("Showing real-time profiler");
+        
+        // Initialize performance logging
+        PerformanceLogger::GetInstance().Initialize();
+        PerformanceLogger::GetInstance().LogBenchmarkEvent("Profiler started");
+        
         m_TabWidget->tabBar()->setVisible(true);
         m_TabWidget->setCurrentIndex(1);
+        
+        // Update PerformanceWidget with the main window tab index
+        if (m_PerformanceWidget)
+        {
+            m_PerformanceWidget->SetMainWindowTabIndex(1);
+        }
     }
     else
     {
+        LOG("Hiding profiler");
+        PerformanceLogger::GetInstance().LogBenchmarkEvent("Profiler stopped");
         m_TabWidget->setCurrentIndex(0);
         m_TabWidget->tabBar()->setVisible(false);
+        
+        // Update PerformanceWidget with the main window tab index
+        if (m_PerformanceWidget)
+        {
+            m_PerformanceWidget->SetMainWindowTabIndex(0);
+        }
     }
 }
 
@@ -274,14 +307,40 @@ void MainWindow::OnTabChanged(int index)
         m_PropertiesDock->setVisible(index == 0);
     }
     
+    // Log tab focus change
+    std::string tabName = (index == 0) ? "Viewport" : "Performance";
+    PerformanceLogger::GetInstance().LogTabFocus(tabName);
+    
+    // Update PerformanceWidget with the main window tab index
+    if (m_PerformanceWidget)
+    {
+        m_PerformanceWidget->SetMainWindowTabIndex(index);
+    }
+    
     // Set focus to the appropriate widget based on the active tab
     if (index == 0) // Viewport tab
     {
-        m_ViewportWidget->setFocus();
+        // Disable background rendering and show viewport normally
+        if (m_ViewportWidget)
+        {
+            m_ViewportWidget->SetBackgroundRendering(false);
+            m_ViewportWidget->setVisible(true);
+            m_ViewportWidget->raise();
+            m_ViewportWidget->setFocus();
+        }
     }
     else if (index == 1) // Performance tab
     {
         m_PerformanceWidget->setFocus();
+        // Enable background rendering and hide viewport
+        // This allows the viewport to continue rendering while the performance tab is visible
+        if (m_ViewportWidget)
+        {
+            m_ViewportWidget->SetBackgroundRendering(true);
+            m_ViewportWidget->setVisible(false); // Hide the viewport so it doesn't cover the performance tab
+            // The viewport will continue rendering in the background
+            // but won't interfere with the performance tab UI
+        }
     }
 }
 
@@ -289,7 +348,17 @@ void MainWindow::OnTabCloseRequested(int index)
 {
     if (index == 1) // Performance tab
     {
+        // Switch back to viewport tab and restore normal rendering
         m_TabWidget->setCurrentIndex(0);
         m_TabWidget->tabBar()->setVisible(false);
+        
+        // Restore viewport to normal mode
+        if (m_ViewportWidget)
+        {
+            m_ViewportWidget->SetBackgroundRendering(false);
+            m_ViewportWidget->setVisible(true);
+            m_ViewportWidget->raise();
+            m_ViewportWidget->setFocus();
+        }
     }
 }

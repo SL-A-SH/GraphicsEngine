@@ -1,5 +1,6 @@
 #include "timer.h"
-
+#include "Logger.h"
+#include "CommonTimer.h"
 
 Timer::Timer()
 {
@@ -17,21 +18,16 @@ Timer::~Timer()
 
 bool Timer::Initialize()
 {
-    INT64 frequency;
-
-
-    // Get the cycles per second speed for this system.
-    QueryPerformanceFrequency((LARGE_INTEGER*)&frequency);
-    if (frequency == 0)
+    // Use CommonTimer for consistent frequency
+    m_frequency = static_cast<float>(CommonTimer::GetInstance().GetFrequency());
+    if (m_frequency == 0)
     {
         return false;
     }
 
-    // Store it in floating point.
-    m_frequency = (float)frequency;
-
-    // Get the initial start time.
-    QueryPerformanceCounter((LARGE_INTEGER*)&m_startTime);
+    // Get the initial start time using CommonTimer
+    LARGE_INTEGER startTime = CommonTimer::GetInstance().GetCurrentTimestamp();
+    m_startTime = startTime.QuadPart;
 
     m_fps = 0;
     m_count = 0;
@@ -48,8 +44,9 @@ void Timer::Frame()
 
     m_count++;
 
-    // Query the current time.
-    QueryPerformanceCounter((LARGE_INTEGER*)&currentTime);
+    // Query the current time using CommonTimer
+    LARGE_INTEGER currentTimeStamp = CommonTimer::GetInstance().GetCurrentTimestamp();
+    currentTime = currentTimeStamp.QuadPart;
 
     // Calculate the difference in time since the last time we queried for the current time.
     elapsedTicks = currentTime - m_startTime;
