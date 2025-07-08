@@ -191,7 +191,7 @@ void Texture::Shutdown()
 	return;
 }
 
-ID3D11ShaderResourceView* Texture::GetTexture()
+ID3D11ShaderResourceView* Texture::GetTexture() const
 {
 	return m_textureView;
 }

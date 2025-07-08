@@ -2,7 +2,7 @@
 #include <windows.h>
 #include <QKeyEvent>
 #include <QMouseEvent>
-#include "../../Core/System/Logger.h"
+#include "../../../Core/System/Logger.h"
 
 InputManager::InputManager()
 {

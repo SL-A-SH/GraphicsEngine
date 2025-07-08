@@ -1,16 +1,17 @@
-#ifndef _MODEL_H_
-#define _MODEL_H_
+#ifndef MODEL_H
+#define MODEL_H
 
 #include <d3d11.h>
 #include <directxmath.h>
 #include <fstream>
 #include <string>
 #include <vector>
-#include "./Texture.h"
 #include <fbxsdk.h>
 
+#include "../../Core/Common/EngineTypes.h"
+#include "./Texture.h"
+
 using namespace DirectX;
-using namespace std;
 
 // FBX property names
 #define FBXSDK_CURRENTNAMESPACE fbxsdk
@@ -19,23 +20,11 @@ using namespace std;
 class Model
 {
 public:
-	struct AABB
-	{
-		XMFLOAT3 min;
-		XMFLOAT3 max;
-		float radius;  // For backward compatibility with sphere culling
-	};
+	using AABB = EngineTypes::BoundingBox;
+	using VertexType = EngineTypes::VertexType;
+	using MaterialInfo = EngineTypes::MaterialInfo;
 
 private:
-	struct VertexType
-	{
-		XMFLOAT3 position;
-		XMFLOAT2 texture;
-		XMFLOAT3 normal;
-		XMFLOAT3 tangent;
-		XMFLOAT3 binormal;
-	};
-
 	struct ModelType
 	{
 		float x, y, z;
@@ -45,63 +34,37 @@ private:
 		float bx, by, bz;
 	};
 
-	struct TempVertexType
-	{
-		float x, y, z;
-		float tu, tv;
-		float nx, ny, nz;
-	};
-
-	struct VectorType
-	{
-		float x, y, z;
-	};
-
-	struct MaterialInfo
-	{
-		string diffuseTexturePath;
-		string normalTexturePath;
-		string specularTexturePath;
-		string roughnessTexturePath;
-		string metallicTexturePath;
-		string emissionTexturePath;
-		string aoTexturePath;
-		XMFLOAT4 diffuseColor;
-		XMFLOAT4 ambientColor;
-		XMFLOAT4 specularColor;
-		float shininess;
-		float metallic;
-		float roughness;
-		float ao;
-		float emissionStrength;
-	};
+	using TempVertexType = EngineTypes::TempVertexType;
+	using VectorType = EngineTypes::VectorType;
 
 public:
 	Model();
-	Model(const Model&);
 	~Model();
 
-	bool Initialize(ID3D11Device*, ID3D11DeviceContext*, char*, char*);
-	bool Initialize(ID3D11Device*, ID3D11DeviceContext*, char*, char*, char*);
-	bool Initialize(ID3D11Device*, ID3D11DeviceContext*, char*, char*, char*, char*);
-	bool InitializeFBX(ID3D11Device*, ID3D11DeviceContext*, char*);
+	// Initialization methods
+	bool Initialize(ID3D11Device* device, ID3D11DeviceContext* context, char* modelFilename, char* textureFilename);
+	bool Initialize(ID3D11Device* device, ID3D11DeviceContext* context, char* modelFilename, char* textureFilename1, char* textureFilename2);
+	bool Initialize(ID3D11Device* device, ID3D11DeviceContext* context, char* modelFilename, char* textureFilename1, char* textureFilename2, char* textureFilename3);
+	bool InitializeFBX(ID3D11Device* device, ID3D11DeviceContext* context, char* modelFilename);
+	
 	void Shutdown();
-	void Render(ID3D11DeviceContext*);
+	void Render(ID3D11DeviceContext* context);
 
-	int GetIndexCount();
-	ID3D11ShaderResourceView* GetTexture();
-	ID3D11ShaderResourceView* GetTexture(int index);
+	// Getters
+	int GetIndexCount() const { return m_indexCount; }
+	ID3D11ShaderResourceView* GetTexture() const;
+	ID3D11ShaderResourceView* GetTexture(int index) const;
 	bool HasFBXMaterial() const { return m_hasFBXMaterial; }
 	const AABB& GetBoundingBox() const { return m_boundingBox; }
 	const MaterialInfo& GetMaterialInfo() const { return m_materialInfo; }
 
 	// PBR texture getters
-	ID3D11ShaderResourceView* GetDiffuseTexture();
-	ID3D11ShaderResourceView* GetNormalTexture();
-	ID3D11ShaderResourceView* GetMetallicTexture();
-	ID3D11ShaderResourceView* GetRoughnessTexture();
-	ID3D11ShaderResourceView* GetEmissionTexture();
-	ID3D11ShaderResourceView* GetAOTexture();
+	ID3D11ShaderResourceView* GetDiffuseTexture() const;
+	ID3D11ShaderResourceView* GetNormalTexture() const;
+	ID3D11ShaderResourceView* GetMetallicTexture() const;
+	ID3D11ShaderResourceView* GetRoughnessTexture() const;
+	ID3D11ShaderResourceView* GetEmissionTexture() const;
+	ID3D11ShaderResourceView* GetAOTexture() const;
 	
 	// PBR material properties
 	XMFLOAT4 GetBaseColor() const { return m_materialInfo.diffuseColor; }
@@ -111,19 +74,24 @@ public:
 	float GetEmissionStrength() const { return m_materialInfo.emissionStrength; }
 
 private:
-	bool InitializeBuffers(ID3D11Device*);
+	// Buffer management
+	bool InitializeBuffers(ID3D11Device* device);
 	void ShutdownBuffers();
-	void RenderBuffers(ID3D11DeviceContext*);
+	void RenderBuffers(ID3D11DeviceContext* context);
 
-	bool LoadTexture(ID3D11Device*, ID3D11DeviceContext*, char*);
-	bool LoadTextures(ID3D11Device*, ID3D11DeviceContext*, char*, char*);
-	bool LoadTextures(ID3D11Device*, ID3D11DeviceContext*, char*, char*, char*);
-	bool LoadFBXTextures(ID3D11Device*, ID3D11DeviceContext*);
+	// Texture loading
+	bool LoadTexture(ID3D11Device* device, ID3D11DeviceContext* context, char* filename);
+	bool LoadTextures(ID3D11Device* device, ID3D11DeviceContext* context, char* filename1, char* filename2);
+	bool LoadTextures(ID3D11Device* device, ID3D11DeviceContext* context, char* filename1, char* filename2, char* filename3);
+	bool LoadFBXTextures(ID3D11Device* device, ID3D11DeviceContext* context);
 	void ReleaseTextures();
 
-	bool LoadModel(char*);
-	bool LoadTextModel(char*);
-	bool LoadFBXModel(char*);
+	// Model loading
+	bool LoadModel(char* filename);
+	bool LoadTextModel(char* filename);
+	bool LoadFBXModel(char* filename);
+	
+	// FBX processing
 	void ProcessNode(FbxNode* pNode);
 	void ProcessMesh(FbxNode* pNode);
 	void ProcessMaterials(FbxNode* pNode);
@@ -132,18 +100,24 @@ private:
 	void SearchSceneForTextures(FbxScene* scene);
 	void SearchDirectoryForTextures();
 	void ListAllMaterialProperties(FbxSurfaceMaterial* material);
-	string ConvertTexturePath(const string& originalPath);
+	std::string ConvertTexturePath(const std::string& originalPath);
+	
+	// Model processing
 	void ReleaseModel();
 	void CalculateBoundingBox();
-
 	void CalculateModelVectors();
-	void CalculateTangentBinormal(TempVertexType, TempVertexType, TempVertexType, VectorType&, VectorType&);
+	void CalculateTangentBinormal(TempVertexType vertex1, TempVertexType vertex2, TempVertexType vertex3, VectorType& tangent, VectorType& binormal);
 
 private:
-	ID3D11Buffer* m_vertexBuffer, * m_indexBuffer;
-	int m_vertexCount, m_indexCount;
+	// DirectX resources
+	ID3D11Buffer* m_vertexBuffer;
+	ID3D11Buffer* m_indexBuffer;
+	int m_vertexCount;
+	int m_indexCount;
+
+	// Textures
 	Texture* m_Texture;
-	vector<Texture> m_Textures;
+	std::vector<Texture> m_Textures;
 	
 	// PBR textures
 	Texture* m_diffuseTexture;
@@ -153,11 +127,12 @@ private:
 	Texture* m_emissionTexture;
 	Texture* m_aoTexture;
 	
+	// Model data
 	ModelType* m_model;
 	MaterialInfo m_materialInfo;
 	bool m_hasFBXMaterial;
 	AABB m_boundingBox;
-	string m_currentFBXPath;
+	std::string m_currentFBXPath;
 };
 
-#endif
+#endif // MODEL_H

@@ -1,5 +1,6 @@
 #include "TransformUI.h"
 #include "../../Core/System/Logger.h"
+#include "../../Core/Common/EngineTypes.h"
 #include <QGroupBox>
 #include <QPushButton>
 #include <QLineEdit>

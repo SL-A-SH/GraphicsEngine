@@ -1,15 +1,19 @@
 #include "MainWindow.h"
 #include <QApplication>
 #include <QMenu>
+#include <QMenuBar> 
 #include <QAction>
 #include <QFileDialog>
 #include <QTabWidget>
 #include <QTabBar>
+#include <QToolBar>
+#include <QDockWidget>
 
 #include "../../Core/System/Logger.h"
 #include "../../Core/System/PerformanceLogger.h"
-#include "../../Graphics/UI/TransformUI.h"
-#include "../../Graphics/UI/ModelListUI.h"
+#include "../Components/TransformUI.h"
+#include "../Components/ModelListUI.h"
+#include "../Components/UserInterface.h"
 #include "DirectXViewport.h"
 #include "PerformanceWidget.h"
 

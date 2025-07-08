@@ -3,10 +3,10 @@
 
 #include <d3d11.h>
 #include <directxmath.h>
-#include "../D3D11/D3D11Device.h"
-#include "../Shaders/ShaderManager.h"
-#include "../Rendering/Font.h"
-#include "../Resource/Text.h"
+#include "../../Graphics/D3D11/D3D11Device.h"
+#include "../../Graphics/Shaders/Management/ShaderManager.h"
+#include "../../Graphics/Rendering/Font.h"
+#include "../../Graphics/Resource/Text.h"
 
 using namespace DirectX;
 

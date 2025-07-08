@@ -29,9 +29,7 @@ Model::Model()
 }
 
 
-Model::Model(const Model& other)
-{
-}
+
 
 
 Model::~Model()
@@ -197,13 +195,10 @@ void Model::Render(ID3D11DeviceContext* deviceContext)
 }
 
 
-int Model::GetIndexCount()
-{
-	return m_indexCount;
-}
 
 
-ID3D11ShaderResourceView* Model::GetTexture()
+
+ID3D11ShaderResourceView* Model::GetTexture() const
 {
 	if (m_Texture)
 	{
@@ -213,13 +208,13 @@ ID3D11ShaderResourceView* Model::GetTexture()
 }
 
 
-ID3D11ShaderResourceView* Model::GetTexture(int index)
+ID3D11ShaderResourceView* Model::GetTexture(int index) const
 {
 	return m_Textures[index].GetTexture();
 }
 
 
-ID3D11ShaderResourceView* Model::GetDiffuseTexture()
+ID3D11ShaderResourceView* Model::GetDiffuseTexture() const
 {
 	if (m_diffuseTexture)
 	{
@@ -228,7 +223,7 @@ ID3D11ShaderResourceView* Model::GetDiffuseTexture()
 	return nullptr;
 }
 
-ID3D11ShaderResourceView* Model::GetNormalTexture()
+ID3D11ShaderResourceView* Model::GetNormalTexture() const
 {
 	if (m_normalTexture)
 	{
@@ -237,7 +232,7 @@ ID3D11ShaderResourceView* Model::GetNormalTexture()
 	return nullptr;
 }
 
-ID3D11ShaderResourceView* Model::GetMetallicTexture()
+ID3D11ShaderResourceView* Model::GetMetallicTexture() const
 {
 	if (m_metallicTexture)
 	{
@@ -246,7 +241,7 @@ ID3D11ShaderResourceView* Model::GetMetallicTexture()
 	return nullptr;
 }
 
-ID3D11ShaderResourceView* Model::GetRoughnessTexture()
+ID3D11ShaderResourceView* Model::GetRoughnessTexture() const
 {
 	if (m_roughnessTexture)
 	{
@@ -255,7 +250,7 @@ ID3D11ShaderResourceView* Model::GetRoughnessTexture()
 	return nullptr;
 }
 
-ID3D11ShaderResourceView* Model::GetEmissionTexture()
+ID3D11ShaderResourceView* Model::GetEmissionTexture() const
 {
 	if (m_emissionTexture)
 	{
@@ -264,7 +259,7 @@ ID3D11ShaderResourceView* Model::GetEmissionTexture()
 	return nullptr;
 }
 
-ID3D11ShaderResourceView* Model::GetAOTexture()
+ID3D11ShaderResourceView* Model::GetAOTexture() const
 {
 	if (m_aoTexture)
 	{

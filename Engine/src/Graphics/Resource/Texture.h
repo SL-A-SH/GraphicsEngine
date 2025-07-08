@@ -27,7 +27,7 @@ public:
     bool Initialize(ID3D11Device*, ID3D11DeviceContext*, char*);
     void Shutdown();
 
-    ID3D11ShaderResourceView* GetTexture();
+    ID3D11ShaderResourceView* GetTexture() const;
 
     int GetWidth();
     int GetHeight();

@@ -2,7 +2,7 @@
 #define _SYSTEMMANAGER_H_
 
 #include <windows.h>
-#include "../Input/InputManager.h"
+#include "../Input/Management/InputManager.h"
 #include "../Application/Application.h"
 
 class MainWindow;

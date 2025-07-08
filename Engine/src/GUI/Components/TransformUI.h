@@ -4,28 +4,28 @@
 #include <d3d11.h>
 #include <directxmath.h>
 #include <QWidget>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QLabel>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QGroupBox>
-#include <QGridLayout>
-#include <QSignalMapper>
-#include <QPropertyAnimation>
-#include <QGraphicsOpacityEffect>
 #include <functional>
-#include "../D3D11/D3D11Device.h"
-#include "../Shaders/ShaderManager.h"
-#include "../Rendering/Font.h"
-#include "../Resource/Text.h"
-#include "../Rendering/Sprite.h"
-#include "../Scene/SelectionManager.h"
+#include "../../Graphics/D3D11/D3D11Device.h"
+#include "../../Graphics/Shaders/Management/ShaderManager.h"
+#include "../../Graphics/Rendering/Font.h"
+#include "../../Graphics/Resource/Text.h"
+#include "../../Graphics/Rendering/Sprite.h"
+#include "../../Graphics/Scene/Management/SelectionManager.h"
 
 using namespace DirectX;
 
 // Forward declarations for Qt MOC
 class SelectionManager;
+class QVBoxLayout;
+class QHBoxLayout;
+class QLabel;
+class QLineEdit;
+class QPushButton;
+class QGroupBox;
+class QGridLayout;
+class QSignalMapper;
+class QPropertyAnimation;
+class QGraphicsOpacityEffect;
 
 class TransformUI : public QWidget
 {

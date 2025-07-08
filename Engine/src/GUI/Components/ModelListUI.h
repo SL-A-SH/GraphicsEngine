@@ -4,26 +4,28 @@
 #include <d3d11.h>
 #include <directxmath.h>
 #include <QWidget>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QLabel>
-#include <QListWidget>
-#include <QListWidgetItem>
-#include <QPushButton>
-#include <QGroupBox>
 #include <functional>
-#include "../D3D11/D3D11Device.h"
-#include "../Shaders/ShaderManager.h"
-#include "../Rendering/Font.h"
-#include "../Resource/Text.h"
-#include "../Scene/SelectionManager.h"
-#include "../Scene/ModelList.h"
+#include <vector>
+#include <string>
+#include "../../Graphics/D3D11/D3D11Device.h"
+#include "../../Graphics/Shaders/Management/ShaderManager.h"
+#include "../../Graphics/Rendering/Font.h"
+#include "../../Graphics/Resource/Text.h"
+#include "../../Graphics/Scene/Management/SelectionManager.h"
+#include "../../Graphics/Scene/Management/ModelList.h"
 
 using namespace DirectX;
 
 // Forward declarations
 class SelectionManager;
 class ModelList;
+class QVBoxLayout;
+class QHBoxLayout;
+class QLabel;
+class QListWidget;
+class QListWidgetItem;
+class QPushButton;
+class QGroupBox;
 
 class ModelListUI : public QWidget
 {

@@ -1,53 +1,50 @@
-#ifndef _APPLICATION_H_
-#define _APPLICATION_H_
-
-#define DIRECTINPUT_VERSION 0x0800
+#ifndef APPLICATION_H
+#define APPLICATION_H
 
 #include <d3d11.h>
 #include <directxmath.h>
-#include <dinput.h>
 #include <functional>
 
-#include "../Input/InputManager.h"
-#include "../../Core/System/Timer.h"
-#include "../../Graphics/D3D11/D3D11Device.h"
-#include "../../Graphics/Rendering/Camera.h"
-#include "../../Graphics/Rendering/Light.h"
-#include "../../Graphics/Resource/Model.h"
-#include "../../Graphics/Rendering/Sprite.h"
-#include "../../Graphics/Rendering/Font.h"
-#include "../../Graphics/Resource/Text.h"
-#include "../../Graphics/Shaders/ShaderManager.h"
-#include "../../Graphics/Scene/ModelList.h"
-#include "../../Graphics/Scene/SelectionManager.h"
-#include "../../Graphics/Math/Frustum.h"
-#include "../../Graphics/Math/Position.h"
-#include "../../Graphics/Resource/Environment/Zone.h"
-#include "../../Graphics/UI/UserInterface.h"
-#include "../../Graphics/Rendering/DisplayPlane.h"
-#include "../../Core/System/PerformanceProfiler.h"
+// Forward declarations
+class MainWindow;
+class D3D11Device;
+class Camera;
+class Model;
+class Light;
+class ShaderManager;
+class Zone;
+class Sprite;
+class Timer;
+class Font;
+class Text;
+class ModelList;
+class Position;
+class Frustum;
+class UserInterface;
+class SelectionManager;
+class DisplayPlane;
 
 using namespace DirectX;
 
-// Globals
-const bool FULL_SCREEN = false;
-const bool VSYNC_ENABLED = false;
-const float SCREEN_DEPTH = 1000.0f;
-const float SCREEN_NEAR = 0.1f;
-
-class MainWindow;
+// Application configuration constants
+namespace AppConfig
+{
+    constexpr bool FULL_SCREEN = false;
+    constexpr bool VSYNC_ENABLED = false;
+    constexpr float SCREEN_DEPTH = 1000.0f;
+    constexpr float SCREEN_NEAR = 0.1f;
+}
 
 class Application
 {
 public:
 	Application();
-	Application(const Application&);
 	~Application();
 
-	bool Initialize(int, int, HWND, MainWindow*);
+	bool Initialize(int screenWidth, int screenHeight, HWND hwnd, MainWindow* mainWindow);
 	void Shutdown();
-	bool Frame(InputManager*);
-	bool Resize(int, int);
+	bool Frame(class InputManager* inputManager);
+	bool Resize(int width, int height);
 
 	// Getters for UI components
 	UserInterface* GetUserInterface() { return m_UserInterface; }
@@ -59,48 +56,47 @@ public:
 private:
 	bool Render();
 	bool UpdateFps();
-	bool UpdateRenderCountString(int);
+	bool UpdateRenderCountString(int renderCount);
 
 private:
+	// Core systems
 	D3D11Device* m_Direct3D;
 	MainWindow* m_mainWindow;
 	Camera* m_Camera;
+	ShaderManager* m_ShaderManager;
+	Timer* m_Timer;
+	UserInterface* m_UserInterface;
+	SelectionManager* m_SelectionManager;
+
+	// Models and resources
 	Model* m_Model;
 	Model* m_Floor;
+	Model* m_PositionGizmo;
+	Model* m_RotationGizmo;
+	Model* m_ScaleGizmo;
 	Light* m_Light;
-	ShaderManager* m_ShaderManager;
 	Zone* m_Zone;
 	Sprite* m_Cursor;
-	Timer* m_Timer;
 	Font* m_Font;
 	Text* m_FpsString;
-	int m_previousFps;
 	Text* m_RenderCountString;
 	ModelList* m_ModelList;
 	Position* m_Position;
 	Frustum* m_Frustum;
-	UserInterface* m_UserInterface;
+	DisplayPlane* m_DisplayPlane;
 
+	// Application state
 	int m_screenWidth, m_screenHeight;
 	int m_Fps;
 	int m_RenderCount;
+	int m_previousFps;
 	XMMATRIX m_baseViewMatrix;
 	XMMATRIX m_projectionMatrix;
 	XMMATRIX m_orthoMatrix;
 
-	// New components for selection and transformation
-	SelectionManager* m_SelectionManager;
-	
 	// UI switching callbacks
 	std::function<void()> m_switchToModelListCallback;
 	std::function<void()> m_switchToTransformUICallback;
-	
-	// Gizmo models
-	Model* m_PositionGizmo;
-	Model* m_RotationGizmo;
-	Model* m_ScaleGizmo;
-	
-	DisplayPlane* m_DisplayPlane;
 };
 
 #endif

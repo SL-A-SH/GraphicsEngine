@@ -1,9 +1,23 @@
 #include "application.h"
 #include "../../Core/System/Logger.h"
 #include "../../Core/System/PerformanceProfiler.h"
+#include "../../Core/Common/EngineTypes.h"
 #include "../../GUI/Windows/MainWindow.h"
-#include "../../Graphics/UI/TransformUI.h"
-#include "../../Graphics/UI/ModelListUI.h"
+#include "../../GUI/Components/TransformUI.h"
+#include "../../GUI/Components/ModelListUI.h"
+#include "../../Graphics/D3D11/D3D11Device.h"
+#include "../../Graphics/Rendering/Camera.h"
+#include "../../Graphics/Resource/Model.h"
+#include "../../Graphics/Rendering/Light.h"
+#include "../../Graphics/Resource/Environment/Zone.h"
+#include "../../Core/System/Timer.h"
+#include "../../Graphics/Scene/Management/SelectionManager.h"
+#include "../../Graphics/Scene/Management/ModelList.h"
+#include "../../Graphics/Math/Position.h"
+#include "../../Graphics/Math/Frustum.h"
+#include "../../Graphics/Rendering/DisplayPlane.h"
+#include "../../GUI/Components/UserInterface.h"
+#include "../../Core/Input/Management/InputManager.h"
 
 Application::Application()
 {
@@ -35,9 +49,7 @@ Application::Application()
 }
 
 
-Application::Application(const Application& other)
-{
-}
+
 
 
 Application::~Application()
@@ -62,7 +74,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	LOG("Creating Direct3D object");
 	m_Direct3D = new D3D11Device;
 
-	result = m_Direct3D->Initialize(screenWidth, screenHeight, VSYNC_ENABLED, hwnd, FULL_SCREEN, SCREEN_DEPTH, SCREEN_NEAR);
+	result = m_Direct3D->Initialize(screenWidth, screenHeight, AppConfig::VSYNC_ENABLED, hwnd, AppConfig::FULL_SCREEN, AppConfig::SCREEN_DEPTH, AppConfig::SCREEN_NEAR);
 	if (!result)
 	{
 		LOG_ERROR("Could not initialize Direct3D");
@@ -733,7 +745,7 @@ bool Application::Render()
 	m_Direct3D->TurnZBufferOn();
 
 	// Construct the frustum.
-	m_Frustum->ConstructFrustum(viewMatrix, projectionMatrix, SCREEN_DEPTH);
+	m_Frustum->ConstructFrustum(viewMatrix, projectionMatrix, AppConfig::SCREEN_DEPTH);
 
 	// Render the floor
 	worldMatrix = XMMatrixTranslation(0.0f, -10.0f, 0.0f);

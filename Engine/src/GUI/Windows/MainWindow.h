@@ -2,21 +2,15 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QVBoxLayout>
-#include <QTabWidget>
-#include <QDockWidget>
-#include <QMenu>
-#include <QMenuBar>
-#include <QAction>
-#include <QToolBar>
-#include <QEvent>
-#include <QKeyEvent>
-#include <QObject>
 
+// Forward declarations
 class DirectXViewport;
 class PerformanceWidget;
 class TransformUI;
 class ModelListUI;
+class QVBoxLayout;
+class QTabWidget;
+class QDockWidget;
 
 class MainWindow : public QMainWindow
 {
@@ -29,6 +23,10 @@ public:
     // UI switching methods
     void SwitchToModelList();
     void SwitchToTransformUI();
+
+    // Getters
+    TransformUI* GetTransformUI() const { return m_TransformUI; }
+    ModelListUI* GetModelListUI() const { return m_ModelListUI; }
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -47,17 +45,16 @@ private:
     void CreateDockWidgets();
 
 private:
+    // UI Components
     DirectXViewport* m_ViewportWidget;
-    QVBoxLayout* m_MainLayout;
     PerformanceWidget* m_PerformanceWidget;
-    QTabWidget* m_TabWidget;
-    QDockWidget* m_PropertiesDock;
     TransformUI* m_TransformUI;
     ModelListUI* m_ModelListUI;
-
-public:
-    TransformUI* GetTransformUI() const { return m_TransformUI; }
-    ModelListUI* GetModelListUI() const { return m_ModelListUI; }
+    
+    // Layout components
+    QVBoxLayout* m_MainLayout;
+    QTabWidget* m_TabWidget;
+    QDockWidget* m_PropertiesDock;
 };
 
 #endif // MAINWINDOW_H

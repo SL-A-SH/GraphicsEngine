@@ -1,5 +1,14 @@
 #include "DirectXViewport.h"
 #include <sstream>
+#include <QTimer>
+#include <QApplication>
+#include <QResizeEvent>
+#include <QShowEvent>
+#include <QHideEvent>
+#include <QKeyEvent>
+#include <QMouseEvent>
+#include <QFocusEvent>
+#include <QEvent>
 
 #include "../../Core/System/Logger.h"
 #include "MainWindow.h"

@@ -1,14 +1,14 @@
 #ifndef _SHADERMANAGER_H_
 #define _SHADERMANAGER_H_
 
-#include "TextureShader.h"
-#include "LightShader.h"
-#include "NormalMapShader.h"
-#include "SpecularMapShader.h"
-#include "FontShader.h"
-#include "./Environment/SkyboxShader.h"
-#include "ColorShader.h"
-#include "PBRShader.h"
+#include "../TextureShader.h"
+#include "../LightShader.h"
+#include "../NormalMapShader.h"
+#include "../SpecularMapShader.h"
+#include "../FontShader.h"
+#include "../Environment/SkyboxShader.h"
+#include "../ColorShader.h"
+#include "../PBRShader.h"
 
 class ShaderManager
 {

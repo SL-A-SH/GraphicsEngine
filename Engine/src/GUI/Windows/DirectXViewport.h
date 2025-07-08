@@ -10,19 +10,24 @@
 #endif
 
 #include <QWidget>
-#include <QTimer>
-#include <QPainter>
-#include <QResizeEvent>
-#include <QApplication>
-#include <QMetaEnum>
 #include "../../Core/System/SystemManager.h"
-#include "../../Graphics/UI/TransformUI.h"
-#include "../../Graphics/UI/ModelListUI.h"
+#include "../Components/TransformUI.h"
+#include "../Components/ModelListUI.h"
 
+// Forward declarations
 class SystemManager;
 class TransformUI;
 class ModelListUI;
 class MainWindow;
+class QTimer;
+class QResizeEvent;
+class QShowEvent;
+class QHideEvent;
+class QKeyEvent;
+class QMouseEvent;
+class QFocusEvent;
+class QEvent;
+class QByteArray;
 
 class DirectXViewport : public QWidget
 {

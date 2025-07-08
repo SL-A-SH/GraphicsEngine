@@ -5,7 +5,7 @@
 #include <directxmath.h>
 #include <vector>
 #include <memory>
-#include "../Math/Frustum.h"
+#include "../../Math/Frustum.h"
 
 using namespace DirectX;
 

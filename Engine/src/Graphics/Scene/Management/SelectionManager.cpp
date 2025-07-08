@@ -1,8 +1,9 @@
 #include "SelectionManager.h"
-#include "../Resource/Model.h"
-#include "../Rendering/Camera.h"
-#include "../D3D11/D3D11Device.h"
-#include "../../Core/System/Logger.h"
+#include "../../Resource/Model.h"
+#include "../../Rendering/Camera.h"
+#include "../../D3D11/D3D11Device.h"
+#include "../../../Core/System/Logger.h"
+#include "../../../Core/Common/EngineTypes.h"
 #include <algorithm>
 
 SelectionManager::SelectionManager()

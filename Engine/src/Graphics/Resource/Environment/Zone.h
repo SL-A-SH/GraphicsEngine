@@ -2,7 +2,7 @@
 
 #include "../../D3D11/D3D11Device.h"
 #include "../../Resource/Environment/Skybox.h"
-#include "../../Shaders/ShaderManager.h"
+#include "../../Shaders/Management/ShaderManager.h"
 #include "../../Rendering/Camera.h"
 
 class Zone
