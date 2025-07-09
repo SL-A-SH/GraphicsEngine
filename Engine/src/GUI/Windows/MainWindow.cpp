@@ -8,6 +8,9 @@
 #include <QTabBar>
 #include <QToolBar>
 #include <QDockWidget>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QSizePolicy>
 
 #include "../../Core/System/Logger.h"
 #include "../../Core/System/PerformanceLogger.h"
@@ -251,7 +254,7 @@ void MainWindow::ToggleFPS(bool show)
 
 void MainWindow::OpenBenchmarking()
 {
-    // Just navigate to the benchmarking tab
+    // Navigate to the benchmarking tab
     LOG("Opening benchmarking tab...");
     
     // Show tab bar and enable performance tab
@@ -272,7 +275,7 @@ void MainWindow::ToggleProfiler(bool show)
 {
     if (show)
     {
-        // Just show real-time monitoring
+        // Show real-time monitoring
         LOG("Showing real-time profiler");
         
         // Initialize performance logging
@@ -337,13 +340,12 @@ void MainWindow::OnTabChanged(int index)
     {
         m_PerformanceWidget->setFocus();
         // Enable background rendering and hide viewport
-        // This allows the viewport to continue rendering while the performance tab is visible
         if (m_ViewportWidget)
         {
-            m_ViewportWidget->SetBackgroundRendering(true);
-            m_ViewportWidget->setVisible(false); // Hide the viewport so it doesn't cover the performance tab
             // The viewport will continue rendering in the background
             // but won't interfere with the performance tab UI
+            m_ViewportWidget->SetBackgroundRendering(true);
+            m_ViewportWidget->setVisible(false);
         }
     }
 }

@@ -2,32 +2,27 @@
 #define PERFORMANCEWIDGET_H
 
 #include <QWidget>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QTabWidget>
-#include <QTableWidget>
-#include <QGroupBox>
-#include <QComboBox>
-#include <QSpinBox>
-#include <QCheckBox>
-#include <QPushButton>
-#include <QProgressBar>
-#include <QLabel>
-#include <QTextEdit>
-#include <QTimer>
-#include <QHeaderView>
-#include <QApplication>
-#include <QScreen>
-#include <QListWidget>
-#include <QFrame>
-#include <algorithm>
+#include <QString>
 #include <vector>
-#include <QDateTime>
-#include <QMessageBox>
-#include <QFileDialog>
-#include <QStandardPaths>
 
-#include "../../Core/System/PerformanceProfiler.h"
+// Forward declarations
+class QVBoxLayout;
+class QHBoxLayout;
+class QTabWidget;
+class QTableWidget;
+class QGroupBox;
+class QComboBox;
+class QSpinBox;
+class QCheckBox;
+class QPushButton;
+class QProgressBar;
+class QLabel;
+class QTextEdit;
+class QTimer;
+class QHeaderView;
+class QListWidget;
+class QGridLayout;
+class QAbstractItemView;
 
 // Update interval for performance monitoring (16ms = 60 FPS)
 #define UPDATE_INTERVAL_MS 16
