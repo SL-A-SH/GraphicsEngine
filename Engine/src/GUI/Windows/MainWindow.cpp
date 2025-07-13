@@ -333,7 +333,7 @@ void MainWindow::OnTabChanged(int index)
             m_ViewportWidget->SetBackgroundRendering(false);
             m_ViewportWidget->setVisible(true);
             m_ViewportWidget->raise();
-            m_ViewportWidget->setFocus();
+            m_ViewportWidget->ForceFocus(); // Force focus to viewport
         }
     }
     else if (index == 1) // Performance tab

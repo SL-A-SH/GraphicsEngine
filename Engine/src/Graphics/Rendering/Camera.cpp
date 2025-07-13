@@ -117,3 +117,17 @@ void Camera::GetViewMatrix(XMMATRIX& viewMatrix)
 	viewMatrix = m_viewMatrix;
 	return;
 }
+
+XMFLOAT3 Camera::GetForward() const
+{
+	// Calculate forward vector based on rotation
+	float yaw = m_rotationY * 0.0174532925f;
+	float pitch = m_rotationX * 0.0174532925f;
+	
+	XMFLOAT3 forward;
+	forward.x = sinf(yaw) * cosf(pitch);
+	forward.y = sinf(pitch);
+	forward.z = cosf(yaw) * cosf(pitch);
+	
+	return forward;
+}

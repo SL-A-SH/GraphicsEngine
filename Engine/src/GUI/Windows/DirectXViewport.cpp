@@ -120,6 +120,10 @@ void DirectXViewport::showEvent(QShowEvent* event)
         // Force the widget to be visible and on top
         show();
         setWindowState(windowState() | Qt::WindowActive);
+        
+        // Ensure focus is properly set
+        QApplication::processEvents();
+        setFocus();
     }
     else
     {
@@ -285,6 +289,7 @@ void DirectXViewport::keyPressEvent(QKeyEvent* event)
     }
     
     LOG("DirectXViewport::keyPressEvent called - Key: " + QString::number(event->key()).toStdString());
+    
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleKeyEvent(event, true);
@@ -321,6 +326,10 @@ void DirectXViewport::mousePressEvent(QMouseEvent* event)
     }
     
     LOG("DirectXViewport::mousePressEvent called - Button: " + QString::number(event->button()).toStdString());
+    
+    // Handle viewport click to ensure proper focus
+    HandleViewportClick();
+    
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleMouseEvent(event);
@@ -413,6 +422,17 @@ void DirectXViewport::updateFrame()
 void DirectXViewport::focusInEvent(QFocusEvent* event)
 {
     LOG("DirectXViewport GOT FOCUS");
+    
+    // Ensure we have proper focus
+    setFocus();
+    
+    // Make sure we're the active window
+    if (!m_BackgroundRendering)
+    {
+        activateWindow();
+        raise();
+    }
+    
     QWidget::focusInEvent(event);
 }
 
@@ -483,5 +503,36 @@ void DirectXViewport::SetupUISwitchingCallbacks()
     );
     
     LOG("UI switching callbacks setup completed");
+}
+
+void DirectXViewport::ForceFocus()
+{
+    LOG("DirectXViewport::ForceFocus called");
+    
+    // Ensure this widget gets focus
+    setFocus();
+    activateWindow();
+    raise();
+    
+    // Force the widget to be the active window
+    setWindowState(windowState() | Qt::WindowActive);
+    
+    // Process events to ensure focus is set
+    QApplication::processEvents();
+    
+    LOG("DirectXViewport focus forced");
+}
+
+void DirectXViewport::HandleViewportClick()
+{
+    LOG("DirectXViewport::HandleViewportClick called");
+    
+    // Force focus to this widget
+    ForceFocus();
+    
+    // Ensure keyboard input is properly handled
+    setFocusPolicy(Qt::StrongFocus);
+    
+    LOG("DirectXViewport click handled - focus should be set");
 }
 

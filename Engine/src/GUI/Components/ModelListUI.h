@@ -4,6 +4,7 @@
 #include <d3d11.h>
 #include <directxmath.h>
 #include <QWidget>
+#include <QFocusEvent>
 #include <functional>
 #include <vector>
 #include <string>
@@ -52,6 +53,9 @@ public:
     // Set callback functions
     void SetModelSelectedCallback(std::function<void(int)> callback);
     void SetModelDeselectedCallback(std::function<void()> callback);
+
+protected:
+    void focusOutEvent(QFocusEvent* event) override;
 
 private slots:
     void OnModelItemClicked(QListWidgetItem* item);

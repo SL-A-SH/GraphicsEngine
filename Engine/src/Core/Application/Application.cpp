@@ -16,8 +16,11 @@
 #include "../../Graphics/Math/Position.h"
 #include "../../Graphics/Math/Frustum.h"
 #include "../../Graphics/Rendering/DisplayPlane.h"
+#include "../../Graphics/Rendering/GPUDrivenRenderer.h"
+#include "../../Graphics/Rendering/IndirectDrawBuffer.h"
 #include "../../GUI/Components/UserInterface.h"
 #include "../../Core/Input/Management/InputManager.h"
+#include "../../Core/System/RenderingBenchmark.h"
 
 Application::Application()
 {
@@ -46,6 +49,9 @@ Application::Application()
 	m_PositionGizmo = 0;
 	m_RotationGizmo = 0;
 	m_ScaleGizmo = 0;
+	m_GPUDrivenRenderer = 0;
+	m_enableGPUDrivenRendering = false;
+	m_BenchmarkSystem = 0;
 }
 
 
@@ -228,6 +234,19 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	m_ModelList = new ModelList;
 	m_ModelList->Initialize(6);
 	LOG("Model list initialized successfully");
+	
+	// Debug: Check if ModelList was initialized correctly
+	int modelCount = m_ModelList->GetModelCount();
+	LOG("Application: ModelList reports " + std::to_string(modelCount) + " models after initialization");
+	
+	if (modelCount <= 0)
+	{
+		LOG_ERROR("Application: ModelList initialization failed - no models created!");
+	}
+	else
+	{
+		LOG("Application: ModelList initialization successful - " + std::to_string(modelCount) + " models created");
+	}
 
 	// Create and initialize the selection manager
 	LOG("Creating selection manager");
@@ -275,9 +294,53 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 		m_mainWindow->GetModelListUI()->SetSelectionManager(m_SelectionManager);
 	}
 
+	// Initialize GPU-driven renderer
+	m_GPUDrivenRenderer = new GPUDrivenRenderer;
+	result = m_GPUDrivenRenderer->Initialize(m_Direct3D->GetDevice(), hwnd, 10000); // Support up to 10,000 objects
+	if (!result)
+	{
+		LOG_ERROR("Could not initialize GPU-driven renderer - will use CPU-driven rendering only");
+		// Don't return false - continue with CPU-driven rendering
+		m_enableGPUDrivenRendering = false;
+	}
+	else
+	{
+		LOG("GPU-driven renderer initialized successfully");
+	}
+
+	// Initialize benchmark system
+	m_BenchmarkSystem = new RenderingBenchmark;
+	result = m_BenchmarkSystem->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), hwnd);
+	if (!result)
+	{
+		LOG_ERROR("Could not initialize benchmark system - benchmarking features will be disabled");
+		// Don't return false - continue without benchmark system
+		delete m_BenchmarkSystem;
+		m_BenchmarkSystem = nullptr;
+	}
+	else
+	{
+		LOG("Benchmark system initialized successfully");
+	}
+
 	// Set up callbacks for model selection
 	if (m_mainWindow && m_mainWindow->GetModelListUI())
 	{
+		// Initialize ModelListUI with Direct3D components
+		bool uiInitResult = m_mainWindow->GetModelListUI()->Initialize(m_Direct3D, m_screenHeight, m_screenWidth);
+		if (!uiInitResult)
+		{
+			LOG_ERROR("Failed to initialize ModelListUI with Direct3D components");
+		}
+		else
+		{
+			LOG("ModelListUI initialized with Direct3D components successfully");
+		}
+		
+		// Update model list with current models BEFORE setting up callbacks
+		LOG("Updating ModelListUI with ModelList data");
+		m_mainWindow->GetModelListUI()->UpdateModelList(m_ModelList);
+		
 		m_mainWindow->GetModelListUI()->SetModelSelectedCallback([this](int modelIndex) {
 			LOG("Model selected via UI: " + std::to_string(modelIndex));
 			m_SelectionManager->SelectModel(modelIndex);
@@ -317,8 +380,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 				m_switchToModelListCallback();
 			}
 		});
-		// Update model list with current models
-		m_mainWindow->GetModelListUI()->UpdateModelList(m_ModelList);
+		
 		// Show model list UI by default
 		m_mainWindow->SwitchToModelList();
 	}
@@ -437,6 +499,14 @@ void Application::Shutdown()
 		m_ScaleGizmo = 0;
 	}
 
+	// Release the GPU-driven renderer
+	if (m_GPUDrivenRenderer)
+	{
+		m_GPUDrivenRenderer->Shutdown();
+		delete m_GPUDrivenRenderer;
+		m_GPUDrivenRenderer = 0;
+	}
+
 	LOG("Application shutdown completed");
 	return;
 }
@@ -446,6 +516,9 @@ bool Application::Frame(InputManager* Input)
 {
 	// Start profiling the frame
 	PerformanceProfiler::GetInstance().BeginFrame();
+	
+	// Set current rendering mode for profiling
+	PerformanceProfiler::GetInstance().SetRenderingMode(static_cast<PerformanceProfiler::RenderingMode>(GetCurrentRenderingMode()));
 
 	float frameTime, rotationY, rotationX;
 	float positionX, positionY, positionZ;
@@ -470,6 +543,34 @@ bool Application::Frame(InputManager* Input)
 	else if (!Input->IsF11Pressed())
 	{
 		wasF11Pressed = false;
+	}
+
+	// Check for F12 GPU-driven rendering toggle
+	static bool wasF12Pressed = false;
+	if (Input->IsF12Pressed() && !wasF12Pressed)
+	{
+		wasF12Pressed = true;
+		
+		// Check if GPU-driven renderer is properly initialized before toggling
+		if (m_GPUDrivenRenderer && m_GPUDrivenRenderer->AreComputeShadersInitialized())
+		{
+			// Toggle GPU-driven rendering
+			m_enableGPUDrivenRendering = !m_enableGPUDrivenRendering;
+			m_GPUDrivenRenderer->SetRenderingMode(m_enableGPUDrivenRendering);
+			LOG("GPU-driven rendering " + std::string(m_enableGPUDrivenRendering ? "ENABLED" : "DISABLED"));
+		}
+		else if (!m_GPUDrivenRenderer)
+		{
+			LOG_ERROR("Cannot toggle GPU-driven rendering - GPUDrivenRenderer is not available (initialization failed)");
+		}
+		else
+		{
+			LOG_ERROR("Cannot toggle GPU-driven rendering - compute shaders are not properly initialized");
+		}
+	}
+	else if (!Input->IsF12Pressed())
+	{
+		wasF12Pressed = false;
 	}
 
 	// Get the location of the mouse from the input object
@@ -721,56 +822,321 @@ bool Application::Render()
 	m_Direct3D->GetProjectionMatrix(projectionMatrix);
 	m_Direct3D->GetOrthoMatrix(orthoMatrix);
 
-	// Set render states for skybox
-	m_Direct3D->TurnOffCulling();
-	m_Direct3D->TurnZBufferOff();
-
-	// Render the zone (skybox)
-	result = m_Zone->Render(m_Direct3D, m_ShaderManager, m_Camera);
-	if (!result)
-	{
-		LOG_ERROR("Zone render failed");
-		// Restore render states
-		m_Direct3D->TurnOnCulling();
-		m_Direct3D->TurnZBufferOn();
-		return false;
-	}
-
-	// Track skybox draw call
-	PerformanceProfiler::GetInstance().IncrementDrawCalls();
-	// Note: Skybox triangle count would need to be added to Zone class
-
-	// Restore render states for the rest of the scene
-	m_Direct3D->TurnOnCulling();
-	m_Direct3D->TurnZBufferOn();
-
-	// Construct the frustum.
-	m_Frustum->ConstructFrustum(viewMatrix, projectionMatrix, AppConfig::SCREEN_DEPTH);
-
-	// Render the floor
-	worldMatrix = XMMatrixTranslation(0.0f, -10.0f, 0.0f);
-	worldMatrix = XMMatrixMultiply(worldMatrix, XMMatrixScaling(500.0f, 1.0f, 500.0f));
-
-	m_Floor->Render(m_Direct3D->GetDeviceContext());
-
-	result = m_ShaderManager->RenderLightShader(m_Direct3D->GetDeviceContext(), m_Floor->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
-		m_Floor->GetTexture(), m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
-		m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
-	if (!result)
-	{
-		LOG_ERROR("Floor render failed");
-		return false;
-	}
-
-	// Track floor draw call and triangles
-	PerformanceProfiler::GetInstance().IncrementDrawCalls();
-	PerformanceProfiler::GetInstance().AddTriangles(m_Floor->GetIndexCount() / 3); // Convert indices to triangles
-
 	// Get the number of models that will be rendered.
 	modelCount = m_ModelList->GetModelCount();
 
 	// Initialize the count of models that have been rendered.
 	m_RenderCount = 0;
+
+	// Construct the frustum.
+	m_Frustum->ConstructFrustum(viewMatrix, projectionMatrix, AppConfig::SCREEN_DEPTH);
+
+	// Set render states for skybox
+	m_Direct3D->TurnOffCulling();
+	m_Direct3D->TurnZBufferOff();
+
+	// GPU-Driven Rendering Path
+	if (m_enableGPUDrivenRendering && m_GPUDrivenRenderer)
+	{
+		// Additional safety check to ensure GPU-driven renderer is properly initialized
+		if (!m_GPUDrivenRenderer->AreComputeShadersInitialized())
+		{
+			LOG_ERROR("GPU-driven renderer compute shaders are not properly initialized, falling back to CPU-driven rendering");
+			m_enableGPUDrivenRendering = false;
+		}
+		else if (!m_GPUDrivenRenderer->IsIndirectBufferInitialized())
+		{
+			LOG_ERROR("GPU-driven renderer indirect buffer is not properly initialized, falling back to CPU-driven rendering");
+			m_enableGPUDrivenRendering = false;
+		}
+		else
+		{
+			// Render skybox first (CPU-driven)
+			m_Direct3D->TurnOffCulling();
+			m_Direct3D->TurnZBufferOff();
+			result = m_Zone->Render(m_Direct3D, m_ShaderManager, m_Camera);
+			if (!result)
+			{
+				LOG_ERROR("Zone render failed in GPU-driven path");
+				m_Direct3D->TurnOnCulling();
+				m_Direct3D->TurnZBufferOn();
+				return false;
+			}
+			m_Direct3D->TurnOnCulling();
+			m_Direct3D->TurnZBufferOn();
+			PerformanceProfiler::GetInstance().IncrementDrawCalls();
+
+			// Render floor (CPU-driven)
+			worldMatrix = XMMatrixTranslation(0.0f, -10.0f, 0.0f);
+			worldMatrix = XMMatrixMultiply(worldMatrix, XMMatrixScaling(500.0f, 1.0f, 500.0f));
+			m_Floor->Render(m_Direct3D->GetDeviceContext());
+			result = m_ShaderManager->RenderLightShader(m_Direct3D->GetDeviceContext(), m_Floor->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
+				m_Floor->GetTexture(), m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
+				m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
+			if (!result)
+			{
+				LOG_ERROR("Floor render failed in GPU-driven path");
+				return false;
+			}
+			PerformanceProfiler::GetInstance().IncrementDrawCalls();
+			PerformanceProfiler::GetInstance().AddTriangles(m_Floor->GetIndexCount() / 3);
+
+			// Prepare object data for GPU-driven rendering
+			std::vector<ObjectData> objectData;
+			objectData.reserve(modelCount);
+			
+			for (int i = 0; i < modelCount; i++)
+			{
+				float posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ;
+				m_ModelList->GetTransformData(i, posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ);
+				
+				ObjectData objData;
+				objData.position = XMFLOAT3(posX, posY, posZ);
+				objData.scale = XMFLOAT3(scaleX, scaleY, scaleZ);
+				objData.rotation = XMFLOAT3(rotX, rotY, rotZ);
+				objData.boundingBoxMin = XMFLOAT3(-1.0f, -1.0f, -1.0f);
+				objData.boundingBoxMax = XMFLOAT3(1.0f, 1.0f, 1.0f);
+				objData.objectIndex = static_cast<uint32_t>(i);
+				objData.padding[0] = 0;
+				objData.padding[1] = 0;
+				
+				objectData.push_back(objData);
+			}
+			
+			// Update GPU-driven renderer with object data
+			m_GPUDrivenRenderer->UpdateObjects(m_Direct3D->GetDeviceContext(), objectData);
+			
+			// Update camera data
+			XMFLOAT3 cameraPos = m_Camera->GetPosition();
+			XMFLOAT3 cameraTarget = cameraPos;
+			cameraTarget.z += 1.0f; // Look slightly forward
+			
+			XMMATRIX viewMatrix, projectionMatrix;
+			m_Camera->GetViewMatrix(viewMatrix);
+			m_Direct3D->GetProjectionMatrix(projectionMatrix);
+			
+			m_GPUDrivenRenderer->UpdateCamera(m_Direct3D->GetDeviceContext(), cameraPos, cameraTarget, viewMatrix, projectionMatrix);
+			
+			// Validate that the Model is properly initialized before getting its buffers
+			if (!m_Model)
+			{
+				LOG_ERROR("Application::Render - Model is null, falling back to CPU-driven rendering");
+				m_enableGPUDrivenRendering = false;
+				return true; // Continue with CPU-driven rendering
+			}
+			
+			// Check if the Model has valid index count
+			int indexCount = m_Model->GetIndexCount();
+			LOG("Application::Render - Model statistics:");
+			LOG("  IndexCount: " + std::to_string(indexCount));
+			
+			if (indexCount <= 0)
+			{
+				LOG_ERROR("Application::Render - Model has no indices, falling back to CPU-driven rendering");
+				m_enableGPUDrivenRendering = false;
+				return true; // Continue with CPU-driven rendering
+			}
+			
+			// Check if the Model has been properly initialized (this ensures buffers are created)
+			if (!m_Model->GetVertexBuffer() || !m_Model->GetIndexBuffer())
+			{
+				LOG_ERROR("Application::Render - Model buffers are not initialized, falling back to CPU-driven rendering");
+				LOG_ERROR("  This could indicate the Model needs to be rendered at least once to initialize buffers");
+				m_enableGPUDrivenRendering = false;
+				return true; // Continue with CPU-driven rendering
+			}
+			
+			// Ensure the Model has been rendered at least once to set up the rendering pipeline
+			// This is important because some DirectX operations require the pipeline to be set up
+			LOG("Application::Render - Ensuring Model is ready for GPU-driven rendering");
+			m_Model->Render(m_Direct3D->GetDeviceContext());
+			
+			// Validate that the ShaderManager is properly initialized before getting shader resources
+			if (!m_ShaderManager)
+			{
+				LOG_ERROR("Application::Render - ShaderManager is null, falling back to CPU-driven rendering");
+				m_enableGPUDrivenRendering = false;
+				return true; // Continue with CPU-driven rendering
+			}
+			
+			// Check if PBR shader files exist (these are required for GPU-driven rendering)
+			FILE* testFile;
+			errno_t err = fopen_s(&testFile, "../Engine/assets/shaders/PBRVertexShader.hlsl", "r");
+			if (err != 0 || !testFile)
+			{
+				LOG_ERROR("Application::Render - PBRVertexShader.hlsl file not found, falling back to CPU-driven rendering");
+				LOG_ERROR("  Expected path: ../Engine/assets/shaders/PBRVertexShader.hlsl");
+				m_enableGPUDrivenRendering = false;
+				return true; // Continue with CPU-driven rendering
+			}
+			fclose(testFile);
+			
+			err = fopen_s(&testFile, "../Engine/assets/shaders/PBRPixelShader.hlsl", "r");
+			if (err != 0 || !testFile)
+			{
+				LOG_ERROR("Application::Render - PBRPixelShader.hlsl file not found, falling back to CPU-driven rendering");
+				LOG_ERROR("  Expected path: ../Engine/assets/shaders/PBRPixelShader.hlsl");
+				m_enableGPUDrivenRendering = false;
+				return true; // Continue with CPU-driven rendering
+			}
+			fclose(testFile);
+			
+			LOG("Application::Render - PBR shader files found, proceeding with GPU-driven rendering");
+			
+			// Perform GPU-driven rendering with additional safety checks
+			ID3D11Buffer* vertexBuffer = m_Model->GetVertexBuffer();
+			ID3D11Buffer* indexBuffer = m_Model->GetIndexBuffer();
+			ID3D11VertexShader* vertexShader = m_ShaderManager->GetVertexShader();
+			ID3D11PixelShader* pixelShader = m_ShaderManager->GetPixelShader();
+			ID3D11InputLayout* inputLayout = m_ShaderManager->GetInputLayout();
+			
+			// Comprehensive validation of all resources
+			LOG("Application::Render - Validating GPU-driven rendering resources:");
+			LOG("  VertexBuffer: " + std::string(vertexBuffer ? "valid" : "NULL"));
+			LOG("  IndexBuffer: " + std::string(indexBuffer ? "valid" : "NULL"));
+			LOG("  VertexShader: " + std::string(vertexShader ? "valid" : "NULL"));
+			LOG("  PixelShader: " + std::string(pixelShader ? "valid" : "NULL"));
+			LOG("  InputLayout: " + std::string(inputLayout ? "valid" : "NULL"));
+			
+			// Check if any resource is null
+			if (!vertexBuffer)
+			{
+				LOG_ERROR("Application::Render - VertexBuffer is null, falling back to CPU-driven rendering");
+				LOG_ERROR("  This could indicate the Model was not properly initialized or the vertex buffer creation failed");
+				m_enableGPUDrivenRendering = false;
+				return true; // Continue with CPU-driven rendering
+			}
+			
+			if (!indexBuffer)
+			{
+				LOG_ERROR("Application::Render - IndexBuffer is null, falling back to CPU-driven rendering");
+				LOG_ERROR("  This could indicate the Model was not properly initialized or the index buffer creation failed");
+				m_enableGPUDrivenRendering = false;
+				return true; // Continue with CPU-driven rendering
+			}
+			
+			if (!vertexShader)
+			{
+				LOG_ERROR("Application::Render - VertexShader is null, falling back to CPU-driven rendering");
+				LOG_ERROR("  This could indicate the ShaderManager was not properly initialized or the PBR shader failed to load");
+				LOG_ERROR("  Check if PBR shader files exist and compile correctly");
+				m_enableGPUDrivenRendering = false;
+				return true; // Continue with CPU-driven rendering
+			}
+			
+			if (!pixelShader)
+			{
+				LOG_ERROR("Application::Render - PixelShader is null, falling back to CPU-driven rendering");
+				LOG_ERROR("  This could indicate the ShaderManager was not properly initialized or the PBR shader failed to load");
+				LOG_ERROR("  Check if PBR shader files exist and compile correctly");
+				m_enableGPUDrivenRendering = false;
+				return true; // Continue with CPU-driven rendering
+			}
+			
+			if (!inputLayout)
+			{
+				LOG_ERROR("Application::Render - InputLayout is null, falling back to CPU-driven rendering");
+				LOG_ERROR("  This could indicate the ShaderManager was not properly initialized or the PBR shader failed to load");
+				LOG_ERROR("  Check if PBR shader files exist and compile correctly");
+				m_enableGPUDrivenRendering = false;
+				return true; // Continue with CPU-driven rendering
+			}
+			
+			// All resources are valid, proceed with GPU-driven rendering
+			LOG("Application::Render - All GPU-driven rendering resources are valid, proceeding with render");
+			
+			// Additional debugging information
+			LOG("Application::Render - Debug information:");
+			LOG("  Model pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_Model)));
+			LOG("  ShaderManager pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_ShaderManager)));
+			LOG("  GPUDrivenRenderer pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_GPUDrivenRenderer)));
+			LOG("  Direct3D pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_Direct3D)));
+			LOG("  DeviceContext pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_Direct3D->GetDeviceContext())));
+			
+			// Test if we can access the buffers safely
+			try
+			{
+				LOG("Application::Render - Testing buffer access:");
+				LOG("  VertexBuffer pointer: " + std::to_string(reinterpret_cast<uintptr_t>(vertexBuffer)));
+				LOG("  IndexBuffer pointer: " + std::to_string(reinterpret_cast<uintptr_t>(indexBuffer)));
+				LOG("  VertexShader pointer: " + std::to_string(reinterpret_cast<uintptr_t>(vertexShader)));
+				LOG("  PixelShader pointer: " + std::to_string(reinterpret_cast<uintptr_t>(pixelShader)));
+				LOG("  InputLayout pointer: " + std::to_string(reinterpret_cast<uintptr_t>(inputLayout)));
+			}
+			catch (...)
+			{
+				LOG_ERROR("Application::Render - Exception occurred while accessing buffer pointers");
+				m_enableGPUDrivenRendering = false;
+				return true; // Continue with CPU-driven rendering
+			}
+			
+			// Call GPU-driven renderer with exception handling
+			try
+			{
+				LOG("Application::Render - Calling GPU-driven renderer...");
+				m_GPUDrivenRenderer->Render(m_Direct3D->GetDeviceContext(), vertexBuffer, indexBuffer,
+										   vertexShader, pixelShader, inputLayout);
+				LOG("Application::Render - GPU-driven renderer call completed successfully");
+			}
+			catch (const std::exception& e)
+			{
+				LOG_ERROR("Application::Render - Exception in GPU-driven renderer: " + std::string(e.what()));
+				m_enableGPUDrivenRendering = false;
+				return true; // Continue with CPU-driven rendering
+			}
+			catch (...)
+			{
+				LOG_ERROR("Application::Render - Unknown exception in GPU-driven renderer");
+				m_enableGPUDrivenRendering = false;
+				return true; // Continue with CPU-driven rendering
+			}
+		}
+	}
+	else
+	{
+		// Traditional CPU-Driven Rendering Path
+
+		// Set render states for skybox
+		m_Direct3D->TurnOffCulling();
+		m_Direct3D->TurnZBufferOff();
+
+		// Render the zone (skybox)
+		result = m_Zone->Render(m_Direct3D, m_ShaderManager, m_Camera);
+		if (!result)
+		{
+			LOG_ERROR("Zone render failed");
+			// Restore render states
+			m_Direct3D->TurnOnCulling();
+			m_Direct3D->TurnZBufferOn();
+			return false;
+		}
+
+		// Track skybox draw call
+		PerformanceProfiler::GetInstance().IncrementDrawCalls();
+		// Note: Skybox triangle count would need to be added to Zone class
+
+		// Restore render states for the rest of the scene
+		m_Direct3D->TurnOnCulling();
+		m_Direct3D->TurnZBufferOn();
+
+		// Render the floor
+		worldMatrix = XMMatrixTranslation(0.0f, -10.0f, 0.0f);
+		worldMatrix = XMMatrixMultiply(worldMatrix, XMMatrixScaling(500.0f, 1.0f, 500.0f));
+
+		m_Floor->Render(m_Direct3D->GetDeviceContext());
+
+		result = m_ShaderManager->RenderLightShader(m_Direct3D->GetDeviceContext(), m_Floor->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
+			m_Floor->GetTexture(), m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
+			m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
+		if (!result)
+		{
+			LOG_ERROR("Floor render failed");
+			return false;
+		}
+
+		// Track floor draw call and triangles
+		PerformanceProfiler::GetInstance().IncrementDrawCalls();
+		PerformanceProfiler::GetInstance().AddTriangles(m_Floor->GetIndexCount() / 3); // Convert indices to triangles
 
 	// Go through all the models and render them only if they can be seen by the camera view.
 	for (i = 0; i < modelCount; i++)
@@ -918,6 +1284,7 @@ bool Application::Render()
 			// This would need to be implemented in SelectionManager::RenderGizmos
 		}
 	}
+	} // End of traditional CPU-driven rendering path
 
 	// Create an orthographic projection matrix for 2D rendering
 	orthoMatrix = XMMatrixOrthographicLH((float)m_screenWidth, (float)m_screenHeight, 0.0f, 1.0f);

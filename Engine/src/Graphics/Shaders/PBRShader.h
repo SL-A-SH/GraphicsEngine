@@ -48,6 +48,11 @@ public:
 				ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, 
 				ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, ID3D11ShaderResourceView*,
 				XMFLOAT3, XMFLOAT4, XMFLOAT4, XMFLOAT4, float, float, float, float, XMFLOAT3);
+	
+	// GPU-driven rendering support
+	ID3D11VertexShader* GetVertexShader() const { return m_vertexShader; }
+	ID3D11PixelShader* GetPixelShader() const { return m_pixelShader; }
+	ID3D11InputLayout* GetInputLayout() const { return m_layout; }
 
 private:
 	bool InitializeShader(ID3D11Device*, HWND, WCHAR*, WCHAR*);

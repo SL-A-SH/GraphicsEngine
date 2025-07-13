@@ -41,6 +41,8 @@ public:
     void SetModelListUI(ModelListUI* modelListUI);
     void SetBackgroundRendering(bool enabled);
     void SetupUISwitchingCallbacks();
+    void ForceFocus();
+    void HandleViewportClick();
 
     // Set background rendering mode (continues rendering even when not visible)
     bool IsBackgroundRendering() const { return m_BackgroundRendering; }

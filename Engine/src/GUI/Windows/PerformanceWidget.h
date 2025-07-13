@@ -4,6 +4,13 @@
 #include <QWidget>
 #include <QString>
 #include <vector>
+#include <memory>
+#include "../../Core/System/RenderingBenchmark.h"
+
+// Forward declarations for benchmark system
+struct BenchmarkResult;
+struct BenchmarkConfig;
+class RenderingBenchmark;
 
 // Forward declarations
 class QVBoxLayout;
@@ -43,6 +50,9 @@ public:
     
     // Set the main window tab index for proper logging
     void SetMainWindowTabIndex(int index);
+    
+    // Run benchmark with configuration
+    void RunBenchmark(const BenchmarkConfig& config);
 
 private slots:
     void OnUpdateTimer();
@@ -115,28 +125,23 @@ private:
     std::vector<ChartPoint> m_ChartData;
     
     // Benchmark history
-    struct BenchmarkData {
-        QString name;
-        double averageFPS;
-        double averageFrameTime;
-        double averageGPUTime;
-        double averageCPUTime;
-        double averageDrawCalls;
-        double averageTriangles;
-        double averageInstances;
-        double averageIndirectDrawCalls;
-        double averageComputeDispatches;
-        double averageGPUMemoryUsage;
-        double averageCPUMemoryUsage;
-        double averageBandwidthUsage;
-    };
-    std::vector<BenchmarkData> m_BenchmarkHistory;
+    std::vector<BenchmarkResult> m_BenchmarkHistory;
+    BenchmarkResult m_LastBenchmarkResult;
     
     // Main window tab index for proper logging
     int m_MainWindowTabIndex;
     
     // Internal tab widget index
     int m_InternalTabIndex;
+    
+    // Benchmark system
+    std::unique_ptr<RenderingBenchmark> m_BenchmarkSystem;
+    bool m_BenchmarkRunning;
+    std::vector<BenchmarkResult> m_CurrentBenchmarkResults;
+    QTimer* m_BenchmarkTimer;
+    int m_BenchmarkCurrentFrame;
+    BenchmarkConfig m_CurrentBenchmarkConfig;
+    void OnBenchmarkFrame();
 };
 
 #endif // PERFORMANCEWIDGET_H

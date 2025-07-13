@@ -36,6 +36,7 @@ public:
 	bool IsSPressed() const;
 	bool IsDPressed() const;
 	bool IsF11Pressed() const;
+	bool IsF12Pressed() const;
 	void GetMouseLocation(int& mouseX, int& mouseY) const;
 
 private:

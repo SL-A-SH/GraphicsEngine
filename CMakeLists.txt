@@ -174,6 +174,8 @@ source_group("src\\Core\\System" FILES
     ${SRC_DIR}/Core/System/CommonTimer.h
     ${SRC_DIR}/Core/System/PerformanceLogger.cpp
     ${SRC_DIR}/Core/System/PerformanceLogger.h
+    ${SRC_DIR}/Core/System/RenderingBenchmark.cpp
+    ${SRC_DIR}/Core/System/RenderingBenchmark.h
 )
 
 # Graphics
@@ -200,6 +202,10 @@ source_group("src\\Graphics\\Rendering" FILES
     ${SRC_DIR}/Graphics/Rendering/RenderTexture.h
     ${SRC_DIR}/Graphics/Rendering/Sprite.cpp
     ${SRC_DIR}/Graphics/Rendering/Sprite.h
+    ${SRC_DIR}/Graphics/Rendering/IndirectDrawBuffer.cpp
+    ${SRC_DIR}/Graphics/Rendering/IndirectDrawBuffer.h
+    ${SRC_DIR}/Graphics/Rendering/GPUDrivenRenderer.cpp
+    ${SRC_DIR}/Graphics/Rendering/GPUDrivenRenderer.h
 )
 source_group("src\\Graphics\\Rendering\\Utils" FILES
     ${SRC_DIR}/Graphics/Rendering/Utils/RenderUtils.cpp
@@ -250,6 +256,8 @@ source_group("src\\Graphics\\Shaders" FILES
     ${SRC_DIR}/Graphics/Shaders/PBRShader.cpp
     ${SRC_DIR}/Graphics/Shaders/BaseShader.h
     ${SRC_DIR}/Graphics/Shaders/BaseShader.cpp
+    ${SRC_DIR}/Graphics/Shaders/ComputeShader.h
+    ${SRC_DIR}/Graphics/Shaders/ComputeShader.cpp
 )
 source_group("src\\Graphics\\Shaders\\Management" FILES
     ${SRC_DIR}/Graphics/Shaders/Management/ShaderManager.cpp

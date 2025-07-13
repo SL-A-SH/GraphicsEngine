@@ -269,3 +269,21 @@ bool ShaderManager::RenderPBRShader(ID3D11DeviceContext* deviceContext, int inde
                               diffuseTexture, normalTexture, metallicTexture, roughnessTexture, emissionTexture, aoTexture,
                               lightDirection, ambientColor, diffuseColor, baseColor, metallic, roughness, ao, emissionStrength, cameraPosition);
 }
+
+ID3D11VertexShader* ShaderManager::GetVertexShader() const
+{
+    // Return the vertex shader from the PBR shader (most complete shader)
+    return m_PBRShader ? m_PBRShader->GetVertexShader() : nullptr;
+}
+
+ID3D11PixelShader* ShaderManager::GetPixelShader() const
+{
+    // Return the pixel shader from the PBR shader (most complete shader)
+    return m_PBRShader ? m_PBRShader->GetPixelShader() : nullptr;
+}
+
+ID3D11InputLayout* ShaderManager::GetInputLayout() const
+{
+    // Return the input layout from the PBR shader (most complete shader)
+    return m_PBRShader ? m_PBRShader->GetInputLayout() : nullptr;
+}

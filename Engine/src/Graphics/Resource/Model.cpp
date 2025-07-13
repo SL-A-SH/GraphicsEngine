@@ -8,6 +8,7 @@ Model::Model()
 	m_indexBuffer = 0;
 	m_Texture = 0;
 	m_model = 0;
+	m_indices = 0;
 	m_hasFBXMaterial = false;
 	m_materialInfo.diffuseColor = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	m_materialInfo.ambientColor = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
@@ -282,6 +283,7 @@ bool Model::InitializeBuffers(ID3D11Device* device)
 	vertices = new VertexType[m_vertexCount];
 	if (!vertices)
 	{
+		LOG_ERROR("InitializeBuffers: Failed to allocate vertex array");
 		return false;
 	}
 
@@ -289,6 +291,7 @@ bool Model::InitializeBuffers(ID3D11Device* device)
 	indices = new unsigned long[m_indexCount];
 	if (!indices)
 	{
+		LOG_ERROR("InitializeBuffers: Failed to allocate index array");
 		return false;
 	}
 
@@ -300,8 +303,12 @@ bool Model::InitializeBuffers(ID3D11Device* device)
 		vertices[i].normal = XMFLOAT3(m_model[i].nx, m_model[i].ny, m_model[i].nz);
 		vertices[i].tangent = XMFLOAT3(m_model[i].tx, m_model[i].ty, m_model[i].tz);
 		vertices[i].binormal = XMFLOAT3(m_model[i].bx, m_model[i].by, m_model[i].bz);
+	}
 
-		indices[i] = i;
+	// Load the index array with actual index data from FBX file
+	for (i = 0; i < m_indexCount; i++)
+	{
+		indices[i] = m_indices ? m_indices[i] : i; // Use actual indices if available, otherwise fallback to sequential
 	}
 
 	// Set up the description of the static vertex buffer.
@@ -321,6 +328,7 @@ bool Model::InitializeBuffers(ID3D11Device* device)
 	result = device->CreateBuffer(&vertexBufferDesc, &vertexData, &m_vertexBuffer);
 	if (FAILED(result))
 	{
+		LOG_ERROR("Model::InitializeBuffers - Failed to create vertex buffer - HRESULT: " + std::to_string(result));
 		return false;
 	}
 
@@ -341,6 +349,7 @@ bool Model::InitializeBuffers(ID3D11Device* device)
 	result = device->CreateBuffer(&indexBufferDesc, &indexData, &m_indexBuffer);
 	if (FAILED(result))
 	{
+		LOG_ERROR("InitializeBuffers: Failed to create index buffer - HRESULT: " + std::to_string(result));
 		return false;
 	}
 
@@ -1355,25 +1364,34 @@ void Model::ProcessMesh(FbxNode* pNode)
 		}
 	}
 
-	// After all meshes are processed, copy to m_model (do this only once, after all ProcessMesh calls)
+	// After all meshes are processed, copy to m_model and m_indices (do this only once, after all ProcessMesh calls)
 	// We'll do this in LoadFBXModel after ProcessNode
 	m_vertexCount = (int)vertices.size();
 	m_indexCount = (int)indices.size();
+
+	LOG("ProcessMesh: Vertex count: " + std::to_string(m_vertexCount) + ", Index count: " + std::to_string(m_indexCount));
 
 	if (m_model)
 	{
 		delete[] m_model;
 	}
+	if (m_indices)
+	{
+		delete[] m_indices;
+	}
 
 	m_model = new ModelType[m_vertexCount];
+	m_indices = new unsigned long[m_indexCount];
+	
 	for (int i = 0; i < m_vertexCount; ++i)
 	{
 		m_model[i] = vertices[i];
 	}
-		
-	// Optionally, you can store indices if you want to use them elsewhere
-	// But your InitializeBuffers currently assumes index = vertex order
-	// So this is fine for now
+	
+	for (int i = 0; i < m_indexCount; ++i)
+	{
+		m_indices[i] = indices[i];
+	}
 
 	// Clear static vectors for next model load
 	if (pNode->GetParent() == nullptr) // root node, last call
@@ -1390,6 +1408,12 @@ void Model::ReleaseModel()
 	{
 		delete[] m_model;
 		m_model = 0;
+	}
+
+	if (m_indices)
+	{
+		delete[] m_indices;
+		m_indices = 0;
 	}
 
 	return;

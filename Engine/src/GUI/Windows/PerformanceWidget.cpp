@@ -24,9 +24,11 @@
 #include <QFileDialog>
 #include <QStandardPaths>
 #include <algorithm>
+#include <memory>
 #include "../../Core/System/PerformanceProfiler.h"
 #include "../../Core/System/Logger.h"
 #include "../../Core/System/PerformanceLogger.h"
+#include "../../Core/System/RenderingBenchmark.h"
 
 PerformanceWidget::PerformanceWidget(QWidget* parent)
     : QWidget(parent)
@@ -52,6 +54,11 @@ PerformanceWidget::PerformanceWidget(QWidget* parent)
     , m_UpdateTimer(nullptr)
     , m_MainWindowTabIndex(0)
     , m_InternalTabIndex(0)
+    , m_BenchmarkSystem(nullptr)
+    , m_BenchmarkRunning(false)
+    , m_BenchmarkTimer(nullptr)
+    , m_BenchmarkCurrentFrame(0)
+    , m_CurrentBenchmarkConfig()
 {
     CreateUI();
     CreateCharts();
@@ -67,6 +74,11 @@ PerformanceWidget::PerformanceWidget(QWidget* parent)
         // For now, we'll update in the timer callback
     });
     
+    // Initialize benchmark timer
+    m_BenchmarkTimer = new QTimer(this);
+    connect(m_BenchmarkTimer, &QTimer::timeout, this, &PerformanceWidget::OnBenchmarkFrame);
+    m_BenchmarkCurrentFrame = 0;
+    
     // Connect tab widget signals to control update frequency
     if (m_TabWidget)
     {
@@ -80,6 +92,11 @@ PerformanceWidget::~PerformanceWidget()
     {
         m_UpdateTimer->stop();
         delete m_UpdateTimer;
+    }
+    if (m_BenchmarkTimer)
+    {
+        m_BenchmarkTimer->stop();
+        delete m_BenchmarkTimer;
     }
 }
 
@@ -134,9 +151,9 @@ void PerformanceWidget::CreateBenchmarkTab()
     // Rendering mode
     configLayout->addWidget(new QLabel("Rendering Mode:"), 0, 0);
     m_RenderingModeCombo = new QComboBox(m_BenchmarkConfigGroup);
-    m_RenderingModeCombo->addItem("CPU-Driven", static_cast<int>(PerformanceProfiler::RenderingMode::CPU_DRIVEN));
-    m_RenderingModeCombo->addItem("GPU-Driven", static_cast<int>(PerformanceProfiler::RenderingMode::GPU_DRIVEN));
-    m_RenderingModeCombo->addItem("Hybrid", static_cast<int>(PerformanceProfiler::RenderingMode::HYBRID));
+    m_RenderingModeCombo->addItem("CPU-Driven", 0);
+    m_RenderingModeCombo->addItem("GPU-Driven", 1);
+    m_RenderingModeCombo->addItem("Hybrid", 2);
     connect(m_RenderingModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &PerformanceWidget::OnRenderingModeChanged);
     configLayout->addWidget(m_RenderingModeCombo, 0, 1);
     
@@ -219,10 +236,12 @@ void PerformanceWidget::CreateComparisonTab()
     // Export buttons
     QHBoxLayout* exportLayout = new QHBoxLayout();
     m_ExportResultsButton = new QPushButton("Export Results", comparisonTab);
+    m_ExportResultsButton->setEnabled(false); // Disabled until benchmarks are run
     connect(m_ExportResultsButton, &QPushButton::clicked, this, &PerformanceWidget::OnExportResults);
     exportLayout->addWidget(m_ExportResultsButton);
     
     m_ExportComparisonButton = new QPushButton("Export Comparison", comparisonTab);
+    m_ExportComparisonButton->setEnabled(false); // Disabled until benchmarks are run
     connect(m_ExportComparisonButton, &QPushButton::clicked, this, &PerformanceWidget::OnExportComparison);
     exportLayout->addWidget(m_ExportComparisonButton);
     
@@ -505,41 +524,37 @@ void PerformanceWidget::UpdateCharts()
 void PerformanceWidget::OnStartBenchmark()
 {
     SetupBenchmarkConfig();
-    
-    PerformanceProfiler::BenchmarkConfig config;
-    config.mode = static_cast<PerformanceProfiler::RenderingMode>(m_RenderingModeCombo->currentData().toInt());
-    config.objectCount = m_ObjectCountSpinBox->value();
-    config.benchmarkDuration = m_BenchmarkDurationSpinBox->value();
-    config.enableFrustumCulling = m_FrustumCullingCheckBox->isChecked();
-    config.enableLOD = m_LODCheckBox->isChecked();
-    config.enableOcclusionCulling = m_OcclusionCullingCheckBox->isChecked();
-    config.sceneName = "Benchmark Scene";
-    
-    PerformanceProfiler::GetInstance().StartBenchmark(config);
-    
+    m_CurrentBenchmarkConfig.approach = static_cast<BenchmarkConfig::RenderingApproach>(m_RenderingModeCombo->currentIndex());
+    m_CurrentBenchmarkConfig.objectCount = m_ObjectCountSpinBox->value();
+    m_CurrentBenchmarkConfig.benchmarkDuration = m_BenchmarkDurationSpinBox->value();
+    m_CurrentBenchmarkConfig.enableFrustumCulling = m_FrustumCullingCheckBox->isChecked();
+    m_CurrentBenchmarkConfig.enableLOD = m_LODCheckBox->isChecked();
+    m_CurrentBenchmarkConfig.enableOcclusionCulling = m_OcclusionCullingCheckBox->isChecked();
+    m_CurrentBenchmarkConfig.sceneName = "Benchmark Scene";
+    m_CurrentBenchmarkConfig.outputDirectory = "./benchmark_results/";
+
+    m_BenchmarkRunning = true;
     m_StartBenchmarkButton->setEnabled(false);
     m_StopBenchmarkButton->setEnabled(true);
     m_BenchmarkProgressBar->setVisible(true);
     m_BenchmarkProgressBar->setValue(0);
     m_BenchmarkStatusLabel->setText("Benchmark started...");
-    
-    // Log benchmark start event
-    PerformanceLogger::GetInstance().LogBenchmarkEvent("Benchmark started with " + std::to_string(config.objectCount) + " objects");
+    m_BenchmarkCurrentFrame = 0;
+    m_LastBenchmarkResult = BenchmarkResult();
+
+    // Start the timer for frame-by-frame benchmarking
+    m_BenchmarkTimer->start(1); // 1ms interval for fast benchmarking
 }
 
 void PerformanceWidget::OnStopBenchmark()
 {
-    PerformanceProfiler::GetInstance().StopBenchmark();
-    
+    m_BenchmarkTimer->stop();
+    m_BenchmarkRunning = false;
     m_StartBenchmarkButton->setEnabled(true);
     m_StopBenchmarkButton->setEnabled(false);
     m_BenchmarkProgressBar->setVisible(false);
-    m_BenchmarkStatusLabel->setText("Benchmark completed");
-    
+    m_BenchmarkStatusLabel->setText("Benchmark stopped");
     LoadBenchmarkResults();
-    
-    // Log benchmark stop event
-    PerformanceLogger::GetInstance().LogBenchmarkEvent("Benchmark completed");
 }
 
 void PerformanceWidget::SetupBenchmarkConfig()
@@ -563,108 +578,94 @@ void PerformanceWidget::SetupBenchmarkConfig()
     m_ComparisonTextEdit->setText(configStr);
 }
 
+void PerformanceWidget::RunBenchmark(const BenchmarkConfig& config)
+{
+    LOG("Running benchmark: " + config.sceneName);
+    if (!m_BenchmarkSystem) return;
+
+    // Run the real benchmark (blocking for now)
+    m_LastBenchmarkResult = m_BenchmarkSystem->RunBenchmark(config);
+    // If CPU-driven, replace any previous CPU-driven result in history
+    if (config.approach == BenchmarkConfig::RenderingApproach::CPU_DRIVEN) {
+        auto it = std::remove_if(m_BenchmarkHistory.begin(), m_BenchmarkHistory.end(), [](const BenchmarkResult& r) { return r.approach == "CPU-Driven"; });
+        m_BenchmarkHistory.erase(it, m_BenchmarkHistory.end());
+        m_BenchmarkHistory.push_back(m_LastBenchmarkResult);
+    } else if (config.approach == BenchmarkConfig::RenderingApproach::GPU_DRIVEN) {
+        // Always keep the last CPU-driven result for comparison
+        auto cpuIt = std::find_if(m_BenchmarkHistory.begin(), m_BenchmarkHistory.end(), [](const BenchmarkResult& r) { return r.approach == "CPU-Driven"; });
+        if (cpuIt != m_BenchmarkHistory.end()) {
+            // Keep CPU-driven result, add GPU-driven
+            auto it = std::remove_if(m_BenchmarkHistory.begin(), m_BenchmarkHistory.end(), [](const BenchmarkResult& r) { return r.approach == "GPU-Driven"; });
+            m_BenchmarkHistory.erase(it, m_BenchmarkHistory.end());
+            m_BenchmarkHistory.push_back(m_LastBenchmarkResult);
+        } else {
+            // No CPU-driven result, just add GPU-driven
+            m_BenchmarkHistory.push_back(m_LastBenchmarkResult);
+        }
+    } else {
+        // For hybrid, just add
+        m_BenchmarkHistory.push_back(m_LastBenchmarkResult);
+    }
+    LoadBenchmarkResults();
+    m_BenchmarkRunning = false;
+    m_StartBenchmarkButton->setEnabled(true);
+    m_StopBenchmarkButton->setEnabled(false);
+    m_BenchmarkProgressBar->setVisible(false);
+    m_BenchmarkStatusLabel->setText("Benchmark completed");
+    m_ExportResultsButton->setEnabled(true);
+    m_ExportComparisonButton->setEnabled(true);
+    LOG("Benchmark completed");
+}
+
 void PerformanceWidget::LoadBenchmarkResults()
 {
-    const auto& results = PerformanceProfiler::GetInstance().GetLastBenchmarkResults();
-    
-    // Store in history
-    BenchmarkData data;
-    data.name = QString("%1_%2_%3")
-        .arg(m_RenderingModeCombo->currentText())
-        .arg(m_ObjectCountSpinBox->value())
-        .arg(QDateTime::currentDateTime().toString("hhmmss"));
-    data.averageFPS = results.averageFPS;
-    data.averageFrameTime = results.averageFrameTime;
-    data.averageGPUTime = results.averageGPUTime;
-    data.averageCPUTime = results.averageCPUTime;
-    data.averageDrawCalls = results.averageDrawCalls;
-    data.averageTriangles = results.averageTriangles;
-    data.averageInstances = results.averageInstances;
-    data.averageIndirectDrawCalls = results.averageIndirectDrawCalls;
-    data.averageComputeDispatches = results.averageComputeDispatches;
-    data.averageGPUMemoryUsage = results.averageGPUMemoryUsage;
-    data.averageCPUMemoryUsage = results.averageCPUMemoryUsage;
-    data.averageBandwidthUsage = results.averageBandwidthUsage;
-    
-    m_BenchmarkHistory.push_back(data);
-    
-    // Update results table
+    // Use the real result from the last benchmark run
+    const BenchmarkResult& data = m_LastBenchmarkResult;
     m_BenchmarkResultsTable->setRowCount(12);
-    
     m_BenchmarkResultsTable->setItem(0, 0, new QTableWidgetItem("Average FPS"));
-    m_BenchmarkResultsTable->setItem(0, 1, new QTableWidgetItem(QString::number(results.averageFPS, 'f', 2)));
-    
+    m_BenchmarkResultsTable->setItem(0, 1, new QTableWidgetItem(QString::number(data.averageFPS, 'f', 2)));
     m_BenchmarkResultsTable->setItem(1, 0, new QTableWidgetItem("Average Frame Time (ms)"));
-    m_BenchmarkResultsTable->setItem(1, 1, new QTableWidgetItem(QString::number(results.averageFrameTime, 'f', 2)));
-    
+    m_BenchmarkResultsTable->setItem(1, 1, new QTableWidgetItem(QString::number(data.averageFrameTime, 'f', 2)));
     m_BenchmarkResultsTable->setItem(2, 0, new QTableWidgetItem("Average GPU Time (ms)"));
-    m_BenchmarkResultsTable->setItem(2, 1, new QTableWidgetItem(QString::number(results.averageGPUTime, 'f', 2)));
-    
+    m_BenchmarkResultsTable->setItem(2, 1, new QTableWidgetItem(QString::number(data.averageGPUTime, 'f', 2)));
     m_BenchmarkResultsTable->setItem(3, 0, new QTableWidgetItem("Average CPU Time (ms)"));
-    m_BenchmarkResultsTable->setItem(3, 1, new QTableWidgetItem(QString::number(results.averageCPUTime, 'f', 2)));
-    
+    m_BenchmarkResultsTable->setItem(3, 1, new QTableWidgetItem(QString::number(data.averageCPUTime, 'f', 2)));
     m_BenchmarkResultsTable->setItem(4, 0, new QTableWidgetItem("Average Draw Calls"));
-    m_BenchmarkResultsTable->setItem(4, 1, new QTableWidgetItem(QString::number(results.averageDrawCalls, 'f', 1)));
-    
+    m_BenchmarkResultsTable->setItem(4, 1, new QTableWidgetItem(QString::number(data.averageDrawCalls)));
     m_BenchmarkResultsTable->setItem(5, 0, new QTableWidgetItem("Average Triangles"));
-    m_BenchmarkResultsTable->setItem(5, 1, new QTableWidgetItem(QString::number(results.averageTriangles, 'f', 0)));
-    
+    m_BenchmarkResultsTable->setItem(5, 1, new QTableWidgetItem(QString::number(data.averageTriangles)));
     m_BenchmarkResultsTable->setItem(6, 0, new QTableWidgetItem("Average Instances"));
-    m_BenchmarkResultsTable->setItem(6, 1, new QTableWidgetItem(QString::number(results.averageInstances, 'f', 1)));
-    
+    m_BenchmarkResultsTable->setItem(6, 1, new QTableWidgetItem(QString::number(data.averageInstances)));
     m_BenchmarkResultsTable->setItem(7, 0, new QTableWidgetItem("Average Indirect Draw Calls"));
-    m_BenchmarkResultsTable->setItem(7, 1, new QTableWidgetItem(QString::number(results.averageIndirectDrawCalls, 'f', 1)));
-    
+    m_BenchmarkResultsTable->setItem(7, 1, new QTableWidgetItem(QString::number(data.averageIndirectDrawCalls)));
     m_BenchmarkResultsTable->setItem(8, 0, new QTableWidgetItem("Average Compute Dispatches"));
-    m_BenchmarkResultsTable->setItem(8, 1, new QTableWidgetItem(QString::number(results.averageComputeDispatches, 'f', 1)));
-    
+    m_BenchmarkResultsTable->setItem(8, 1, new QTableWidgetItem(QString::number(data.averageComputeDispatches)));
     m_BenchmarkResultsTable->setItem(9, 0, new QTableWidgetItem("Average GPU Memory (MB)"));
-    m_BenchmarkResultsTable->setItem(9, 1, new QTableWidgetItem(QString::number(results.averageGPUMemoryUsage, 'f', 1)));
-    
+    m_BenchmarkResultsTable->setItem(9, 1, new QTableWidgetItem(QString::number(data.averageGPUMemoryUsage, 'f', 1)));
     m_BenchmarkResultsTable->setItem(10, 0, new QTableWidgetItem("Average CPU Memory (MB)"));
-    m_BenchmarkResultsTable->setItem(10, 1, new QTableWidgetItem(QString::number(results.averageCPUMemoryUsage, 'f', 1)));
-    
+    m_BenchmarkResultsTable->setItem(10, 1, new QTableWidgetItem(QString::number(data.averageCPUMemoryUsage, 'f', 1)));
     m_BenchmarkResultsTable->setItem(11, 0, new QTableWidgetItem("Average Bandwidth (GB/s)"));
-    m_BenchmarkResultsTable->setItem(11, 1, new QTableWidgetItem(QString::number(results.averageBandwidthUsage, 'f', 2)));
-    
+    m_BenchmarkResultsTable->setItem(11, 1, new QTableWidgetItem(QString::number(data.averageBandwidthUsage, 'f', 2)));
     DisplayComparisonResults();
+    m_ExportResultsButton->setEnabled(true);
+    m_ExportComparisonButton->setEnabled(true);
 }
 
 void PerformanceWidget::DisplayComparisonResults()
 {
     if (m_BenchmarkHistory.size() < 2) return;
-    
     // Find CPU and GPU results for comparison
-    BenchmarkData* cpuData = nullptr;
-    BenchmarkData* gpuData = nullptr;
-    
-    for (auto& data : m_BenchmarkHistory)
-    {
-        if (data.name.contains("CPU-Driven") && !cpuData)
-            cpuData = &data;
-        else if (data.name.contains("GPU-Driven") && !gpuData)
-            gpuData = &data;
+    const BenchmarkResult* cpuData = nullptr;
+    const BenchmarkResult* gpuData = nullptr;
+    for (const auto& data : m_BenchmarkHistory) {
+        if (data.approach == "CPU-Driven" && !cpuData) cpuData = &data;
+        else if (data.approach == "GPU-Driven" && !gpuData) gpuData = &data;
     }
-    
-    if (cpuData && gpuData)
-    {
+    if (cpuData && gpuData) {
         double fpsImprovement = ((gpuData->averageFPS - cpuData->averageFPS) / cpuData->averageFPS) * 100.0;
         double frameTimeImprovement = ((cpuData->averageFrameTime - gpuData->averageFrameTime) / cpuData->averageFrameTime) * 100.0;
-        
-        QString comparisonText = QString("Performance Comparison:\n\n"
-                                       "CPU-Driven Results:\n"
-                                       "  FPS: %1\n"
-                                       "  Frame Time: %2 ms\n"
-                                       "  GPU Time: %3 ms\n"
-                                       "  CPU Time: %4 ms\n\n"
-                                       "GPU-Driven Results:\n"
-                                       "  FPS: %5\n"
-                                       "  Frame Time: %6 ms\n"
-                                       "  GPU Time: %7 ms\n"
-                                       "  CPU Time: %8 ms\n\n"
-                                       "Improvements:\n"
-                                       "  FPS: %9% (%10%)\n"
-                                       "  Frame Time: %11% (%12%)\n")
+        QString comparisonText =
+            QString("CPU-Driven Results:\n  FPS: %1\n  Frame Time: %2 ms\n  GPU Time: %3 ms\n  CPU Time: %4 ms\n\nGPU-Driven Results:\n  FPS: %5\n  Frame Time: %6 ms\n  GPU Time: %7 ms\n  CPU Time: %8 ms\n\nImprovements:\n  FPS: %9%%\n  Frame Time: %10%%")
             .arg(cpuData->averageFPS, 0, 'f', 2)
             .arg(cpuData->averageFrameTime, 0, 'f', 2)
             .arg(cpuData->averageGPUTime, 0, 'f', 2)
@@ -674,15 +675,9 @@ void PerformanceWidget::DisplayComparisonResults()
             .arg(gpuData->averageGPUTime, 0, 'f', 2)
             .arg(gpuData->averageCPUTime, 0, 'f', 2)
             .arg(fpsImprovement, 0, 'f', 1)
-            .arg(fpsImprovement > 0 ? "Improvement" : "Degradation")
-            .arg(frameTimeImprovement, 0, 'f', 1)
-            .arg(frameTimeImprovement > 0 ? "Improvement" : "Degradation");
-        
+            .arg(frameTimeImprovement, 0, 'f', 1);
         m_ComparisonTextEdit->setText(comparisonText);
-        
-        // Update comparison chart widget with simple text display
-        if (m_ComparisonChartWidget)
-        {
+        if (m_ComparisonChartWidget) {
             m_ComparisonChartWidget->clear();
             m_ComparisonChartWidget->addItem("Performance Comparison Data");
             m_ComparisonChartWidget->addItem(QString("CPU-Driven FPS: %1").arg(cpuData->averageFPS, 0, 'f', 2));
@@ -718,14 +713,14 @@ void PerformanceWidget::OnExportComparison()
     if (!filename.isEmpty() && m_BenchmarkHistory.size() >= 2)
     {
         // Find CPU and GPU results
-        BenchmarkData* cpuData = nullptr;
-        BenchmarkData* gpuData = nullptr;
+        const BenchmarkResult* cpuData = nullptr;
+        const BenchmarkResult* gpuData = nullptr;
         
-        for (auto& data : m_BenchmarkHistory)
+        for (const auto& data : m_BenchmarkHistory)
         {
-            if (data.name.contains("CPU-Driven") && !cpuData)
+            if (data.approach == "CPU-Driven" && !cpuData)
                 cpuData = &data;
-            else if (data.name.contains("GPU-Driven") && !gpuData)
+            else if (data.approach == "GPU-Driven" && !gpuData)
                 gpuData = &data;
         }
         
@@ -808,4 +803,29 @@ void PerformanceWidget::OnInternalTabChanged(int index)
 {
     m_InternalTabIndex = index;
     LOG("PerformanceWidget::OnInternalTabChanged - Internal tab index set to: " + std::to_string(index));
+} 
+
+void PerformanceWidget::OnBenchmarkFrame()
+{
+    if (!m_BenchmarkSystem || !m_BenchmarkRunning) {
+        m_BenchmarkTimer->stop();
+        return;
+    }
+    // Simulate a frame: run one frame of the benchmark and record metrics
+    // (You may need to expose a method in RenderingBenchmark to process a single frame)
+    m_BenchmarkSystem->RunBenchmarkFrame(m_CurrentBenchmarkConfig, m_LastBenchmarkResult, m_BenchmarkCurrentFrame);
+    m_BenchmarkCurrentFrame++;
+    m_BenchmarkProgressBar->setValue(static_cast<int>((double)m_BenchmarkCurrentFrame / m_CurrentBenchmarkConfig.benchmarkDuration * 100));
+    m_BenchmarkStatusLabel->setText(QString("Benchmark running... Frame %1/%2").arg(m_BenchmarkCurrentFrame).arg(m_CurrentBenchmarkConfig.benchmarkDuration));
+    if (m_BenchmarkCurrentFrame >= m_CurrentBenchmarkConfig.benchmarkDuration) {
+        m_BenchmarkTimer->stop();
+        m_BenchmarkRunning = false;
+        m_StartBenchmarkButton->setEnabled(true);
+        m_StopBenchmarkButton->setEnabled(false);
+        m_BenchmarkProgressBar->setVisible(false);
+        m_BenchmarkStatusLabel->setText("Benchmark completed");
+        LoadBenchmarkResults();
+        m_ExportResultsButton->setEnabled(true);
+        m_ExportComparisonButton->setEnabled(true);
+    }
 } 

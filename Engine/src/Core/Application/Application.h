@@ -23,6 +23,9 @@ class Frustum;
 class UserInterface;
 class SelectionManager;
 class DisplayPlane;
+class GPUDrivenRenderer;
+class PerformanceProfiler;
+class RenderingBenchmark;
 
 using namespace DirectX;
 
@@ -52,6 +55,16 @@ public:
 	
 	// Set UI switching callbacks
 	void SetUISwitchingCallbacks(std::function<void()> switchToModelList, std::function<void()> switchToTransformUI);
+	
+	// GPU-driven rendering control
+	void SetGPUDrivenRendering(bool enable) { m_enableGPUDrivenRendering = enable; }
+	bool IsGPUDrivenRenderingEnabled() const { return m_enableGPUDrivenRendering; }
+	
+	// Get current rendering mode for profiling
+	int GetCurrentRenderingMode() const 
+	{ 
+		return m_enableGPUDrivenRendering ? 1 : 0; // 0 = CPU_DRIVEN, 1 = GPU_DRIVEN
+	}
 
 private:
 	bool Render();
@@ -97,6 +110,11 @@ private:
 	// UI switching callbacks
 	std::function<void()> m_switchToModelListCallback;
 	std::function<void()> m_switchToTransformUICallback;
+	
+	// GPU-driven rendering
+	GPUDrivenRenderer* m_GPUDrivenRenderer;
+	bool m_enableGPUDrivenRendering;
+	RenderingBenchmark* m_BenchmarkSystem;
 };
 
 #endif

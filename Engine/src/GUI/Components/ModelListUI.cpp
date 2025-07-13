@@ -76,9 +76,20 @@ bool ModelListUI::Render(D3D11Device* Direct3D, ShaderManager* ShaderManager, XM
 
 void ModelListUI::UpdateModelList(ModelList* modelList)
 {
-    LOG("ModelListUI: Updating model list");
+    LOG("ModelListUI: UpdateModelList called");
+    
+    if (!modelList)
+    {
+        LOG_ERROR("ModelListUI: UpdateModelList called with null ModelList!");
+        return;
+    }
     
     m_modelList = modelList;
+    
+    // Debug: Check the model count immediately
+    int modelCount = m_modelList->GetModelCount();
+    LOG("ModelListUI: ModelList passed has " + std::to_string(modelCount) + " models");
+    
     GenerateModelNames();
     UpdateModelListItems();
 }
@@ -127,6 +138,10 @@ void ModelListUI::CreateModelListWidget()
     m_modelListWidget->setMinimumHeight(200);
     m_modelListWidget->setSelectionMode(QAbstractItemView::SingleSelection);
     
+    // Disable keyboard navigation to prevent interference with DirectX viewport
+    m_modelListWidget->setFocusPolicy(Qt::NoFocus);
+    m_modelListWidget->setTabOrder(m_modelListWidget, nullptr);
+    
     // Create deselect button
     m_deselectButton = new QPushButton("Deselect All", m_modelListGroup);
     m_deselectButton->setEnabled(false); // Disabled by default since nothing is selected
@@ -145,13 +160,34 @@ void ModelListUI::CreateModelListWidget()
 void ModelListUI::UpdateModelListItems()
 {
     if (!m_modelList)
+    {
+        LOG_ERROR("ModelListUI: No model list available for update");
         return;
+    }
     
     LOG("ModelListUI: Updating model list items");
     
     m_modelListWidget->clear();
     
     int modelCount = m_modelList->GetModelCount();
+    LOG("ModelListUI: Model count from ModelList: " + std::to_string(modelCount));
+    
+    // Debug: Check if ModelList has any data
+    if (modelCount <= 0)
+    {
+        LOG_ERROR("ModelListUI: ModelList reports 0 models - this is the problem!");
+        return;
+    }
+    
+    // Ensure we have enough model names
+    if (m_modelNames.size() < modelCount)
+    {
+        LOG("ModelListUI: Regenerating model names for " + std::to_string(modelCount) + " models");
+        GenerateModelNames();
+    }
+    
+    LOG("ModelListUI: Adding " + std::to_string(modelCount) + " models to list widget");
+    
     for (int i = 0; i < modelCount; ++i)
     {
         QString itemText;
@@ -167,9 +203,19 @@ void ModelListUI::UpdateModelListItems()
         QListWidgetItem* item = new QListWidgetItem(itemText);
         item->setData(Qt::UserRole, i); // Store model index
         m_modelListWidget->addItem(item);
+        
+        LOG("ModelListUI: Added model " + std::to_string(i) + " with text: " + itemText.toStdString());
     }
     
-    LOG("ModelListUI: Added " + std::to_string(modelCount) + " models to list");
+    LOG("ModelListUI: Successfully added " + std::to_string(modelCount) + " models to list");
+    
+    // Debug: Check if the list widget actually has items
+    int actualItemCount = m_modelListWidget->count();
+    LOG("ModelListUI: List widget now contains " + std::to_string(actualItemCount) + " items");
+    
+    // Force a repaint of the widget
+    m_modelListWidget->update();
+    m_modelListWidget->repaint();
 }
 
 void ModelListUI::GenerateModelNames()
@@ -222,4 +268,23 @@ void ModelListUI::OnDeselectButtonClicked()
     {
         m_modelDeselectedCallback();
     }
+}
+
+void ModelListUI::focusOutEvent(QFocusEvent* event)
+{
+    LOG("ModelListUI: Lost focus");
+    
+    // When ModelListUI loses focus, ensure the DirectX viewport gets focus
+    if (parentWidget())
+    {
+        // Find the DirectX viewport in the parent hierarchy
+        QWidget* viewport = parentWidget()->findChild<QWidget*>("DirectXViewport");
+        if (viewport)
+        {
+            LOG("ModelListUI: Transferring focus to DirectX viewport");
+            viewport->setFocus();
+        }
+    }
+    
+    QWidget::focusOutEvent(event);
 } 

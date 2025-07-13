@@ -32,6 +32,11 @@ public:
                         ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, 
                         ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, ID3D11ShaderResourceView*,
                         XMFLOAT3, XMFLOAT4, XMFLOAT4, XMFLOAT4, float, float, float, float, XMFLOAT3);
+    
+    // GPU-driven rendering support
+    ID3D11VertexShader* GetVertexShader() const;
+    ID3D11PixelShader* GetPixelShader() const;
+    ID3D11InputLayout* GetInputLayout() const;
 
 private:
     TextureShader* m_TextureShader;

@@ -9,6 +9,7 @@
 #include <fbxsdk.h>
 
 #include "../../Core/Common/EngineTypes.h"
+#include "../../Core/System/Logger.h"
 #include "./Texture.h"
 
 using namespace DirectX;
@@ -57,6 +58,14 @@ public:
 	bool HasFBXMaterial() const { return m_hasFBXMaterial; }
 	const AABB& GetBoundingBox() const { return m_boundingBox; }
 	const MaterialInfo& GetMaterialInfo() const { return m_materialInfo; }
+	ID3D11Buffer* GetVertexBuffer() const 
+	{ 
+		return m_vertexBuffer; 
+	}
+	ID3D11Buffer* GetIndexBuffer() const 
+	{ 
+		return m_indexBuffer; 
+	}
 
 	// PBR texture getters
 	ID3D11ShaderResourceView* GetDiffuseTexture() const;
@@ -129,6 +138,7 @@ private:
 	
 	// Model data
 	ModelType* m_model;
+	unsigned long* m_indices; // Add index data storage
 	MaterialInfo m_materialInfo;
 	bool m_hasFBXMaterial;
 	AABB m_boundingBox;
