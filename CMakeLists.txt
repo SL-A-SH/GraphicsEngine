@@ -220,6 +220,8 @@ source_group("src\\Graphics\\Resource" FILES
     ${SRC_DIR}/Graphics/Resource/Texture.h
 )
 source_group("src\\Graphics\\Resource\\Environment" FILES
+    ${SRC_DIR}/Graphics/Resource/Environment/SpaceSkybox.cpp
+    ${SRC_DIR}/Graphics/Resource/Environment/SpaceSkybox.h
     ${SRC_DIR}/Graphics/Resource/Environment/Skybox.cpp
     ${SRC_DIR}/Graphics/Resource/Environment/Skybox.h
     ${SRC_DIR}/Graphics/Resource/Environment/SkyDome.cpp
@@ -264,6 +266,8 @@ source_group("src\\Graphics\\Shaders\\Management" FILES
     ${SRC_DIR}/Graphics/Shaders/Management/ShaderManager.h
 )
 source_group("src\\Graphics\\Shaders\\Environment" FILES
+    ${SRC_DIR}/Graphics/Shaders/Environment/SpaceSkyboxShader.cpp
+    ${SRC_DIR}/Graphics/Shaders/Environment/SpaceSkyboxShader.h
     ${SRC_DIR}/Graphics/Shaders/Environment/SkyboxShader.cpp
     ${SRC_DIR}/Graphics/Shaders/Environment/SkyboxShader.h
     ${SRC_DIR}/Graphics/Shaders/Environment/SkyDomeShader.cpp

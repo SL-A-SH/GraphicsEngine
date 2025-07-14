@@ -9,6 +9,7 @@ ShaderManager::ShaderManager()
     m_SpecMapShader = 0;
     m_FontShader = 0;
     m_SkyboxShader = 0;
+    m_SpaceSkyboxShader = 0;
     m_PBRShader = 0;
 }
 
@@ -100,6 +101,16 @@ bool ShaderManager::Initialize(ID3D11Device* device, HWND hwnd)
         return false;
     }
 
+    // Create and initialize the space skybox shader object.
+    m_SpaceSkyboxShader = new SpaceSkyboxShader;
+
+    // Initialize the space skybox shader object.
+    result = m_SpaceSkyboxShader->Initialize(device, hwnd);
+    if (!result)
+    {
+        return false;
+    }
+
     // Create and initialize the PBR shader object.
     m_PBRShader = new PBRShader;
 
@@ -116,6 +127,14 @@ bool ShaderManager::Initialize(ID3D11Device* device, HWND hwnd)
 
 void ShaderManager::Shutdown()
 {
+    // Release the space skybox shader object.
+    if (m_SpaceSkyboxShader)
+    {
+        m_SpaceSkyboxShader->Shutdown();
+        delete m_SpaceSkyboxShader;
+        m_SpaceSkyboxShader = 0;
+    }
+
     // Release the skybox shader object.
     if (m_SkyboxShader)
     {
@@ -245,6 +264,20 @@ bool ShaderManager::RenderSkyboxShader(ID3D11DeviceContext* deviceContext, int i
     bool result;
 
     result = m_SkyboxShader->Render(deviceContext, indexCount, worldMatrix, viewMatrix, projectionMatrix, textures);
+    if (!result)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+bool ShaderManager::RenderSpaceSkyboxShader(ID3D11DeviceContext* deviceContext, int indexCount, XMMATRIX worldMatrix, XMMATRIX viewMatrix,
+    XMMATRIX projectionMatrix, float time, float mainStarSize, XMFLOAT3 mainStarDir, XMFLOAT3 mainStarColor, float mainStarIntensity)
+{
+    bool result;
+
+    result = m_SpaceSkyboxShader->Render(deviceContext, indexCount, worldMatrix, viewMatrix, projectionMatrix, time, mainStarSize, mainStarDir, mainStarColor, mainStarIntensity);
     if (!result)
     {
         return false;

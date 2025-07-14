@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../../D3D11/D3D11Device.h"
-#include "../../Resource/Environment/Skybox.h"
+#include "../../Resource/Environment/SpaceSkybox.h"
 #include "../../Shaders/Management/ShaderManager.h"
 #include "../../Rendering/Camera.h"
 
@@ -17,5 +17,5 @@ public:
 	bool Render(D3D11Device*, ShaderManager*, Camera*);
 
 private:
-	Skybox* m_Skybox;
+	SpaceSkybox* m_SpaceSkybox;
 };

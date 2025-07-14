@@ -83,7 +83,6 @@ private:
 
 	// Models and resources
 	Model* m_Model;
-	Model* m_Floor;
 	Model* m_PositionGizmo;
 	Model* m_RotationGizmo;
 	Model* m_ScaleGizmo;

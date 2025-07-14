@@ -34,26 +34,49 @@ void ModelList::Initialize(int numModels)
     // Seed the random generator with the current time.
     srand((unsigned int)time(NULL));
 
-    // Go through all the models and randomly generate the position.
+    // Define battle formation parameters
+    float formationRadius = 50.0f;  // Smaller radius for closer formation
+    float spacing = 20.0f;         // Closer spacing between ships
+    XMFLOAT3 targetPosition = XMFLOAT3(0.0f, 0.0f, 100.0f); // Common target point
+    
+    // Go through all the models and position them in a battle formation
     for (i = 0; i < m_modelCount; i++)
     {
-        // Generate positions in a larger grid pattern
-        float gridSize = 50.0f;  // Size of the grid
-        float spacing = 100.0f;   // Space between models
+        // Calculate position in a circular formation
+        float angle = (2.0f * 3.14159f * i) / m_modelCount;
+        float radius = formationRadius + (rand() % 20 - 10); // Slight random variation
         
-        // Calculate grid position
-        int row = i % 3;         // 3 models per row
-        int col = i / 3;         // Number of rows
+        m_ModelInfoList[i].positionX = cos(angle) * radius;
+        m_ModelInfoList[i].positionY = 0.0f;  // Keep all ships in the same plane
+        m_ModelInfoList[i].positionZ = sin(angle) * radius;
         
-        // Base position with some random offset
-        m_ModelInfoList[i].positionX = (row * spacing) + (((float)rand() / RAND_MAX) * 5.0f - 2.5f);
-        m_ModelInfoList[i].positionY = 0.0f;  // Keep models on the ground
-        m_ModelInfoList[i].positionZ = (col * spacing) + (((float)rand() / RAND_MAX) * 5.0f - 2.5f);
+        // Calculate direction to target for proper orientation
+        XMFLOAT3 shipPos = XMFLOAT3(m_ModelInfoList[i].positionX, m_ModelInfoList[i].positionY, m_ModelInfoList[i].positionZ);
+        XMFLOAT3 directionToTarget;
+        directionToTarget.x = targetPosition.x - shipPos.x;
+        directionToTarget.y = targetPosition.y - shipPos.y;
+        directionToTarget.z = targetPosition.z - shipPos.z;
         
-        // Initialize rotation with random values for testing
-        m_ModelInfoList[i].rotationX = ((float)rand() / RAND_MAX) * 0.5f - 0.25f;  // Small random rotation
-        m_ModelInfoList[i].rotationY = ((float)rand() / RAND_MAX) * 6.28f;         // Full 360 degree rotation
-        m_ModelInfoList[i].rotationZ = ((float)rand() / RAND_MAX) * 0.5f - 0.25f;  // Small random rotation
+        // Normalize the direction
+        float length = sqrt(directionToTarget.x * directionToTarget.x + 
+                           directionToTarget.y * directionToTarget.y + 
+                           directionToTarget.z * directionToTarget.z);
+        directionToTarget.x /= length;
+        directionToTarget.y /= length;
+        directionToTarget.z /= length;
+        
+        // Calculate rotation to face the target
+        // For a spaceship, we want to rotate around Y axis to face the target
+        float targetAngle = atan2(directionToTarget.x, directionToTarget.z);
+        
+        // Add some random variation to make it look more natural
+        float randomVariation = ((float)rand() / RAND_MAX - 0.5f) * 0.2f; // ±0.1 radians
+        
+        m_ModelInfoList[i].rotationX = 0.0f;  // No pitch for space battle
+        m_ModelInfoList[i].rotationY = targetAngle + randomVariation;  // Face target with slight variation
+        m_ModelInfoList[i].rotationZ = 0.0f;  // No roll for space battle
+        
+        // Scale all ships uniformly
         m_ModelInfoList[i].scaleX = 1.0f;
         m_ModelInfoList[i].scaleY = 1.0f;
         m_ModelInfoList[i].scaleZ = 1.0f;

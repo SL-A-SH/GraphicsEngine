@@ -7,6 +7,7 @@
 #include "../SpecularMapShader.h"
 #include "../FontShader.h"
 #include "../Environment/SkyboxShader.h"
+#include "../Environment/SpaceSkyboxShader.h"
 #include "../ColorShader.h"
 #include "../PBRShader.h"
 
@@ -27,6 +28,7 @@ public:
     bool RenderSpecularMapShader(ID3D11DeviceContext*, int, XMMATRIX, XMMATRIX, XMMATRIX, ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, XMFLOAT3, XMFLOAT4, XMFLOAT3, XMFLOAT4, float);
     bool RenderFontShader(ID3D11DeviceContext*, int, XMMATRIX, XMMATRIX, XMMATRIX, ID3D11ShaderResourceView*, XMFLOAT4);
     bool RenderSkyboxShader(ID3D11DeviceContext*, int, XMMATRIX, XMMATRIX, XMMATRIX, ID3D11ShaderResourceView*[6]);
+    bool RenderSpaceSkyboxShader(ID3D11DeviceContext*, int, XMMATRIX, XMMATRIX, XMMATRIX, float, float, XMFLOAT3, XMFLOAT3, float);
     bool RenderColorShader(ID3D11DeviceContext*, int, const XMMATRIX&, const XMMATRIX&, const XMMATRIX&, const XMFLOAT4&);
     bool RenderPBRShader(ID3D11DeviceContext*, int, XMMATRIX, XMMATRIX, XMMATRIX, 
                         ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, 
@@ -46,6 +48,7 @@ private:
     SpecMapShader* m_SpecMapShader;
     FontShader* m_FontShader;
     SkyboxShader* m_SkyboxShader;
+    SpaceSkyboxShader* m_SpaceSkyboxShader;
     ColorShader* m_ColorShader;
     PBRShader* m_PBRShader;
 };

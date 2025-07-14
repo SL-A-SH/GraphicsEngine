@@ -36,7 +36,6 @@ Application::Application()
 	m_ModelList = 0;
 	m_Position = 0;
 	m_Frustum = 0;
-	m_Floor = 0;
 	m_DisplayPlane = 0;
 	m_screenWidth = 0;
 	m_screenHeight = 0;
@@ -93,8 +92,8 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	LOG("Creating camera object");
 	m_Camera = new Camera;
 
-	// Set the initial position of the camera.
-	m_Camera->SetPosition(0.0f, 0.0f, -300.0f);
+	// Set the initial position of the camera for space battle scene.
+	m_Camera->SetPosition(0.0f, 50.0f, -150.0f);
 	m_Camera->Render();
 	m_Camera->GetViewMatrix(m_baseViewMatrix);
 	LOG("Camera initialized successfully");
@@ -130,20 +129,6 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 		return false;
 	}
 	LOG("Spaceship model initialized successfully");
-
-	// Create and initialize the floor model
-	LOG("Creating floor model");
-	m_Floor = new Model;
-	strcpy_s(modelFilename, "../Engine/assets/models/Cube.txt");
-	strcpy_s(floorTex, "../Engine/assets/textures/Stone02/stone02.tga");
-	result = m_Floor->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, floorTex);
-	if (!result)
-	{
-		LOG_ERROR("Could not initialize the floor model");
-		MessageBox(hwnd, L"Could not initialize the floor model.", L"Error", MB_OK);
-		return false;
-	}
-	LOG("Floor model initialized successfully");
 
 	// Create and initialize gizmo models
 	LOG("Creating gizmo models");
@@ -466,14 +451,6 @@ void Application::Shutdown()
 		m_Direct3D->Shutdown();
 		delete m_Direct3D;
 		m_Direct3D = 0;
-	}
-
-	// Release the floor model
-	if (m_Floor)
-	{
-		m_Floor->Shutdown();
-		delete m_Floor;
-		m_Floor = 0;
 	}
 
 	// Release gizmo models
@@ -870,21 +847,6 @@ bool Application::Render()
 			m_Direct3D->TurnZBufferOn();
 			PerformanceProfiler::GetInstance().IncrementDrawCalls();
 
-			// Render floor (CPU-driven)
-			worldMatrix = XMMatrixTranslation(0.0f, -10.0f, 0.0f);
-			worldMatrix = XMMatrixMultiply(worldMatrix, XMMatrixScaling(500.0f, 1.0f, 500.0f));
-			m_Floor->Render(m_Direct3D->GetDeviceContext());
-			result = m_ShaderManager->RenderLightShader(m_Direct3D->GetDeviceContext(), m_Floor->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
-				m_Floor->GetTexture(), m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
-				m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
-			if (!result)
-			{
-				LOG_ERROR("Floor render failed in GPU-driven path");
-				return false;
-			}
-			PerformanceProfiler::GetInstance().IncrementDrawCalls();
-			PerformanceProfiler::GetInstance().AddTriangles(m_Floor->GetIndexCount() / 3);
-
 			// Prepare object data for GPU-driven rendering
 			std::vector<ObjectData> objectData;
 			objectData.reserve(modelCount);
@@ -1147,188 +1109,169 @@ bool Application::Render()
 		m_Direct3D->TurnOnCulling();
 		m_Direct3D->TurnZBufferOn();
 
-		// Render the floor
-		worldMatrix = XMMatrixTranslation(0.0f, -10.0f, 0.0f);
-		worldMatrix = XMMatrixMultiply(worldMatrix, XMMatrixScaling(500.0f, 1.0f, 500.0f));
-
-		m_Floor->Render(m_Direct3D->GetDeviceContext());
-
-		result = m_ShaderManager->RenderLightShader(m_Direct3D->GetDeviceContext(), m_Floor->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
-			m_Floor->GetTexture(), m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
-			m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
-		if (!result)
+		// Go through all the models and render them only if they can be seen by the camera view.
+		for (i = 0; i < modelCount; i++)
 		{
-			LOG_ERROR("Floor render failed");
-			return false;
-		}
+			// Get the full transform data for this model
+			float posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ;
+			m_ModelList->GetTransformData(i, posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ);
 
-		// Track floor draw call and triangles
-		PerformanceProfiler::GetInstance().IncrementDrawCalls();
-		PerformanceProfiler::GetInstance().AddTriangles(m_Floor->GetIndexCount() / 3); // Convert indices to triangles
+			// Get the model's bounding box
+			const Model::AABB& bbox = m_Model->GetBoundingBox();
 
-	// Go through all the models and render them only if they can be seen by the camera view.
-	for (i = 0; i < modelCount; i++)
-	{
-		// Get the full transform data for this model
-		float posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ;
-		m_ModelList->GetTransformData(i, posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ);
+			// Transform the bounding box to world space (considering scale)
+			XMFLOAT3 worldMin, worldMax;
+			worldMin.x = bbox.min.x * scaleX + posX;
+			worldMin.y = bbox.min.y * scaleY + posY;
+			worldMin.z = bbox.min.z * scaleZ + posZ;
+			worldMax.x = bbox.max.x * scaleX + posX;
+			worldMax.y = bbox.max.y * scaleY + posY;
+			worldMax.z = bbox.max.z * scaleZ + posZ;
 
-		// Get the model's bounding box
-		const Model::AABB& bbox = m_Model->GetBoundingBox();
+			// Check if the model's AABB is in the view frustum
+			renderModel = m_Frustum->CheckAABB(worldMin, worldMax);
 
-		// Transform the bounding box to world space (considering scale)
-		XMFLOAT3 worldMin, worldMax;
-		worldMin.x = bbox.min.x * scaleX + posX;
-		worldMin.y = bbox.min.y * scaleY + posY;
-		worldMin.z = bbox.min.z * scaleZ + posZ;
-		worldMax.x = bbox.max.x * scaleX + posX;
-		worldMax.y = bbox.max.y * scaleY + posY;
-		worldMax.z = bbox.max.z * scaleZ + posZ;
+			// Debug logging for CPU-driven rendering
+			LOG("CPU-Driven Rendering - Model " + std::to_string(i) + ":");
+			LOG("  Position: (" + std::to_string(posX) + ", " + std::to_string(posY) + ", " + std::to_string(posZ) + ")");
+			LOG("  Scale: (" + std::to_string(scaleX) + ", " + std::to_string(scaleY) + ", " + std::to_string(scaleZ) + ")");
+			LOG("  Rotation: (" + std::to_string(rotX) + ", " + std::to_string(rotY) + ", " + std::to_string(rotZ) + ")");
+			LOG("  World AABB Min: (" + std::to_string(worldMin.x) + ", " + std::to_string(worldMin.y) + ", " + std::to_string(worldMin.z) + ")");
+			LOG("  World AABB Max: (" + std::to_string(worldMax.x) + ", " + std::to_string(worldMax.y) + ", " + std::to_string(worldMax.z) + ")");
+			LOG("  In Frustum: " + std::string(renderModel ? "YES" : "NO"));
 
-		// Check if the model's AABB is in the view frustum
-		renderModel = m_Frustum->CheckAABB(worldMin, worldMax);
-
-		// Debug logging for CPU-driven rendering
-		LOG("CPU-Driven Rendering - Model " + std::to_string(i) + ":");
-		LOG("  Position: (" + std::to_string(posX) + ", " + std::to_string(posY) + ", " + std::to_string(posZ) + ")");
-		LOG("  Scale: (" + std::to_string(scaleX) + ", " + std::to_string(scaleY) + ", " + std::to_string(scaleZ) + ")");
-		LOG("  Rotation: (" + std::to_string(rotX) + ", " + std::to_string(rotY) + ", " + std::to_string(rotZ) + ")");
-		LOG("  World AABB Min: (" + std::to_string(worldMin.x) + ", " + std::to_string(worldMin.y) + ", " + std::to_string(worldMin.z) + ")");
-		LOG("  World AABB Max: (" + std::to_string(worldMax.x) + ", " + std::to_string(worldMax.y) + ", " + std::to_string(worldMax.z) + ")");
-		LOG("  In Frustum: " + std::string(renderModel ? "YES" : "NO"));
-
-		// If it can be seen then render it, if not skip this model and check the next one
-		if (renderModel)
-		{
-			// Create world matrix with position, rotation, and scale
-			XMMATRIX translationMatrix = XMMatrixTranslation(posX, posY, posZ);
-			XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(rotX, rotY, rotZ);
-			XMMATRIX scaleMatrix = XMMatrixScaling(scaleX, scaleY, scaleZ);
-			worldMatrix = XMMatrixMultiply(XMMatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix);
-
-			// Render the model's buffers.
-			m_Model->Render(m_Direct3D->GetDeviceContext());
-
-			// Check if this model is selected for visual feedback
-			bool isSelected = m_SelectionManager->IsModelSelected(i);
-			
-			// Check if this is an FBX model with PBR materials first
-			if (m_Model->HasFBXMaterial())
+			// If it can be seen then render it, if not skip this model and check the next one
+			if (renderModel)
 			{
-				LOG("CPU-Driven Rendering - Using PBR shader for FBX model");
-				// Debug lighting parameters
-				XMFLOAT3 lightDir = m_Light->GetDirection();
-				XMFLOAT4 ambientColor = m_Light->GetAmbientColor();
-				XMFLOAT4 diffuseColor = m_Light->GetDiffuseColor();
-				XMFLOAT3 cameraPos = m_Camera->GetPosition();
-				
-				LOG("CPU-Driven Rendering - PBR shader parameters:");
-				LOG("  Light direction: (" + std::to_string(lightDir.x) + ", " + std::to_string(lightDir.y) + ", " + std::to_string(lightDir.z) + ")");
-				LOG("  Ambient color: (" + std::to_string(ambientColor.x) + ", " + std::to_string(ambientColor.y) + ", " + std::to_string(ambientColor.z) + ", " + std::to_string(ambientColor.w) + ")");
-				LOG("  Diffuse color: (" + std::to_string(diffuseColor.x) + ", " + std::to_string(diffuseColor.y) + ", " + std::to_string(diffuseColor.z) + ", " + std::to_string(diffuseColor.w) + ")");
-				LOG("  Camera position: (" + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
-				
-				// Use PBR shader for FBX models with multiple textures
-				result = m_ShaderManager->RenderPBRShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
-					m_Model->GetDiffuseTexture(), m_Model->GetNormalTexture(), m_Model->GetMetallicTexture(),
-					m_Model->GetRoughnessTexture(), m_Model->GetEmissionTexture(), m_Model->GetAOTexture(),
-					m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(), m_Model->GetBaseColor(),
-					m_Model->GetMetallic(), m_Model->GetRoughness(), m_Model->GetAO(), m_Model->GetEmissionStrength(), m_Camera->GetPosition(), false);
-				if (!result)
-				{
-					LOG_ERROR("Model render with PBRShader failed");
-					return false;
-				}
-				LOG("CPU-Driven Rendering - PBR shader render completed successfully");
-			}
-			else
-			{
-				// Get the texture from the model for non-FBX models
-				ID3D11ShaderResourceView* modelTexture = m_Model->GetTexture();
+				// Create world matrix with position, rotation, and scale
+				XMMATRIX translationMatrix = XMMatrixTranslation(posX, posY, posZ);
+				XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(rotX, rotY, rotZ);
+				XMMATRIX scaleMatrix = XMMatrixScaling(scaleX, scaleY, scaleZ);
+				worldMatrix = XMMatrixMultiply(XMMatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix);
 
-				// Only render with the light shader if the model has a texture.
-				if (modelTexture)
+				// Render the model's buffers.
+				m_Model->Render(m_Direct3D->GetDeviceContext());
+
+				// Check if this model is selected for visual feedback
+				bool isSelected = m_SelectionManager->IsModelSelected(i);
+				
+				// Check if this is an FBX model with PBR materials first
+				if (m_Model->HasFBXMaterial())
 				{
-					// Use regular light shader for simple textured models
-					result = m_ShaderManager->RenderLightShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
-						modelTexture, m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
-						m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
+					LOG("CPU-Driven Rendering - Using PBR shader for FBX model");
+					// Debug lighting parameters
+					XMFLOAT3 lightDir = m_Light->GetDirection();
+					XMFLOAT4 ambientColor = m_Light->GetAmbientColor();
+					XMFLOAT4 diffuseColor = m_Light->GetDiffuseColor();
+					XMFLOAT3 cameraPos = m_Camera->GetPosition();
+					
+					LOG("CPU-Driven Rendering - PBR shader parameters:");
+					LOG("  Light direction: (" + std::to_string(lightDir.x) + ", " + std::to_string(lightDir.y) + ", " + std::to_string(lightDir.z) + ")");
+					LOG("  Ambient color: (" + std::to_string(ambientColor.x) + ", " + std::to_string(ambientColor.y) + ", " + std::to_string(ambientColor.z) + ", " + std::to_string(ambientColor.w) + ")");
+					LOG("  Diffuse color: (" + std::to_string(diffuseColor.x) + ", " + std::to_string(diffuseColor.y) + ", " + std::to_string(diffuseColor.z) + ", " + std::to_string(diffuseColor.w) + ")");
+					LOG("  Camera position: (" + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
+					
+					// Use PBR shader for FBX models with multiple textures
+					result = m_ShaderManager->RenderPBRShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
+						m_Model->GetDiffuseTexture(), m_Model->GetNormalTexture(), m_Model->GetMetallicTexture(),
+						m_Model->GetRoughnessTexture(), m_Model->GetEmissionTexture(), m_Model->GetAOTexture(),
+						m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(), m_Model->GetBaseColor(),
+						m_Model->GetMetallic(), m_Model->GetRoughness(), m_Model->GetAO(), m_Model->GetEmissionStrength(), m_Camera->GetPosition(), false);
 					if (!result)
 					{
-						LOG_ERROR("Model render with LightShader failed");
+						LOG_ERROR("Model render with PBRShader failed");
 						return false;
 					}
+					LOG("CPU-Driven Rendering - PBR shader render completed successfully");
 				}
 				else
 				{
-					// If there is no texture, render the model with a solid color.
-					/*LOG_WARNING("Model has no texture, rendering with ColorShader.");*/
-					result = m_ShaderManager->RenderColorShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix, XMFLOAT4(0.7f, 0.7f, 0.7f, 1.0f));
-					if (!result)
+					// Get the texture from the model for non-FBX models
+					ID3D11ShaderResourceView* modelTexture = m_Model->GetTexture();
+
+					// Only render with the light shader if the model has a texture.
+					if (modelTexture)
 					{
-						LOG_ERROR("Model render with ColorShader failed");
-						return false;
+						// Use regular light shader for simple textured models
+						result = m_ShaderManager->RenderLightShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
+							modelTexture, m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(),
+							m_Camera->GetPosition(), m_Light->GetSpecularColor(), m_Light->GetSpecularPower());
+						if (!result)
+						{
+							LOG_ERROR("Model render with LightShader failed");
+							return false;
+						}
+					}
+					else
+					{
+						// If there is no texture, render the model with a solid color.
+						/*LOG_WARNING("Model has no texture, rendering with ColorShader.");*/
+						result = m_ShaderManager->RenderColorShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix, XMFLOAT4(0.7f, 0.7f, 0.7f, 1.0f));
+						if (!result)
+						{
+							LOG_ERROR("Model render with ColorShader failed");
+							return false;
+						}
 					}
 				}
-			}
 
-			// Track model draw call and triangles
-			PerformanceProfiler::GetInstance().IncrementDrawCalls();
-			PerformanceProfiler::GetInstance().AddTriangles(m_Model->GetIndexCount() / 3); // Convert indices to triangles
-			PerformanceProfiler::GetInstance().AddInstances(1); // Each model instance counts as 1
+				// Track model draw call and triangles
+				PerformanceProfiler::GetInstance().IncrementDrawCalls();
+				PerformanceProfiler::GetInstance().AddTriangles(m_Model->GetIndexCount() / 3); // Convert indices to triangles
+				PerformanceProfiler::GetInstance().AddInstances(1); // Each model instance counts as 1
 
-			// Render selection highlight if this model is selected
-			if (isSelected)
-			{
-				// Render a wireframe outline or different colored version
-				// For now, we'll render a simple colored version on top
-				m_Direct3D->TurnOffCulling();
-				m_Direct3D->TurnZBufferOff();
-				
-				// Render selection highlight with bright color
-				XMFLOAT4 selectionColor = XMFLOAT4(1.0f, 1.0f, 0.0f, 0.3f); // Yellow with transparency
-				result = m_ShaderManager->RenderColorShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix, selectionColor);
-				
-				m_Direct3D->TurnOnCulling();
-				m_Direct3D->TurnZBufferOn();
-				
-				if (!result)
+				// Render selection highlight if this model is selected
+				if (isSelected)
 				{
-					LOG_ERROR("Selection highlight render failed");
+					// Render a wireframe outline or different colored version
+					// For now, we'll render a simple colored version on top
+					m_Direct3D->TurnOffCulling();
+					m_Direct3D->TurnZBufferOff();
+					
+					// Render selection highlight with bright color
+					XMFLOAT4 selectionColor = XMFLOAT4(1.0f, 1.0f, 0.0f, 0.3f); // Yellow with transparency
+					result = m_ShaderManager->RenderColorShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix, selectionColor);
+					
+					m_Direct3D->TurnOnCulling();
+					m_Direct3D->TurnZBufferOn();
+					
+					if (!result)
+					{
+						LOG_ERROR("Selection highlight render failed");
+					}
+
+					// Track selection highlight draw call
+					PerformanceProfiler::GetInstance().IncrementDrawCalls();
 				}
 
-				// Track selection highlight draw call
-				PerformanceProfiler::GetInstance().IncrementDrawCalls();
+				// Since this model was rendered then increase the count for this frame.
+				m_RenderCount++;
 			}
-
-			// Since this model was rendered then increase the count for this frame.
-			m_RenderCount++;
 		}
-	}
 
-	// Render gizmos for selected model
-	if (m_SelectionManager)
-	{
-		int selectedIndex = m_SelectionManager->GetSelectedModelIndex();
-		if (selectedIndex >= 0 && m_SelectionManager->IsModelSelected(selectedIndex))
+		// Render gizmos for selected model
+		if (m_SelectionManager)
 		{
-			// Get the selected model's full transform data for gizmo placement
-			float posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ;
-			m_ModelList->GetTransformData(selectedIndex, posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ);
-			
-			// Create world matrix for gizmo at selected model position with rotation and scale
-			XMMATRIX translationMatrix = XMMatrixTranslation(posX, posY, posZ);
-			XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(rotX, rotY, rotZ);
-			XMMATRIX scaleMatrix = XMMatrixScaling(scaleX, scaleY, scaleZ);
-			XMMATRIX gizmoWorldMatrix = XMMatrixMultiply(XMMatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix);
-			
-			// Render gizmos
-			m_SelectionManager->RenderGizmos(m_Direct3D, viewMatrix, projectionMatrix, gizmoWorldMatrix);
+			int selectedIndex = m_SelectionManager->GetSelectedModelIndex();
+			if (selectedIndex >= 0 && m_SelectionManager->IsModelSelected(selectedIndex))
+			{
+				// Get the selected model's full transform data for gizmo placement
+				float posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ;
+				m_ModelList->GetTransformData(selectedIndex, posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ);
+				
+				// Create world matrix for gizmo at selected model position with rotation and scale
+				XMMATRIX translationMatrix = XMMatrixTranslation(posX, posY, posZ);
+				XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(rotX, rotY, rotZ);
+				XMMATRIX scaleMatrix = XMMatrixScaling(scaleX, scaleY, scaleZ);
+				XMMATRIX gizmoWorldMatrix = XMMatrixMultiply(XMMatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix);
+				
+				// Render gizmos
+				m_SelectionManager->RenderGizmos(m_Direct3D, viewMatrix, projectionMatrix, gizmoWorldMatrix);
 
-			// Track gizmo draw calls (assuming gizmos add draw calls)
-			// This would need to be implemented in SelectionManager::RenderGizmos
-		}
+				// Track gizmo draw calls (assuming gizmos add draw calls)
+				// This would need to be implemented in SelectionManager::RenderGizmos
 			}
+		}
 	} // End of CPU-driven rendering path
 
 	// Create an orthographic projection matrix for 2D rendering
