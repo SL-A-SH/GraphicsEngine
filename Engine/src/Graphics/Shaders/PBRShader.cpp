@@ -63,14 +63,14 @@ bool PBRShader::Render(ID3D11DeviceContext* deviceContext, int indexCount, XMMAT
 					   ID3D11ShaderResourceView* diffuseTexture, ID3D11ShaderResourceView* normalTexture, ID3D11ShaderResourceView* metallicTexture,
 					   ID3D11ShaderResourceView* roughnessTexture, ID3D11ShaderResourceView* emissionTexture, ID3D11ShaderResourceView* aoTexture,
 					   XMFLOAT3 lightDirection, XMFLOAT4 ambientColor, XMFLOAT4 diffuseColor, XMFLOAT4 baseColor,
-					   float metallic, float roughness, float ao, float emissionStrength, XMFLOAT3 cameraPosition)
+					   float metallic, float roughness, float ao, float emissionStrength, XMFLOAT3 cameraPosition, bool useGPUDrivenRendering)
 {
 	bool result;
 
 	// Set the shader parameters that it will use for rendering.
 	result = SetShaderParameters(deviceContext, worldMatrix, viewMatrix, projectionMatrix, 
 								diffuseTexture, normalTexture, metallicTexture, roughnessTexture, emissionTexture, aoTexture,
-								lightDirection, ambientColor, diffuseColor, baseColor, metallic, roughness, ao, emissionStrength, cameraPosition);
+								lightDirection, ambientColor, diffuseColor, baseColor, metallic, roughness, ao, emissionStrength, cameraPosition, useGPUDrivenRendering);
 	if (!result)
 	{
 		return false;
@@ -373,7 +373,7 @@ bool PBRShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, XMMATRIX
 									ID3D11ShaderResourceView* diffuseTexture, ID3D11ShaderResourceView* normalTexture, ID3D11ShaderResourceView* metallicTexture,
 									ID3D11ShaderResourceView* roughnessTexture, ID3D11ShaderResourceView* emissionTexture, ID3D11ShaderResourceView* aoTexture,
 									XMFLOAT3 lightDirection, XMFLOAT4 ambientColor, XMFLOAT4 diffuseColor, XMFLOAT4 baseColor,
-									float metallic, float roughness, float ao, float emissionStrength, XMFLOAT3 cameraPosition)
+									float metallic, float roughness, float ao, float emissionStrength, XMFLOAT3 cameraPosition, bool useGPUDrivenRendering)
 {
 	HRESULT result;
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
@@ -419,6 +419,10 @@ bool PBRShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, XMMATRIX
 	dataPtr->world = worldMatrix;
 	dataPtr->view = viewMatrix;
 	dataPtr->projection = projectionMatrix;
+	dataPtr->useGPUDrivenRendering = useGPUDrivenRendering ? 1 : 0;
+	dataPtr->padding[0] = 0;
+	dataPtr->padding[1] = 0;
+	dataPtr->padding[2] = 0;
 
 	// Unlock the constant buffer.
 	deviceContext->Unmap(m_matrixBuffer, 0);
@@ -487,6 +491,17 @@ bool PBRShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, XMMATRIX
 	deviceContext->PSSetShaderResources(5, 1, &aoTexture);
 
 	return true;
+}
+
+bool PBRShader::SetupShaderParameters(ID3D11DeviceContext* deviceContext, XMMATRIX worldMatrix, XMMATRIX viewMatrix, XMMATRIX projectionMatrix,
+									 ID3D11ShaderResourceView* diffuseTexture, ID3D11ShaderResourceView* normalTexture, ID3D11ShaderResourceView* metallicTexture,
+									 ID3D11ShaderResourceView* roughnessTexture, ID3D11ShaderResourceView* emissionTexture, ID3D11ShaderResourceView* aoTexture,
+									 XMFLOAT3 lightDirection, XMFLOAT4 ambientColor, XMFLOAT4 diffuseColor, XMFLOAT4 baseColor,
+									 float metallic, float roughness, float ao, float emissionStrength, XMFLOAT3 cameraPosition, bool useGPUDrivenRendering)
+{
+	return SetShaderParameters(deviceContext, worldMatrix, viewMatrix, projectionMatrix,
+							 diffuseTexture, normalTexture, metallicTexture, roughnessTexture, emissionTexture, aoTexture,
+							 lightDirection, ambientColor, diffuseColor, baseColor, metallic, roughness, ao, emissionStrength, cameraPosition, useGPUDrivenRendering);
 }
 
 void PBRShader::RenderShader(ID3D11DeviceContext* deviceContext, int indexCount)

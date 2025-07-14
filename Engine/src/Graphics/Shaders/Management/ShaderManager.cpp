@@ -263,11 +263,11 @@ bool ShaderManager::RenderPBRShader(ID3D11DeviceContext* deviceContext, int inde
                                    ID3D11ShaderResourceView* diffuseTexture, ID3D11ShaderResourceView* normalTexture, ID3D11ShaderResourceView* metallicTexture,
                                    ID3D11ShaderResourceView* roughnessTexture, ID3D11ShaderResourceView* emissionTexture, ID3D11ShaderResourceView* aoTexture,
                                    XMFLOAT3 lightDirection, XMFLOAT4 ambientColor, XMFLOAT4 diffuseColor, XMFLOAT4 baseColor,
-                                   float metallic, float roughness, float ao, float emissionStrength, XMFLOAT3 cameraPosition)
+                                   float metallic, float roughness, float ao, float emissionStrength, XMFLOAT3 cameraPosition, bool useGPUDrivenRendering)
 {
     return m_PBRShader->Render(deviceContext, indexCount, worldMatrix, viewMatrix, projectionMatrix,
                               diffuseTexture, normalTexture, metallicTexture, roughnessTexture, emissionTexture, aoTexture,
-                              lightDirection, ambientColor, diffuseColor, baseColor, metallic, roughness, ao, emissionStrength, cameraPosition);
+                              lightDirection, ambientColor, diffuseColor, baseColor, metallic, roughness, ao, emissionStrength, cameraPosition, useGPUDrivenRendering);
 }
 
 ID3D11VertexShader* ShaderManager::GetVertexShader() const

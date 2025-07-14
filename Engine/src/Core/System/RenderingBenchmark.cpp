@@ -65,12 +65,13 @@ bool RenderingBenchmark::Initialize(ID3D11Device* device, ID3D11DeviceContext* c
         return false;
     }
 
-    // Initialize LOD levels
+    // Initialize LOD levels - using full model index count for all LODs
+    // In a real implementation, you would have different LOD meshes with different index counts
     m_LODLevels.resize(4);
-    m_LODLevels[0] = { 50.0f, 36, 0, 0, 0 };   // High detail (close)
-    m_LODLevels[1] = { 150.0f, 24, 0, 0, 0 };  // Medium detail
-    m_LODLevels[2] = { 300.0f, 12, 0, 0, 0 };  // Low detail
-    m_LODLevels[3] = { 1000.0f, 6, 0, 0, 0 };  // Very low detail (far)
+    m_LODLevels[0] = { 50.0f, 61260, 0, 0, 0 };   // High detail (close)
+    m_LODLevels[1] = { 150.0f, 61260, 0, 0, 0 };  // Medium detail
+    m_LODLevels[2] = { 300.0f, 61260, 0, 0, 0 };  // Low detail
+    m_LODLevels[3] = { 1000.0f, 61260, 0, 0, 0 }; // Very low detail (far)
 
     // Create dummy buffers for benchmarking
     if (!CreateDummyBuffers())
@@ -266,7 +267,8 @@ BenchmarkResult RenderingBenchmark::RunGPUDrivenBenchmark(const BenchmarkConfig&
 
             // Perform GPU-driven rendering
             m_GPUDrivenRenderer->Render(m_Context, m_DummyVertexBuffer, m_DummyIndexBuffer, 
-                                       m_DummyVertexShader, m_DummyPixelShader, m_DummyInputLayout);
+                                       m_DummyVertexShader, m_DummyPixelShader, m_DummyInputLayout,
+                                       nullptr, nullptr, nullptr, nullptr, nullptr);
 
             // Record metrics
             PerformanceProfiler::GetInstance().IncrementDrawCalls();
@@ -391,7 +393,8 @@ BenchmarkResult RenderingBenchmark::RunHybridBenchmark(const BenchmarkConfig& co
             m_GPUDrivenRenderer->UpdateCamera(m_Context, m_CameraPosition, cameraForward, viewMatrix, projectionMatrix);
 
             m_GPUDrivenRenderer->Render(m_Context, m_DummyVertexBuffer, m_DummyIndexBuffer, 
-                                       m_DummyVertexShader, m_DummyPixelShader, m_DummyInputLayout);
+                                       m_DummyVertexShader, m_DummyPixelShader, m_DummyInputLayout,
+                                       nullptr, nullptr, nullptr, nullptr, nullptr);
 
             PerformanceProfiler::GetInstance().IncrementDrawCalls();
             PerformanceProfiler::GetInstance().AddTriangles(m_GPUDrivenRenderer->GetVisibleObjectCount() * 12);
@@ -866,7 +869,7 @@ void RenderingBenchmark::RunBenchmarkFrame(const BenchmarkConfig& config, Benchm
             XMMATRIX projectionMatrix = XMMatrixPerspectiveFovLH(XM_PIDIV4, 16.0f / 9.0f, 0.1f, 1000.0f);
             m_GPUDrivenRenderer->UpdateCamera(m_Context, m_CameraPosition, cameraForward, viewMatrix, projectionMatrix);
             m_GPUDrivenRenderer->Render(m_Context, m_DummyVertexBuffer, m_DummyIndexBuffer, 
-                                       m_DummyVertexShader, m_DummyPixelShader, m_DummyInputLayout);
+                                       m_DummyVertexShader, m_DummyPixelShader, m_DummyInputLayout, nullptr, nullptr, nullptr, nullptr, nullptr);
             PerformanceProfiler::GetInstance().IncrementDrawCalls();
             PerformanceProfiler::GetInstance().AddTriangles(m_GPUDrivenRenderer->GetVisibleObjectCount() * 12);
             PerformanceProfiler::GetInstance().AddInstances(m_GPUDrivenRenderer->GetVisibleObjectCount());
@@ -926,7 +929,7 @@ void RenderingBenchmark::RunBenchmarkFrame(const BenchmarkConfig& config, Benchm
             XMMATRIX projectionMatrix = XMMatrixPerspectiveFovLH(XM_PIDIV4, 16.0f / 9.0f, 0.1f, 1000.0f);
             m_GPUDrivenRenderer->UpdateCamera(m_Context, m_CameraPosition, cameraForward, viewMatrix, projectionMatrix);
             m_GPUDrivenRenderer->Render(m_Context, m_DummyVertexBuffer, m_DummyIndexBuffer, 
-                                       m_DummyVertexShader, m_DummyPixelShader, m_DummyInputLayout);
+                                       m_DummyVertexShader, m_DummyPixelShader, m_DummyInputLayout, nullptr, nullptr, nullptr, nullptr, nullptr);
             gpuCount = m_GPUDrivenRenderer->GetVisibleObjectCount();
             PerformanceProfiler::GetInstance().IncrementDrawCalls();
             PerformanceProfiler::GetInstance().AddTriangles(gpuCount * 12);

@@ -31,12 +31,13 @@ public:
     bool RenderPBRShader(ID3D11DeviceContext*, int, XMMATRIX, XMMATRIX, XMMATRIX, 
                         ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, 
                         ID3D11ShaderResourceView*, ID3D11ShaderResourceView*, ID3D11ShaderResourceView*,
-                        XMFLOAT3, XMFLOAT4, XMFLOAT4, XMFLOAT4, float, float, float, float, XMFLOAT3);
+                        XMFLOAT3, XMFLOAT4, XMFLOAT4, XMFLOAT4, float, float, float, float, XMFLOAT3, bool);
     
     // GPU-driven rendering support
     ID3D11VertexShader* GetVertexShader() const;
     ID3D11PixelShader* GetPixelShader() const;
     ID3D11InputLayout* GetInputLayout() const;
+    PBRShader* GetPBRShader() const { return m_PBRShader; }
 
 private:
     TextureShader* m_TextureShader;

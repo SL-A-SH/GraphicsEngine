@@ -27,12 +27,14 @@ public:
                      const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
     
     // Perform GPU-driven rendering
-    void Render(ID3D11DeviceContext* context, ID3D11Buffer* vertexBuffer, ID3D11Buffer* indexBuffer,
-                ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader, ID3D11InputLayout* inputLayout);
+    	void Render(ID3D11DeviceContext* context, ID3D11Buffer* vertexBuffer, ID3D11Buffer* indexBuffer,
+				ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader, ID3D11InputLayout* inputLayout,
+				class Model* model, class PBRShader* pbrShader, class Light* light, class Camera* camera, class D3D11Device* direct3D);
     
     // Get rendering statistics
     UINT GetVisibleObjectCount() const { return m_indirectBuffer.GetVisibleObjectCount(); }
     UINT GetDrawCallCount() const { return m_drawCallCount; }
+    int GetRenderCount() const { return static_cast<int>(m_indirectBuffer.GetVisibleObjectCount()); }
     
     // Set rendering mode
     void SetRenderingMode(bool enableGPUDriven) { m_enableGPUDriven = enableGPUDriven; }
@@ -97,6 +99,7 @@ private:
     ComputeShader* m_frustumCullingCS;
     ComputeShader* m_lodSelectionCS;
     ComputeShader* m_commandGenerationCS;
+    ComputeShader* m_worldMatrixGenerationCS;
     
     // Indirect rendering buffers
     IndirectDrawBuffer m_indirectBuffer;

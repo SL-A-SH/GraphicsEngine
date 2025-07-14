@@ -787,7 +787,10 @@ bool Application::Frame(InputManager* Input)
 	}
 
 	// Update the user interface.
-	result = m_UserInterface->Frame(m_Direct3D->GetDeviceContext(), m_Fps, m_RenderCount);
+	// Use GPU-driven renderer's render count if GPU-driven rendering is enabled
+	int renderCount = m_enableGPUDrivenRendering && m_GPUDrivenRenderer ? 
+		m_GPUDrivenRenderer->GetRenderCount() : m_RenderCount;
+	result = m_UserInterface->Frame(m_Direct3D->GetDeviceContext(), m_Fps, renderCount);
 	if (!result)
 	{
 		LOG_ERROR("User interface update failed");
@@ -821,6 +824,10 @@ bool Application::Render()
 	m_Camera->GetViewMatrix(viewMatrix);
 	m_Direct3D->GetProjectionMatrix(projectionMatrix);
 	m_Direct3D->GetOrthoMatrix(orthoMatrix);
+	
+	// Debug: Log camera position during rendering
+	XMFLOAT3 cameraPos = m_Camera->GetPosition();
+	LOG("Application::Render - Camera position: (" + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
 
 	// Get the number of models that will be rendered.
 	modelCount = m_ModelList->GetModelCount();
@@ -885,6 +892,9 @@ bool Application::Render()
 			std::vector<ObjectData> objectData;
 			objectData.reserve(modelCount);
 			
+			LOG("Application::Render - Preparing object data for GPU-driven rendering:");
+			LOG("  Model count: " + std::to_string(modelCount));
+			
 			for (int i = 0; i < modelCount; i++)
 			{
 				float posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ;
@@ -901,6 +911,11 @@ bool Application::Render()
 				objData.padding[1] = 0;
 				
 				objectData.push_back(objData);
+				
+				LOG("  Object " + std::to_string(i) + ":");
+				LOG("    Position: (" + std::to_string(posX) + ", " + std::to_string(posY) + ", " + std::to_string(posZ) + ")");
+				LOG("    Scale: (" + std::to_string(scaleX) + ", " + std::to_string(scaleY) + ", " + std::to_string(scaleZ) + ")");
+				LOG("    Rotation: (" + std::to_string(rotX) + ", " + std::to_string(rotY) + ", " + std::to_string(rotZ) + ")");
 			}
 			
 			// Update GPU-driven renderer with object data
@@ -914,6 +929,10 @@ bool Application::Render()
 			XMMATRIX viewMatrix, projectionMatrix;
 			m_Camera->GetViewMatrix(viewMatrix);
 			m_Direct3D->GetProjectionMatrix(projectionMatrix);
+			
+			LOG("Application::Render - Camera data for GPU-driven rendering:");
+			LOG("  Camera position: (" + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
+			LOG("  Camera target: (" + std::to_string(cameraTarget.x) + ", " + std::to_string(cameraTarget.y) + ", " + std::to_string(cameraTarget.z) + ")");
 			
 			m_GPUDrivenRenderer->UpdateCamera(m_Direct3D->GetDeviceContext(), cameraPos, cameraTarget, viewMatrix, projectionMatrix);
 			
@@ -1075,25 +1094,37 @@ bool Application::Render()
 			{
 				LOG("Application::Render - Calling GPU-driven renderer...");
 				m_GPUDrivenRenderer->Render(m_Direct3D->GetDeviceContext(), vertexBuffer, indexBuffer,
-										   vertexShader, pixelShader, inputLayout);
+										   vertexShader, pixelShader, inputLayout, m_Model, m_ShaderManager->GetPBRShader(), m_Light, m_Camera, m_Direct3D);
 				LOG("Application::Render - GPU-driven renderer call completed successfully");
+				
+				// Check if GPU-driven rendering was disabled by the renderer
+				if (!m_GPUDrivenRenderer->IsGPUDrivenEnabled())
+				{
+					LOG("Application::Render - GPU-driven renderer disabled itself, falling back to CPU-driven rendering");
+					m_enableGPUDrivenRendering = false;
+					// Don't return here - continue with CPU-driven rendering below
+				}
 			}
 			catch (const std::exception& e)
 			{
 				LOG_ERROR("Application::Render - Exception in GPU-driven renderer: " + std::string(e.what()));
 				m_enableGPUDrivenRendering = false;
-				return true; // Continue with CPU-driven rendering
+				// Don't return here - continue with CPU-driven rendering below
 			}
 			catch (...)
 			{
 				LOG_ERROR("Application::Render - Unknown exception in GPU-driven renderer");
 				m_enableGPUDrivenRendering = false;
-				return true; // Continue with CPU-driven rendering
+				// Don't return here - continue with CPU-driven rendering below
 			}
 		}
 	}
-	else
+	
+	// CPU-Driven Rendering Path (fallback or primary)
+	if (!m_enableGPUDrivenRendering)
 	{
+		LOG("Application::Render - Using CPU-driven rendering path");
+		
 		// Traditional CPU-Driven Rendering Path
 
 		// Set render states for skybox
@@ -1160,6 +1191,15 @@ bool Application::Render()
 		// Check if the model's AABB is in the view frustum
 		renderModel = m_Frustum->CheckAABB(worldMin, worldMax);
 
+		// Debug logging for CPU-driven rendering
+		LOG("CPU-Driven Rendering - Model " + std::to_string(i) + ":");
+		LOG("  Position: (" + std::to_string(posX) + ", " + std::to_string(posY) + ", " + std::to_string(posZ) + ")");
+		LOG("  Scale: (" + std::to_string(scaleX) + ", " + std::to_string(scaleY) + ", " + std::to_string(scaleZ) + ")");
+		LOG("  Rotation: (" + std::to_string(rotX) + ", " + std::to_string(rotY) + ", " + std::to_string(rotZ) + ")");
+		LOG("  World AABB Min: (" + std::to_string(worldMin.x) + ", " + std::to_string(worldMin.y) + ", " + std::to_string(worldMin.z) + ")");
+		LOG("  World AABB Max: (" + std::to_string(worldMax.x) + ", " + std::to_string(worldMax.y) + ", " + std::to_string(worldMax.z) + ")");
+		LOG("  In Frustum: " + std::string(renderModel ? "YES" : "NO"));
+
 		// If it can be seen then render it, if not skip this model and check the next one
 		if (renderModel)
 		{
@@ -1178,23 +1218,31 @@ bool Application::Render()
 			// Check if this is an FBX model with PBR materials first
 			if (m_Model->HasFBXMaterial())
 			{
+				LOG("CPU-Driven Rendering - Using PBR shader for FBX model");
 				// Debug lighting parameters
 				XMFLOAT3 lightDir = m_Light->GetDirection();
 				XMFLOAT4 ambientColor = m_Light->GetAmbientColor();
 				XMFLOAT4 diffuseColor = m_Light->GetDiffuseColor();
 				XMFLOAT3 cameraPos = m_Camera->GetPosition();
 				
+				LOG("CPU-Driven Rendering - PBR shader parameters:");
+				LOG("  Light direction: (" + std::to_string(lightDir.x) + ", " + std::to_string(lightDir.y) + ", " + std::to_string(lightDir.z) + ")");
+				LOG("  Ambient color: (" + std::to_string(ambientColor.x) + ", " + std::to_string(ambientColor.y) + ", " + std::to_string(ambientColor.z) + ", " + std::to_string(ambientColor.w) + ")");
+				LOG("  Diffuse color: (" + std::to_string(diffuseColor.x) + ", " + std::to_string(diffuseColor.y) + ", " + std::to_string(diffuseColor.z) + ", " + std::to_string(diffuseColor.w) + ")");
+				LOG("  Camera position: (" + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
+				
 				// Use PBR shader for FBX models with multiple textures
 				result = m_ShaderManager->RenderPBRShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
 					m_Model->GetDiffuseTexture(), m_Model->GetNormalTexture(), m_Model->GetMetallicTexture(),
 					m_Model->GetRoughnessTexture(), m_Model->GetEmissionTexture(), m_Model->GetAOTexture(),
 					m_Light->GetDirection(), m_Light->GetAmbientColor(), m_Light->GetDiffuseColor(), m_Model->GetBaseColor(),
-					m_Model->GetMetallic(), m_Model->GetRoughness(), m_Model->GetAO(), m_Model->GetEmissionStrength(), m_Camera->GetPosition());
+					m_Model->GetMetallic(), m_Model->GetRoughness(), m_Model->GetAO(), m_Model->GetEmissionStrength(), m_Camera->GetPosition(), false);
 				if (!result)
 				{
 					LOG_ERROR("Model render with PBRShader failed");
 					return false;
 				}
+				LOG("CPU-Driven Rendering - PBR shader render completed successfully");
 			}
 			else
 			{
@@ -1283,8 +1331,8 @@ bool Application::Render()
 			// Track gizmo draw calls (assuming gizmos add draw calls)
 			// This would need to be implemented in SelectionManager::RenderGizmos
 		}
-	}
-	} // End of traditional CPU-driven rendering path
+			}
+	} // End of CPU-driven rendering path
 
 	// Create an orthographic projection matrix for 2D rendering
 	orthoMatrix = XMMatrixOrthographicLH((float)m_screenWidth, (float)m_screenHeight, 0.0f, 1.0f);

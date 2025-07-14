@@ -39,6 +39,10 @@ struct DrawCommand
     UINT startInstanceLocation;
 };
 
+// World matrix structure for GPU-driven rendering
+// Using XMFLOAT4X4 to match the shader expectation
+typedef XMFLOAT4X4 WorldMatrix;
+
 // Frustum and camera data for compute shaders
 struct FrustumData
 {
@@ -47,7 +51,8 @@ struct FrustumData
     XMFLOAT4 cameraForward;
     XMFLOAT4 lodDistances[4];
     UINT maxLODLevels;
-    UINT padding[3];
+    UINT objectCount;
+    UINT padding[2];
 };
 
 class IndirectDrawBuffer
@@ -81,8 +86,16 @@ public:
     ID3D11ShaderResourceView* GetLODLevelsSRV() const { return m_lodLevelsSRV; }
     ID3D11ShaderResourceView* GetFrustumSRV() const { return m_frustumSRV; }
     
+    // Get world matrix buffer for GPU-driven rendering
+    ID3D11Buffer* GetWorldMatrixBuffer() const { return m_worldMatrixBuffer; }
+    ID3D11ShaderResourceView* GetWorldMatrixSRV() const { return m_worldMatrixSRV; }
+    ID3D11UnorderedAccessView* GetWorldMatrixUAV() const { return m_worldMatrixUAV; }
+    
     // Get the number of visible objects
     UINT GetVisibleObjectCount() const;
+    
+    // Get the number of objects currently stored
+    UINT GetObjectCount() const { return m_objectCount; }
     
     // Set LOD levels
     void SetLODLevels(const std::vector<LODLevel>& lodLevels);
@@ -105,6 +118,7 @@ private:
     ID3D11Buffer* m_drawCommandBuffer;
     ID3D11Buffer* m_visibleObjectCountBuffer;
     ID3D11Buffer* m_visibleObjectCountStagingBuffer;
+    ID3D11Buffer* m_worldMatrixBuffer;
     
     // Views
     ID3D11ShaderResourceView* m_objectDataSRV;
@@ -112,11 +126,14 @@ private:
     ID3D11ShaderResourceView* m_frustumSRV;
     ID3D11UnorderedAccessView* m_drawCommandUAV;
     ID3D11UnorderedAccessView* m_visibleObjectCountUAV;
+    ID3D11ShaderResourceView* m_worldMatrixSRV;
+    ID3D11UnorderedAccessView* m_worldMatrixUAV;
     
     // Data
     std::vector<LODLevel> m_lodLevels;
     UINT m_maxObjects;
     UINT m_visibleObjectCount;
+    UINT m_objectCount;
 };
 
 #endif // INDIRECT_DRAW_BUFFER_H 

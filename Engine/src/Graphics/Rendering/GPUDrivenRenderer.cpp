@@ -3,11 +3,17 @@
 #include "../../Core/System/PerformanceProfiler.h"
 #include "../../Core/Application/Application.h"
 #include "../../Core/Common/EngineTypes.h"
+#include "../Resource/Model.h"
+#include "Light.h"
+#include "../Rendering/Camera.h"
+#include "../Shaders/PBRShader.h"
+#include "../D3D11/D3D11Device.h"
 
 GPUDrivenRenderer::GPUDrivenRenderer()
     : m_frustumCullingCS(nullptr)
     , m_lodSelectionCS(nullptr)
     , m_commandGenerationCS(nullptr)
+    , m_worldMatrixGenerationCS(nullptr)
     , m_enableGPUDriven(true)
     , m_drawCallCount(0)
     , m_maxObjects(0)
@@ -61,6 +67,7 @@ bool GPUDrivenRenderer::InitializeComputeShaders(ID3D11Device* device, HWND hwnd
     m_frustumCullingCS = new ComputeShader();
     m_lodSelectionCS = new ComputeShader();
     m_commandGenerationCS = new ComputeShader();
+    m_worldMatrixGenerationCS = new ComputeShader();
     
     // Initialize compute shaders with correct file paths
     LOG("GPUDrivenRenderer: Initializing frustum culling compute shader");
@@ -90,6 +97,15 @@ bool GPUDrivenRenderer::InitializeComputeShaders(ID3D11Device* device, HWND hwnd
     }
     LOG("GPUDrivenRenderer: Command generation compute shader initialized successfully");
     
+    LOG("GPUDrivenRenderer: Initializing world matrix generation compute shader");
+    result = m_worldMatrixGenerationCS->Initialize(device, hwnd, L"../Engine/assets/shaders/WorldMatrixGenerationComputeShader.hlsl", "main");
+    if (!result)
+    {
+        LOG_ERROR("Failed to initialize world matrix generation compute shader");
+        return false;
+    }
+    LOG("GPUDrivenRenderer: World matrix generation compute shader initialized successfully");
+    
     // Verify all compute shaders are valid
     LOG("GPUDrivenRenderer: Verifying compute shaders are valid");
     if (!m_frustumCullingCS->GetComputeShader())
@@ -105,6 +121,12 @@ bool GPUDrivenRenderer::InitializeComputeShaders(ID3D11Device* device, HWND hwnd
     if (!m_commandGenerationCS->GetComputeShader())
     {
         LOG_ERROR("Command generation compute shader is null after initialization");
+        return false;
+    }
+    
+    if (!m_worldMatrixGenerationCS->GetComputeShader())
+    {
+        LOG_ERROR("World matrix generation compute shader is null after initialization");
         return false;
     }
     
@@ -133,6 +155,13 @@ void GPUDrivenRenderer::ReleaseComputeShaders()
         m_commandGenerationCS->Shutdown();
         delete m_commandGenerationCS;
         m_commandGenerationCS = nullptr;
+    }
+    
+    if (m_worldMatrixGenerationCS)
+    {
+        m_worldMatrixGenerationCS->Shutdown();
+        delete m_worldMatrixGenerationCS;
+        m_worldMatrixGenerationCS = nullptr;
     }
 }
 
@@ -165,7 +194,8 @@ void GPUDrivenRenderer::UpdateCamera(ID3D11DeviceContext* context, const XMFLOAT
 }
 
 void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* vertexBuffer, ID3D11Buffer* indexBuffer,
-                              ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader, ID3D11InputLayout* inputLayout)
+                              ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader, ID3D11InputLayout* inputLayout,
+                              Model* model, PBRShader* pbrShader, Light* light, Camera* camera, D3D11Device* direct3D)
 {
     if (!m_enableGPUDriven)
     {
@@ -223,12 +253,21 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
     PerformanceProfiler::GetInstance().BeginSection("GPU-Driven Rendering");
     
     // Validate compute shader resources before setting them
+    LOG("GPUDrivenRenderer::Render - Getting compute shader resources");
     ID3D11ShaderResourceView* objectDataSRV = m_indirectBuffer.GetObjectDataSRV();
     ID3D11ShaderResourceView* lodLevelsSRV = m_indirectBuffer.GetLODLevelsSRV();
     ID3D11ShaderResourceView* frustumSRV = m_indirectBuffer.GetFrustumSRV();
     ID3D11UnorderedAccessView* drawCommandUAV = m_indirectBuffer.GetDrawCommandUAV();
     ID3D11UnorderedAccessView* visibleObjectCountUAV = m_indirectBuffer.GetVisibleObjectCountUAV();
     ID3D11Buffer* frustumBuffer = m_indirectBuffer.GetFrustumBuffer();
+    
+    LOG("GPUDrivenRenderer::Render - Compute shader resource validation:");
+    LOG("  ObjectDataSRV: " + std::string(objectDataSRV ? "valid" : "null"));
+    LOG("  LODLevelsSRV: " + std::string(lodLevelsSRV ? "valid" : "null"));
+    LOG("  FrustumSRV: " + std::string(frustumSRV ? "valid" : "null"));
+    LOG("  DrawCommandUAV: " + std::string(drawCommandUAV ? "valid" : "null"));
+    LOG("  VisibleObjectCountUAV: " + std::string(visibleObjectCountUAV ? "valid" : "null"));
+    LOG("  FrustumBuffer: " + std::string(frustumBuffer ? "valid" : "null"));
     
     if (!objectDataSRV || !lodLevelsSRV || !frustumSRV || !drawCommandUAV || !visibleObjectCountUAV || !frustumBuffer)
     {
@@ -244,7 +283,27 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
     
 
     
-    // Set up compute shader resources
+    // Generate world matrices for all objects
+    LOG("GPUDrivenRenderer::Render - Generating world matrices");
+    ID3D11UnorderedAccessView* worldMatrixUAV = m_indirectBuffer.GetWorldMatrixUAV();
+    if (!worldMatrixUAV)
+    {
+        LOG_ERROR("GPUDrivenRenderer::Render - World matrix UAV is null");
+        return;
+    }
+    
+    // Set up world matrix generation compute shader resources
+    m_worldMatrixGenerationCS->SetShaderResourceView(context, 0, objectDataSRV);
+    m_worldMatrixGenerationCS->SetUnorderedAccessView(context, 0, worldMatrixUAV);
+    
+    // Dispatch world matrix generation compute shader
+    UINT actualObjectCount = m_indirectBuffer.GetObjectCount();
+    UINT worldMatrixThreadGroupCount = (actualObjectCount + 63) / 64;
+    LOG("GPUDrivenRenderer::Render - Dispatching world matrix generation with " + std::to_string(worldMatrixThreadGroupCount) + " thread groups");
+    m_worldMatrixGenerationCS->Dispatch(context, worldMatrixThreadGroupCount, 1, 1);
+    
+    // Set up compute shader resources for command generation
+    LOG("GPUDrivenRenderer::Render - Setting up compute shader resources");
     m_commandGenerationCS->SetShaderResourceView(context, 0, objectDataSRV);
     m_commandGenerationCS->SetShaderResourceView(context, 1, lodLevelsSRV);
     m_commandGenerationCS->SetShaderResourceView(context, 2, frustumSRV);
@@ -260,11 +319,16 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
     }
     
     // Dispatch compute shader to generate draw commands
-    UINT threadGroupCount = (m_maxObjects + 63) / 64; // 64 threads per group
+    // We should only dispatch enough thread groups to process the actual number of objects
+    // Get the actual number of objects from the indirect buffer
+    UINT threadGroupCount = (actualObjectCount + 63) / 64; // 64 threads per group
+    LOG("GPUDrivenRenderer::Render - Dispatching compute shader with " + std::to_string(threadGroupCount) + " thread groups for " + std::to_string(actualObjectCount) + " objects");
     m_commandGenerationCS->Dispatch(context, threadGroupCount, 1, 1);
     
     // Check if compute shader generated any draw commands
+    LOG("GPUDrivenRenderer::Render - Getting visible object count");
     UINT finalVisibleCount = m_indirectBuffer.GetVisibleObjectCount();
+    LOG("GPUDrivenRenderer::Render - Visible object count: " + std::to_string(finalVisibleCount));
     
     if (finalVisibleCount == 0)
     {
@@ -311,6 +375,8 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
         return;
     }
     
+    // For GPU-driven rendering, we need to use a special vertex shader that can handle per-instance world matrices
+    // For now, we'll use the regular vertex shader but set up the world matrix buffer
     context->VSSetShader(vertexShader, nullptr, 0);
     context->PSSetShader(pixelShader, nullptr, 0);
     
@@ -327,8 +393,78 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
     // Only perform indirect draw if we have visible objects
     if (finalVisibleCount > 0)
     {
-        // Perform indirect draw call
-        context->DrawIndexedInstancedIndirect(drawCommandBuffer, 0);
+        LOG("GPUDrivenRenderer::Render - Performing indirect draw call with " + std::to_string(finalVisibleCount) + " visible objects");
+        
+        // Log draw command details for debugging
+        LOG("GPUDrivenRenderer::Render - Draw command details:");
+        LOG("  Draw command buffer pointer: " + std::to_string(reinterpret_cast<uintptr_t>(drawCommandBuffer)));
+        LOG("  Vertex buffer pointer: " + std::to_string(reinterpret_cast<uintptr_t>(vertexBuffer)));
+        LOG("  Index buffer pointer: " + std::to_string(reinterpret_cast<uintptr_t>(indexBuffer)));
+        LOG("  Vertex shader pointer: " + std::to_string(reinterpret_cast<uintptr_t>(vertexShader)));
+        LOG("  Pixel shader pointer: " + std::to_string(reinterpret_cast<uintptr_t>(pixelShader)));
+        LOG("  Input layout pointer: " + std::to_string(reinterpret_cast<uintptr_t>(inputLayout)));
+        
+        // Use instanced rendering with world matrices
+        LOG("GPUDrivenRenderer::Render - Using instanced rendering with world matrices");
+        
+        // Set the world matrix buffer as a shader resource view
+        ID3D11ShaderResourceView* worldMatrixSRV = m_indirectBuffer.GetWorldMatrixSRV();
+        if (!worldMatrixSRV)
+        {
+            LOG_ERROR("GPUDrivenRenderer::Render - World matrix SRV is null");
+            return;
+        }
+        
+            // Set the world matrix buffer as a shader resource view for the vertex shader
+    context->VSSetShaderResources(1, 1, &worldMatrixSRV);
+    
+    // Set up texture resources for the pixel shader
+    // The PBR pixel shader expects textures at registers t0-t5
+    // We need to get these from the Model object
+    ID3D11ShaderResourceView* diffuseTexture = model->GetDiffuseTexture();
+    ID3D11ShaderResourceView* normalTexture = model->GetNormalTexture();
+    ID3D11ShaderResourceView* metallicTexture = model->GetMetallicTexture();
+    ID3D11ShaderResourceView* roughnessTexture = model->GetRoughnessTexture();
+    ID3D11ShaderResourceView* emissionTexture = model->GetEmissionTexture();
+    ID3D11ShaderResourceView* aoTexture = model->GetAOTexture();
+    
+    // Set shader texture resources in the pixel shader
+    context->PSSetShaderResources(0, 1, &diffuseTexture);
+    context->PSSetShaderResources(1, 1, &normalTexture);
+    context->PSSetShaderResources(2, 1, &metallicTexture);
+    context->PSSetShaderResources(3, 1, &roughnessTexture);
+    context->PSSetShaderResources(4, 1, &emissionTexture);
+    context->PSSetShaderResources(5, 1, &aoTexture);
+    
+    // Set up constant buffers for the PBR shader
+    // We need to set up the light buffer and material buffer
+    // For now, let's use the PBR shader's setup method with a dummy world matrix
+    // and then override the world matrix with our per-instance matrices
+    
+    // Get view and projection matrices
+    XMMATRIX viewMatrix, projectionMatrix;
+    camera->GetViewMatrix(viewMatrix);
+    direct3D->GetProjectionMatrix(projectionMatrix);
+    
+    // Set up PBR shader parameters with dummy world matrix
+    // The actual world matrices will be provided by the vertex shader via structured buffer
+    XMMATRIX dummyWorldMatrix = XMMatrixIdentity();
+    
+    // Use the PBR shader's setup method to configure constant buffers and sampler state
+    pbrShader->SetupShaderParameters(context, dummyWorldMatrix, viewMatrix, projectionMatrix,
+                                   diffuseTexture, normalTexture, metallicTexture,
+                                   roughnessTexture, emissionTexture, aoTexture,
+                                   light->GetDirection(), light->GetAmbientColor(), light->GetDiffuseColor(),
+                                   model->GetBaseColor(), model->GetMetallic(), model->GetRoughness(),
+                                   model->GetAO(), model->GetEmissionStrength(), camera->GetPosition(), true);
+    
+    // Set GPU-driven rendering flag in the constant buffer
+    // We need to update the constant buffer to include the GPU-driven flag
+    // For now, let's modify the shader to always use GPU-driven mode when the buffer is bound
+    
+    // Perform instanced draw call
+    context->DrawIndexedInstanced(61260, finalVisibleCount, 0, 0, 0);
+        LOG("GPUDrivenRenderer::Render - Instanced draw call completed with " + std::to_string(finalVisibleCount) + " instances");
     }
     else
     {
@@ -338,6 +474,10 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
     // Track draw call
     PerformanceProfiler::GetInstance().IncrementIndirectDrawCalls();
     m_drawCallCount = 1; // Single indirect draw call
+    
+    // Update render count for UI display
+    // Note: This should be updated by the Application class, but for now we'll set it here
+    // The Application class should call a method to get the render count from GPU-driven renderer
     
     // End profiling
     PerformanceProfiler::GetInstance().EndSection();
@@ -357,6 +497,7 @@ FrustumData GPUDrivenRenderer::GenerateFrustumData(const XMMATRIX& viewMatrix, c
     frustumData.lodDistances[2] = XMFLOAT4(100.0f, 0.0f, 0.0f, 0.0f);
     frustumData.lodDistances[3] = XMFLOAT4(200.0f, 0.0f, 0.0f, 0.0f);
     frustumData.maxLODLevels = 4;
+    frustumData.objectCount = m_indirectBuffer.GetObjectCount();
     
     // Generate frustum planes using the same method as CPU-driven rendering
     XMMATRIX finalMatrix;

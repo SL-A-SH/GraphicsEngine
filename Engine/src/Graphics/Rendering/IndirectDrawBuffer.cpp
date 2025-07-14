@@ -7,13 +7,17 @@ IndirectDrawBuffer::IndirectDrawBuffer()
     , m_frustumBuffer(nullptr)
     , m_drawCommandBuffer(nullptr)
     , m_visibleObjectCountBuffer(nullptr)
+    , m_worldMatrixBuffer(nullptr)
     , m_objectDataSRV(nullptr)
     , m_lodLevelsSRV(nullptr)
     , m_frustumSRV(nullptr)
     , m_drawCommandUAV(nullptr)
     , m_visibleObjectCountUAV(nullptr)
+    , m_worldMatrixSRV(nullptr)
+    , m_worldMatrixUAV(nullptr)
     , m_maxObjects(0)
     , m_visibleObjectCount(0)
+    , m_objectCount(0)
 {
 }
 
@@ -33,12 +37,13 @@ bool IndirectDrawBuffer::Initialize(ID3D11Device* device, UINT maxObjects)
         return false;
     }
     
-    // Set up default LOD levels
+    // Set up default LOD levels - using full model index count for all LODs
+    // In a real implementation, you would have different LOD meshes with different index counts
     m_lodLevels.resize(4);
-    m_lodLevels[0] = { 0.0f, 36, 0, 0, 0 };      // High detail
-    m_lodLevels[1] = { 50.0f, 24, 0, 0, 0 };     // Medium detail
-    m_lodLevels[2] = { 100.0f, 12, 0, 0, 0 };    // Low detail
-    m_lodLevels[3] = { 200.0f, 6, 0, 0, 0 };     // Very low detail
+    m_lodLevels[0] = { 0.0f, 61260, 0, 0, 0 };      // High detail (full model)
+    m_lodLevels[1] = { 50.0f, 61260, 0, 0, 0 };     // Medium detail (full model for now)
+    m_lodLevels[2] = { 100.0f, 61260, 0, 0, 0 };   // Low detail (full model for now)
+    m_lodLevels[3] = { 200.0f, 61260, 0, 0, 0 };   // Very low detail (full model for now)
     
     // Upload LOD levels to GPU buffer
     UpdateLODLevels();
@@ -149,6 +154,21 @@ bool IndirectDrawBuffer::CreateBuffers(ID3D11Device* device, UINT maxObjects)
         return false;
     }
     
+    // Create world matrix buffer
+    bufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    bufferDesc.ByteWidth = sizeof(XMFLOAT4X4) * maxObjects;
+    bufferDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
+    bufferDesc.CPUAccessFlags = 0;
+    bufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    bufferDesc.StructureByteStride = sizeof(XMFLOAT4X4);
+    
+    result = device->CreateBuffer(&bufferDesc, nullptr, &m_worldMatrixBuffer);
+    if (FAILED(result))
+    {
+        LOG_ERROR("Failed to create world matrix buffer - HRESULT: " + std::to_string(result));
+        return false;
+    }
+    
     // Create SRVs
     srvDesc.Format = DXGI_FORMAT_UNKNOWN;
     srvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
@@ -178,6 +198,15 @@ bool IndirectDrawBuffer::CreateBuffers(ID3D11Device* device, UINT maxObjects)
         return false;
     }
     
+    // Create SRV for world matrix buffer
+    srvDesc.Buffer.NumElements = maxObjects;
+    result = device->CreateShaderResourceView(m_worldMatrixBuffer, &srvDesc, &m_worldMatrixSRV);
+    if (FAILED(result))
+    {
+        LOG_ERROR("Failed to create world matrix SRV - HRESULT: " + std::to_string(result));
+        return false;
+    }
+    
     // Create UAVs
     uavDesc.Format = DXGI_FORMAT_UNKNOWN;
     uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
@@ -204,6 +233,15 @@ bool IndirectDrawBuffer::CreateBuffers(ID3D11Device* device, UINT maxObjects)
         return false;
     }
     
+    // Create UAV for world matrix buffer
+    uavDesc.Buffer.NumElements = maxObjects;
+    result = device->CreateUnorderedAccessView(m_worldMatrixBuffer, &uavDesc, &m_worldMatrixUAV);
+    if (FAILED(result))
+    {
+        LOG_ERROR("Failed to create world matrix UAV - HRESULT: " + std::to_string(result));
+        return false;
+    }
+    
     return true;
 }
 
@@ -215,17 +253,23 @@ void IndirectDrawBuffer::ReleaseBuffers()
     if (m_drawCommandBuffer) { m_drawCommandBuffer->Release(); m_drawCommandBuffer = nullptr; }
     if (m_visibleObjectCountBuffer) { m_visibleObjectCountBuffer->Release(); m_visibleObjectCountBuffer = nullptr; }
     if (m_visibleObjectCountStagingBuffer) { m_visibleObjectCountStagingBuffer->Release(); m_visibleObjectCountStagingBuffer = nullptr; }
+    if (m_worldMatrixBuffer) { m_worldMatrixBuffer->Release(); m_worldMatrixBuffer = nullptr; }
     
     if (m_objectDataSRV) { m_objectDataSRV->Release(); m_objectDataSRV = nullptr; }
     if (m_lodLevelsSRV) { m_lodLevelsSRV->Release(); m_lodLevelsSRV = nullptr; }
     if (m_frustumSRV) { m_frustumSRV->Release(); m_frustumSRV = nullptr; }
+    if (m_worldMatrixSRV) { m_worldMatrixSRV->Release(); m_worldMatrixSRV = nullptr; }
     if (m_drawCommandUAV) { m_drawCommandUAV->Release(); m_drawCommandUAV = nullptr; }
     if (m_visibleObjectCountUAV) { m_visibleObjectCountUAV->Release(); m_visibleObjectCountUAV = nullptr; }
+    if (m_worldMatrixUAV) { m_worldMatrixUAV->Release(); m_worldMatrixUAV = nullptr; }
 }
 
 void IndirectDrawBuffer::UpdateObjectData(ID3D11DeviceContext* context, const std::vector<ObjectData>& objects)
 {
     if (objects.empty()) return;
+    
+    // Store the actual number of objects
+    m_objectCount = static_cast<UINT>(objects.size());
     
     D3D11_MAPPED_SUBRESOURCE mappedResource;
     HRESULT result = context->Map(m_objectDataBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);

@@ -41,7 +41,8 @@ cbuffer CameraBuffer : register(b0)
     float4 cameraForward;
     float4 lodDistances[4];
     uint maxLODLevels;
-    uint padding[3];
+    uint objectCount;
+    uint padding[2];
 };
 
 // Input buffers
@@ -57,6 +58,12 @@ RWStructuredBuffer<uint> visibleObjectCount : register(u1);
 void main(uint3 dispatchId : SV_DispatchThreadID)
 {
     uint objectIndex = dispatchId.x;
+    
+    // Check if this thread is processing a valid object
+    if (objectIndex >= objectCount)
+    {
+        return; // Skip invalid objects
+    }
     
     // Get object data
     ObjectData object = objectBuffer[objectIndex];

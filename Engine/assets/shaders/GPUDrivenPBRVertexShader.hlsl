@@ -1,18 +1,23 @@
-// PBR Vertex Shader
-// Supports multiple texture types: diffuse, normal, metallic, roughness, emission, AO
-// Also supports GPU-driven rendering with per-instance world matrices
+// GPU-Driven PBR Vertex Shader
+// Uses per-instance world matrices from a structured buffer
+
+// World matrix structure (4x4 matrix as 4 float4s)
+struct WorldMatrix
+{
+    float4 row0;
+    float4 row1;
+    float4 row2;
+    float4 row3;
+};
 
 cbuffer MatrixBuffer : register(b0)
 {
-    matrix worldMatrix;
     matrix viewMatrix;
     matrix projectionMatrix;
-    uint useGPUDrivenRendering;
-    uint padding[3];
 };
 
-// World matrices buffer for GPU-driven rendering
-StructuredBuffer<float4x4> worldMatrixBuffer : register(t1);
+// World matrices buffer
+StructuredBuffer<WorldMatrix> worldMatrixBuffer : register(t1);
 
 struct VertexInputType
 {
@@ -33,25 +38,23 @@ struct PixelInputType
     float3x3 tbn : TEXCOORD2; // Tangent-Bitangent-Normal matrix
 };
 
-PixelInputType PBRVertexShader(VertexInputType input)
+PixelInputType GPUDrivenPBRVertexShader(VertexInputType input)
 {
     PixelInputType output;
     
-    // Choose world matrix based on rendering mode
-    float4x4 finalWorldMatrix;
-    if (useGPUDrivenRendering != 0)
-    {
-        // Use per-instance world matrix for GPU-driven rendering
-        finalWorldMatrix = worldMatrixBuffer[input.instanceID];
-    }
-    else
-    {
-        // Use constant world matrix for CPU-driven rendering
-        finalWorldMatrix = worldMatrix;
-    }
+    // Get the world matrix for this instance
+    WorldMatrix worldMatrix = worldMatrixBuffer[input.instanceID];
+    
+    // Reconstruct the 4x4 matrix from the 4 float4s
+    matrix worldMatrix4x4 = matrix(
+        worldMatrix.row0,
+        worldMatrix.row1,
+        worldMatrix.row2,
+        worldMatrix.row3
+    );
     
     // Calculate the position of the vertex against the world, view, and projection matrices.
-    float4 worldPosition = mul(input.position, finalWorldMatrix);
+    float4 worldPosition = mul(input.position, worldMatrix4x4);
     output.position = mul(worldPosition, viewMatrix);
     output.position = mul(output.position, projectionMatrix);
     
@@ -59,15 +62,15 @@ PixelInputType PBRVertexShader(VertexInputType input)
     output.tex = input.tex;
     
     // Calculate the normal vector against the world matrix only.
-    output.normal = mul(input.normal, (float3x3)finalWorldMatrix);
+    output.normal = mul(input.normal, (float3x3)worldMatrix4x4);
     output.normal = normalize(output.normal);
     
     // Store the world position for the pixel shader.
     output.worldPos = worldPosition.xyz;
     
     // Calculate the tangent and bitangent vectors against the world matrix.
-    float3 tangent = mul(input.tangent, (float3x3)finalWorldMatrix);
-    float3 bitangent = mul(input.binormal, (float3x3)finalWorldMatrix);
+    float3 tangent = mul(input.tangent, (float3x3)worldMatrix4x4);
+    float3 bitangent = mul(input.binormal, (float3x3)worldMatrix4x4);
     
     // Normalize the tangent and bitangent vectors.
     tangent = normalize(tangent);
