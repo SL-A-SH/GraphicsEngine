@@ -9,8 +9,10 @@ UserInterface::UserInterface()
     m_Font = 0;
     m_FpsString = 0;
     m_RenderCountString = 0;
+    m_GPUStatusString = 0;
     m_previousFps = -1;
     m_previousRenderCount = -1;
+    m_previousGPUStatus = false;
     m_ShowFps = false;
 }
 
@@ -29,6 +31,8 @@ bool UserInterface::Initialize(D3D11Device* Direct3D, int screenHeight, int scre
     int fpsStringX, fpsStringY;
     char renderString[32];
     int renderStringX, renderStringY;
+    char gpuStatusString[32];
+    int gpuStatusStringX, gpuStatusStringY;
 
     // Store screen dimensions
     m_screenWidth = screenWidth;
@@ -59,7 +63,7 @@ bool UserInterface::Initialize(D3D11Device* Direct3D, int screenHeight, int scre
 
     fpsStringX = m_screenWidth;
     fpsStringY = m_screenHeight - m_QTOffset;
-    // Initialize the fps text string with fixed position (20, 20)
+    // Initialize the fps text string.
     result = m_FpsString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 16, m_Font, fpsString, fpsStringX, fpsStringY, 1.0f, 1.0f, 1.0f);
     if (!result)
     {
@@ -84,12 +88,36 @@ bool UserInterface::Initialize(D3D11Device* Direct3D, int screenHeight, int scre
         return false;
     }
 
+    // Create the text object for the GPU status string.
+    m_GPUStatusString = new Text;
+    if (!m_GPUStatusString)
+    {
+        return false;
+    }
+
+    gpuStatusStringX = -800;
+    gpuStatusStringY = m_screenHeight - m_QTOffset;
+    // Initialize the GPU status text string.
+    strcpy_s(gpuStatusString, "GPU Driven: OFF");
+    result = m_GPUStatusString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 16, m_Font, gpuStatusString, gpuStatusStringX, gpuStatusStringY, 1.0f, 1.0f, 1.0f);
+    if (!result)
+    {
+        return false;
+    }
+
 
     return true;
 }
 
 void UserInterface::Shutdown()
 {
+    if (m_GPUStatusString)
+    {
+        m_GPUStatusString->Shutdown();
+        delete m_GPUStatusString;
+        m_GPUStatusString = 0;
+    }
+
     if (m_RenderCountString)
     {
         m_RenderCountString->Shutdown();
@@ -115,7 +143,7 @@ void UserInterface::Shutdown()
     return;
 }
 
-bool UserInterface::Frame(ID3D11DeviceContext* deviceContext, int fps, int renderCount)
+bool UserInterface::Frame(ID3D11DeviceContext* deviceContext, int fps, int renderCount, bool gpuDrivenEnabled)
 {
     bool result;
 
@@ -128,6 +156,13 @@ bool UserInterface::Frame(ID3D11DeviceContext* deviceContext, int fps, int rende
 
     // Update the render count string.
     result = UpdateRenderCountString(deviceContext, renderCount);
+    if (!result)
+    {
+        return false;
+    }
+
+    // Update the GPU status string.
+    result = UpdateGPUStatusString(deviceContext, gpuDrivenEnabled);
     if (!result)
     {
         return false;
@@ -178,6 +213,20 @@ bool UserInterface::Render(D3D11Device* Direct3D, ShaderManager* ShaderManager, 
     // Track UI rendering performance
     PerformanceProfiler::GetInstance().IncrementDrawCalls();
     PerformanceProfiler::GetInstance().AddTriangles(m_RenderCountString->GetIndexCount() / 3);
+
+    // Render the GPU status text string using the font shader.
+    m_GPUStatusString->Render(Direct3D->GetDeviceContext());
+
+    result = ShaderManager->RenderFontShader(Direct3D->GetDeviceContext(), m_GPUStatusString->GetIndexCount(), worldMatrix, viewMatrix, orthoMatrix,
+        m_Font->GetTexture(), m_GPUStatusString->GetPixelColor());
+    if (!result)
+    {
+        return false;
+    }
+    
+    // Track UI rendering performance
+    PerformanceProfiler::GetInstance().IncrementDrawCalls();
+    PerformanceProfiler::GetInstance().AddTriangles(m_GPUStatusString->GetIndexCount() / 3);
 
     // Turn off alpha blending now that the text has been rendered.
     Direct3D->DisableAlphaBlending();
@@ -284,6 +333,52 @@ bool UserInterface::UpdateRenderCountString(ID3D11DeviceContext* deviceContext, 
     renderStringY = m_screenHeight - m_QTOffset;
     // Update the sentence vertex buffer with the new string information.
     result = m_RenderCountString->UpdateText(deviceContext, m_Font, finalString, renderStringX, renderStringY, 1.0f, 1.0f, 1.0f);
+    if (!result)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+bool UserInterface::UpdateGPUStatusString(ID3D11DeviceContext* deviceContext, bool gpuDrivenEnabled)
+{
+    char finalString[32];
+    int gpuStringX, gpuStringY;
+    float red, green, blue;
+    bool result;
+
+    // Check if the GPU status from the previous frame was the same, if so don't need to update the text string.
+    if (m_previousGPUStatus == gpuDrivenEnabled)
+    {
+        return true;
+    }
+
+    // Store the GPU status for checking next frame.
+    m_previousGPUStatus = gpuDrivenEnabled;
+
+    // Setup the GPU status string.
+    if (gpuDrivenEnabled)
+    {
+        strcpy_s(finalString, "GPU Driven: ON");
+        // Green color for enabled
+        red = 0.0f;
+        green = 1.0f;
+        blue = 0.0f;
+    }
+    else
+    {
+        strcpy_s(finalString, "GPU Driven: OFF");
+        // Red color for disabled
+        red = 1.0f;
+        green = 0.0f;
+        blue = 0.0f;
+    }
+
+    gpuStringX = -800;
+    gpuStringY = m_screenHeight - m_QTOffset;
+    // Update the sentence vertex buffer with the new string information.
+    result = m_GPUStatusString->UpdateText(deviceContext, m_Font, finalString, gpuStringX, gpuStringY, red, green, blue);
     if (!result)
     {
         return false;

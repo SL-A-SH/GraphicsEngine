@@ -55,9 +55,6 @@ Application::Application()
 }
 
 
-
-
-
 Application::~Application()
 {
 }
@@ -790,7 +787,7 @@ bool Application::Frame(InputManager* Input)
 	// Use GPU-driven renderer's render count if GPU-driven rendering is enabled
 	int renderCount = m_enableGPUDrivenRendering && m_GPUDrivenRenderer ? 
 		m_GPUDrivenRenderer->GetRenderCount() : m_RenderCount;
-	result = m_UserInterface->Frame(m_Direct3D->GetDeviceContext(), m_Fps, renderCount);
+	result = m_UserInterface->Frame(m_Direct3D->GetDeviceContext(), m_Fps, renderCount, m_enableGPUDrivenRendering);
 	if (!result)
 	{
 		LOG_ERROR("User interface update failed");

@@ -19,21 +19,24 @@ public:
 
     bool Initialize(D3D11Device* Direct3D, int screenHeight, int screenWidth);
     void Shutdown();
-    bool Frame(ID3D11DeviceContext* deviceContext, int fps, int renderCount);
+    bool Frame(ID3D11DeviceContext* deviceContext, int fps, int renderCount, bool gpuDrivenEnabled);
     bool Render(D3D11Device* Direct3D, ShaderManager* ShaderManager, XMMATRIX worldMatrix, XMMATRIX viewMatrix, XMMATRIX orthoMatrix);
     void SetShowFps(bool show) { m_ShowFps = show; }
 
 private:
     bool UpdateFpsString(ID3D11DeviceContext* deviceContext, int fps);
     bool UpdateRenderCountString(ID3D11DeviceContext* deviceContext, int renderCount);
+    bool UpdateGPUStatusString(ID3D11DeviceContext* deviceContext, bool gpuDrivenEnabled);
 
 private:
     Font* m_Font;
     Text* m_FpsString;
     Text* m_RenderCountString;
+    Text* m_GPUStatusString;
     int m_screenWidth, m_screenHeight, m_QTOffset;
     int m_previousFps;
     int m_previousRenderCount;
+    bool m_previousGPUStatus;
     bool m_ShowFps;
 };
 
