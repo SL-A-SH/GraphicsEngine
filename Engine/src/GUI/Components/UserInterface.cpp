@@ -95,11 +95,11 @@ bool UserInterface::Initialize(D3D11Device* Direct3D, int screenHeight, int scre
         return false;
     }
 
-    gpuStatusStringX = -800;
+    gpuStatusStringX = -1000;
     gpuStatusStringY = m_screenHeight - m_QTOffset;
     // Initialize the GPU status text string.
-    strcpy_s(gpuStatusString, "GPU Driven: OFF");
-    result = m_GPUStatusString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 16, m_Font, gpuStatusString, gpuStatusStringX, gpuStatusStringY, 1.0f, 1.0f, 1.0f);
+    strcpy_s(gpuStatusString, "GPU-Driven Rendering: OFF");
+    result = m_GPUStatusString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 32, m_Font, gpuStatusString, gpuStatusStringX, gpuStatusStringY, 1.0f, 1.0f, 1.0f);
     if (!result)
     {
         return false;
@@ -360,7 +360,7 @@ bool UserInterface::UpdateGPUStatusString(ID3D11DeviceContext* deviceContext, bo
     // Setup the GPU status string.
     if (gpuDrivenEnabled)
     {
-        strcpy_s(finalString, "GPU Driven: ON");
+        strcpy_s(finalString, "GPU-Driven Rendering: ON");
         // Green color for enabled
         red = 0.0f;
         green = 1.0f;
@@ -368,14 +368,14 @@ bool UserInterface::UpdateGPUStatusString(ID3D11DeviceContext* deviceContext, bo
     }
     else
     {
-        strcpy_s(finalString, "GPU Driven: OFF");
+        strcpy_s(finalString, "GPU-Driven Rendering: OFF");
         // Red color for disabled
         red = 1.0f;
         green = 0.0f;
         blue = 0.0f;
     }
 
-    gpuStringX = -800;
+    gpuStringX = -1000;
     gpuStringY = m_screenHeight - m_QTOffset;
     // Update the sentence vertex buffer with the new string information.
     result = m_GPUStatusString->UpdateText(deviceContext, m_Font, finalString, gpuStringX, gpuStringY, red, green, blue);
