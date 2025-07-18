@@ -20,7 +20,7 @@
 #include "../../Graphics/Rendering/IndirectDrawBuffer.h"
 #include "../../GUI/Components/UserInterface.h"
 #include "../../Core/Input/Management/InputManager.h"
-#include "../../Core/System/RenderingBenchmark.h"
+// #include "../../Core/System/RenderingBenchmark.h" // DISABLED: Commented out for minimal GPU-driven rendering testing
 
 Application::Application()
 {
@@ -50,7 +50,7 @@ Application::Application()
 	m_ScaleGizmo = 0;
 	m_GPUDrivenRenderer = 0;
 	m_enableGPUDrivenRendering = false;
-	m_BenchmarkSystem = 0;
+	// m_BenchmarkSystem = 0; // DISABLED: Commented out for minimal GPU-driven rendering testing
 }
 
 
@@ -111,24 +111,24 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	}
 	LOG("Zone initialized successfully");
 
-	// Set the file name of the model - using cube for testing GPU compute shaders
-	strcpy_s(modelFilename, "../Engine/assets/models/Cube.txt");
-	LOG("Attempting to load cube model for GPU testing: " + std::string(modelFilename));
+	// Set the file name of the model - using spaceship for GPU-driven rendering
+	strcpy_s(modelFilename, "../Engine/assets/models/spaceship/low-poly/nave-modelo.fbx");
+	LOG("Attempting to load spaceship model for GPU-driven rendering: " + std::string(modelFilename));
 
 	// Create and initialize the model object.
 	LOG("Creating model object");
 	m_Model = new Model;
 
-	// Use simple cube model for GPU compute shader testing
-	result = m_Model->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, nullptr);
+	// Use spaceship FBX model for GPU-driven rendering
+	result = m_Model->InitializeFBX(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename);
 	if (!result)
 	{
-		LOG_ERROR("Could not initialize the model object");
+		LOG_ERROR("Could not initialize the FBX model object");
 		LOG_ERROR("Model file path: " + std::string(modelFilename));
-		MessageBox(hwnd, L"Could not initialize the model object.", L"Error", MB_OK);
+		MessageBox(hwnd, L"Could not initialize the FBX model object.", L"Error", MB_OK);
 		return false;
 	}
-	LOG("Cube model initialized successfully");
+	LOG("Spaceship FBX model initialized successfully");
 
 	// Create and initialize gizmo models
 	LOG("Creating gizmo models");
@@ -214,7 +214,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	// Create and initialize the model list object.
 	LOG("Creating model list");
 	m_ModelList = new ModelList;
-	m_ModelList->Initialize(5000); // Increased to 5000 spaceships for performance testing
+	m_ModelList->Initialize(5); // TESTING: Only 5 spaceships for GPU-driven rendering debug
 	LOG("Model list initialized successfully");
 	
 	// Debug: Check if ModelList was initialized correctly
@@ -282,7 +282,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 
 	// Initialize GPU-driven renderer
 	m_GPUDrivenRenderer = new GPUDrivenRenderer;
-	result = m_GPUDrivenRenderer->Initialize(m_Direct3D->GetDevice(), hwnd, 100000); // Support up to 100,000 objects for performance testing
+	result = m_GPUDrivenRenderer->Initialize(m_Direct3D->GetDevice(), hwnd, 10); // TESTING: Small buffer for 5 spaceships + some extra
 	if (!result)
 	{
 		LOG_ERROR("Could not initialize GPU-driven renderer - will use CPU-driven rendering only");
@@ -294,20 +294,24 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 		LOG("GPU-driven renderer initialized successfully");
 	}
 
-	// Initialize benchmark system
-	m_BenchmarkSystem = new RenderingBenchmark;
-	result = m_BenchmarkSystem->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), hwnd);
-	if (!result)
-	{
-		LOG_ERROR("Could not initialize benchmark system - benchmarking features will be disabled");
-		// Don't return false - continue without benchmark system
-		delete m_BenchmarkSystem;
-		m_BenchmarkSystem = nullptr;
-	}
-	else
-	{
-		LOG("Benchmark system initialized successfully");
-	}
+	// DISABLED: Initialize benchmark system (commented out for minimal GPU-driven rendering testing)
+	
+	//m_BenchmarkSystem = new RenderingBenchmark;
+	//result = m_BenchmarkSystem->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), hwnd);
+	//if (!result)
+	//{
+	//	LOG_ERROR("Could not initialize benchmark system - benchmarking features will be disabled");
+	//	// Don't return false - continue without benchmark system
+	//	delete m_BenchmarkSystem;
+	//	m_BenchmarkSystem = nullptr;
+	//}
+	//else
+	//{
+	//	LOG("Benchmark system initialized successfully");
+	//}
+	
+	// m_BenchmarkSystem = nullptr; // Temporarily disabled for minimal GPU-driven rendering testing
+	LOG("Benchmark system temporarily disabled for minimal GPU-driven rendering testing");
 
 	// Set up callbacks for model selection
 	if (m_mainWindow && m_mainWindow->GetModelListUI())
@@ -943,11 +947,8 @@ bool Application::Render()
 			}
 			m_GPUDrivenRenderer->UpdateObjects(m_Direct3D->GetDeviceContext(), objectData);
 			
-			// Update camera data
+			// Update camera data for GPU-driven rendering (simplified)
 			XMFLOAT3 cameraPos = m_Camera->GetPosition();
-			XMFLOAT3 cameraTarget = cameraPos;
-			cameraTarget.z += 1.0f; // Look slightly forward
-			
 			XMMATRIX viewMatrix, projectionMatrix;
 			m_Camera->GetViewMatrix(viewMatrix);
 			m_Direct3D->GetProjectionMatrix(projectionMatrix);
@@ -956,10 +957,9 @@ bool Application::Render()
 			{
 				LOG("Camera data for GPU-driven rendering:");
 				LOG("  Camera position: (" + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
-				LOG("  Camera target: (" + std::to_string(cameraTarget.x) + ", " + std::to_string(cameraTarget.y) + ", " + std::to_string(cameraTarget.z) + ")");
 			}
 			
-			m_GPUDrivenRenderer->UpdateCamera(m_Direct3D->GetDeviceContext(), cameraPos, cameraTarget, viewMatrix, projectionMatrix, m_debugLogging);
+			m_GPUDrivenRenderer->UpdateCamera(m_Direct3D->GetDeviceContext(), cameraPos, viewMatrix, projectionMatrix);
 			
 			// Validate that the Model is properly initialized before getting its buffers
 			if (!m_Model)
@@ -1111,24 +1111,24 @@ bool Application::Render()
 				}
 			}
 			
-			// Call GPU-driven renderer with exception handling
+			// Call simplified GPU-driven renderer
 			try
 			{
 				if (m_debugLogging)
 				{
-					LOG("=== CALLING GPU-DRIVEN RENDERER ===");
+					LOG("=== CALLING SIMPLIFIED GPU-DRIVEN RENDERER ===");
 					LOG("Object data size: " + std::to_string(objectData.size()));
 					LOG("Model count: " + std::to_string(modelCount));
 					LOG("Index count: " + std::to_string(m_Model->GetIndexCount()));
-					LOG("About to call GPUDrivenRenderer::Render...");
+					LOG("About to call simplified GPUDrivenRenderer::Render...");
 				}
 				
 				m_GPUDrivenRenderer->Render(m_Direct3D->GetDeviceContext(), vertexBuffer, indexBuffer,
-										   vertexShader, pixelShader, inputLayout, m_Model, m_ShaderManager->GetPBRShader(), m_Light, m_Camera, m_Direct3D, m_debugLogging);
+										   m_Model, m_ShaderManager->GetPBRShader(), m_Light, m_Camera, m_Direct3D);
 				
 				if (m_debugLogging)
 				{
-					LOG("GPU-driven renderer call completed successfully");
+					LOG("Simplified GPU-driven renderer call completed successfully");
 					LOG("Render count from GPU renderer: " + std::to_string(m_GPUDrivenRenderer->GetRenderCount()));
 				}
 				
@@ -1142,13 +1142,13 @@ bool Application::Render()
 			}
 			catch (const std::exception& e)
 			{
-				LOG_ERROR("Application::Render - Exception in GPU-driven renderer: " + std::string(e.what()));
+				LOG_ERROR("Application::Render - Exception in simplified GPU-driven renderer: " + std::string(e.what()));
 				m_enableGPUDrivenRendering = false;
 				// Don't return here - continue with CPU-driven rendering below
 			}
 			catch (...)
 			{
-				LOG_ERROR("Application::Render - Unknown exception in GPU-driven renderer");
+				LOG_ERROR("Application::Render - Unknown exception in simplified GPU-driven renderer");
 				m_enableGPUDrivenRendering = false;
 				// Don't return here - continue with CPU-driven rendering below
 			}

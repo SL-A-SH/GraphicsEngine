@@ -57,6 +57,12 @@ file(GLOB_RECURSE ENGINE_HEADERS
     ${SRC_DIR}/GUI/**/*.h
 )
 
+# Exclude RenderingBenchmark and PerformanceWidget files for minimal GPU-driven rendering testing
+list(REMOVE_ITEM ENGINE_SOURCES ${SRC_DIR}/Core/System/RenderingBenchmark.cpp)
+list(REMOVE_ITEM ENGINE_HEADERS ${SRC_DIR}/Core/System/RenderingBenchmark.h)
+list(REMOVE_ITEM ENGINE_SOURCES ${SRC_DIR}/GUI/Windows/PerformanceWidget.cpp)
+list(REMOVE_ITEM ENGINE_HEADERS ${SRC_DIR}/GUI/Windows/PerformanceWidget.h)
+
 # Gather shader files
 file(GLOB_RECURSE SHADER_FILES
     ${ASSETS_DIR}/shaders/*.hlsl

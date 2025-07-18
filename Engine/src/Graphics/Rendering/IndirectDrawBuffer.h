@@ -7,7 +7,7 @@
 
 using namespace DirectX;
 
-// Object data structure for GPU processing
+// Object data structure for GPU processing (MINIMAL VERSION)
 struct ObjectData
 {
     XMFLOAT3 position;
@@ -19,42 +19,9 @@ struct ObjectData
     UINT padding[2];
 };
 
-// LOD level structure
-struct LODLevel
-{
-    float distanceThreshold;
-    UINT indexCount;
-    UINT vertexOffset;
-    UINT indexOffset;
-    UINT padding;
-};
-
-// Draw command structure for indirect rendering
-struct DrawCommand
-{
-    UINT indexCountPerInstance;
-    UINT instanceCount;
-    UINT startIndexLocation;
-    INT baseVertexLocation;
-    UINT startInstanceLocation;
-};
-
 // World matrix structure for GPU-driven rendering
 // Using XMFLOAT4X4 to match the shader expectation
 typedef XMFLOAT4X4 WorldMatrix;
-
-// Frustum and camera data for compute shaders
-struct FrustumData
-{
-    XMFLOAT4 frustumPlanes[6];
-    XMFLOAT4 cameraPosition;
-    XMFLOAT4 cameraForward;
-    XMFLOAT4 lodDistances[4];
-    UINT maxLODLevels;
-    UINT objectCount;
-    UINT currentPass; // 0 = visibility pass, 1 = command generation pass
-    UINT padding;
-};
 
 class IndirectDrawBuffer
 {
@@ -68,76 +35,34 @@ public:
     // Update object data
     void UpdateObjectData(ID3D11DeviceContext* context, const std::vector<ObjectData>& objects);
     
-    // Update frustum data
-    void UpdateFrustumData(ID3D11DeviceContext* context, const FrustumData& frustumData);
-    
-    // Get frustum data
-    FrustumData GetFrustumData() const { return m_frustumData; }
-    
-    // Get buffers for compute shaders
+    // Get buffers for minimal GPU-driven rendering
     ID3D11Buffer* GetObjectDataBuffer() const { return m_objectDataBuffer; }
-    ID3D11Buffer* GetLODLevelsBuffer() const { return m_lodLevelsBuffer; }
-    ID3D11Buffer* GetFrustumBuffer() const { return m_frustumBuffer; }
-    ID3D11Buffer* GetDrawCommandBuffer() const { return m_drawCommandBuffer; }
-    ID3D11Buffer* GetVisibleObjectCountBuffer() const { return m_visibleObjectCountBuffer; }
-    
-    // Get UAVs for compute shaders
-    ID3D11UnorderedAccessView* GetDrawCommandUAV() const { return m_drawCommandUAV; }
-    ID3D11UnorderedAccessView* GetVisibleObjectCountUAV() const { return m_visibleObjectCountUAV; }
-    
-    // Get SRVs for compute shaders
-    ID3D11ShaderResourceView* GetObjectDataSRV() const { return m_objectDataSRV; }
-    ID3D11ShaderResourceView* GetLODLevelsSRV() const { return m_lodLevelsSRV; }
-    ID3D11ShaderResourceView* GetFrustumSRV() const { return m_frustumSRV; }
-    
-    // Get world matrix buffer for GPU-driven rendering
     ID3D11Buffer* GetWorldMatrixBuffer() const { return m_worldMatrixBuffer; }
+    
+    // Get SRVs and UAVs for minimal compute shader pipeline
+    ID3D11ShaderResourceView* GetObjectDataSRV() const { return m_objectDataSRV; }
     ID3D11ShaderResourceView* GetWorldMatrixSRV() const { return m_worldMatrixSRV; }
     ID3D11UnorderedAccessView* GetWorldMatrixUAV() const { return m_worldMatrixUAV; }
     
-    // Get the number of visible objects
-    UINT GetVisibleObjectCount() const;
-    
     // Get the number of objects currently stored
     UINT GetObjectCount() const { return m_objectCount; }
-    
-    // Set LOD levels
-    void SetLODLevels(const std::vector<LODLevel>& lodLevels);
-    
-    // Update LOD levels on GPU
-    void UpdateLODLevels();
-    
-    // Reset visible object count buffer
-    void ResetVisibleObjectCount(ID3D11DeviceContext* context);
 
 private:
     bool CreateBuffers(ID3D11Device* device, UINT maxObjects);
     void ReleaseBuffers();
 
 private:
-    // Buffers
+    // MINIMAL BUFFERS: Only object data and world matrices
     ID3D11Buffer* m_objectDataBuffer;
-    ID3D11Buffer* m_lodLevelsBuffer;
-    ID3D11Buffer* m_frustumBuffer;
-    ID3D11Buffer* m_drawCommandBuffer;
-    ID3D11Buffer* m_visibleObjectCountBuffer;
-    ID3D11Buffer* m_visibleObjectCountStagingBuffer;
     ID3D11Buffer* m_worldMatrixBuffer;
     
-    // Views
+    // MINIMAL VIEWS: Only what we need for basic GPU-driven rendering
     ID3D11ShaderResourceView* m_objectDataSRV;
-    ID3D11ShaderResourceView* m_lodLevelsSRV;
-    ID3D11ShaderResourceView* m_frustumSRV;
-    ID3D11UnorderedAccessView* m_drawCommandUAV;
-    ID3D11UnorderedAccessView* m_visibleObjectCountUAV;
     ID3D11ShaderResourceView* m_worldMatrixSRV;
     ID3D11UnorderedAccessView* m_worldMatrixUAV;
     
     // Data
-    std::vector<LODLevel> m_lodLevels;
-    FrustumData m_frustumData;
     UINT m_maxObjects;
-    UINT m_visibleObjectCount;
     UINT m_objectCount;
 };
 

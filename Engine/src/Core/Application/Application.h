@@ -25,7 +25,7 @@ class SelectionManager;
 class DisplayPlane;
 class GPUDrivenRenderer;
 class PerformanceProfiler;
-class RenderingBenchmark;
+// class RenderingBenchmark; // DISABLED: Commented out for minimal GPU-driven rendering testing
 
 using namespace DirectX;
 
@@ -117,7 +117,7 @@ private:
 	// GPU-driven rendering
 	GPUDrivenRenderer* m_GPUDrivenRenderer;
 	bool m_enableGPUDrivenRendering;
-	RenderingBenchmark* m_BenchmarkSystem;
+	// RenderingBenchmark* m_BenchmarkSystem; // DISABLED: Commented out for minimal GPU-driven rendering testing
 	
 	// Debug logging
 	bool m_debugLogging;

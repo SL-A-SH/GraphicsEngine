@@ -22,19 +22,15 @@ public:
     // Update object data for rendering
     void UpdateObjects(ID3D11DeviceContext* context, const std::vector<ObjectData>& objects);
     
-    // Update camera and frustum data
-    void UpdateCamera(ID3D11DeviceContext* context, const XMFLOAT3& cameraPos, const XMFLOAT3& cameraForward, 
-                     const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool debugLogging = false);
+    // Update camera data
+    void UpdateCamera(ID3D11DeviceContext* context, const XMFLOAT3& cameraPos, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
     
-    // Perform GPU-driven rendering
-    	void Render(ID3D11DeviceContext* context, ID3D11Buffer* vertexBuffer, ID3D11Buffer* indexBuffer,
-				ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader, ID3D11InputLayout* inputLayout,
-				class Model* model, class PBRShader* pbrShader, class Light* light, class Camera* camera, class D3D11Device* direct3D, bool debugLogging = false);
+    // Perform GPU-driven rendering (SIMPLIFIED VERSION)
+    void Render(ID3D11DeviceContext* context, ID3D11Buffer* vertexBuffer, ID3D11Buffer* indexBuffer,
+                class Model* model, class PBRShader* pbrShader, class Light* light, class Camera* camera, class D3D11Device* direct3D);
     
     // Get rendering statistics
-    UINT GetVisibleObjectCount() const { return m_indirectBuffer.GetVisibleObjectCount(); }
-    UINT GetDrawCallCount() const { return m_drawCallCount; }
-    int GetRenderCount() const { return static_cast<int>(m_indirectBuffer.GetVisibleObjectCount()); }
+    int GetRenderCount() const { return m_renderCount; }
     
     // Set rendering mode
     void SetRenderingMode(bool enableGPUDriven) { m_enableGPUDriven = enableGPUDriven; }
@@ -43,75 +39,55 @@ public:
     // Check if compute shaders are properly initialized
     bool AreComputeShadersInitialized() const 
     { 
-        bool frustumValid = m_frustumCullingCS && m_frustumCullingCS->GetComputeShader();
-        bool lodValid = m_lodSelectionCS && m_lodSelectionCS->GetComputeShader();
-        bool commandValid = m_commandGenerationCS && m_commandGenerationCS->GetComputeShader();
+        bool worldMatrixValid = m_worldMatrixGenerationCS && m_worldMatrixGenerationCS->GetComputeShader();
         
-        if (!frustumValid)
-            LOG_ERROR("GPUDrivenRenderer: Frustum culling compute shader is not valid");
-        if (!lodValid)
-            LOG_ERROR("GPUDrivenRenderer: LOD selection compute shader is not valid");
-        if (!commandValid)
-            LOG_ERROR("GPUDrivenRenderer: Command generation compute shader is not valid");
+        if (!worldMatrixValid)
+            LOG_ERROR("GPUDrivenRenderer: World matrix generation compute shader is not valid");
         
-        return frustumValid && lodValid && commandValid;
+        return worldMatrixValid;
     }
     
     // Check if indirect buffer is properly initialized
     bool IsIndirectBufferInitialized() const
     {
         bool objectDataValid = m_indirectBuffer.GetObjectDataSRV() != nullptr;
-        bool lodLevelsValid = m_indirectBuffer.GetLODLevelsSRV() != nullptr;
-        bool frustumValid = m_indirectBuffer.GetFrustumSRV() != nullptr;
-        bool drawCommandValid = m_indirectBuffer.GetDrawCommandUAV() != nullptr;
-        bool visibleCountValid = m_indirectBuffer.GetVisibleObjectCountUAV() != nullptr;
-        bool frustumBufferValid = m_indirectBuffer.GetFrustumBuffer() != nullptr;
-        bool drawCommandBufferValid = m_indirectBuffer.GetDrawCommandBuffer() != nullptr;
+        bool worldMatrixValid = m_indirectBuffer.GetWorldMatrixUAV() != nullptr;
         
         if (!objectDataValid)
             LOG_ERROR("GPUDrivenRenderer: Object data SRV is not valid");
-        if (!lodLevelsValid)
-            LOG_ERROR("GPUDrivenRenderer: LOD levels SRV is not valid");
-        if (!frustumValid)
-            LOG_ERROR("GPUDrivenRenderer: Frustum SRV is not valid");
-        if (!drawCommandValid)
-            LOG_ERROR("GPUDrivenRenderer: Draw command UAV is not valid");
-        if (!visibleCountValid)
-            LOG_ERROR("GPUDrivenRenderer: Visible object count UAV is not valid");
-        if (!frustumBufferValid)
-            LOG_ERROR("GPUDrivenRenderer: Frustum buffer is not valid");
-        if (!drawCommandBufferValid)
-            LOG_ERROR("GPUDrivenRenderer: Draw command buffer is not valid");
+        if (!worldMatrixValid)
+            LOG_ERROR("GPUDrivenRenderer: World matrix UAV is not valid");
         
-        return objectDataValid && lodLevelsValid && frustumValid && 
-               drawCommandValid && visibleCountValid && frustumBufferValid && drawCommandBufferValid;
+        return objectDataValid && worldMatrixValid;
     }
 
 private:
     bool InitializeComputeShaders(ID3D11Device* device, HWND hwnd);
     void ReleaseComputeShaders();
     
-    // Generate frustum data from view and projection matrices
-    FrustumData GenerateFrustumData(const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
+    // Initialize GPU-driven rendering shaders
+    bool InitializeGPUDrivenShaders(ID3D11Device* device, HWND hwnd);
+    void ReleaseGPUDrivenShaders();
 
 private:
-    // Compute shaders
-    ComputeShader* m_frustumCullingCS;
-    ComputeShader* m_lodSelectionCS;
-    ComputeShader* m_commandGenerationCS;
+    // SIMPLIFIED: Only world matrix generation compute shader
     ComputeShader* m_worldMatrixGenerationCS;
+    
+    // GPU-driven rendering shaders
+    ID3D11VertexShader* m_gpuDrivenVertexShader;
+    ID3D11PixelShader* m_gpuDrivenPixelShader;
+    ID3D11InputLayout* m_gpuDrivenInputLayout;
     
     // Indirect rendering buffers
     IndirectDrawBuffer m_indirectBuffer;
     
     // Rendering state
     bool m_enableGPUDriven;
-    UINT m_drawCallCount;
     UINT m_maxObjects;
+    int m_renderCount;
     
     // Camera data
     XMFLOAT3 m_cameraPosition;
-    XMFLOAT3 m_cameraForward;
     XMMATRIX m_viewMatrix;
     XMMATRIX m_projectionMatrix;
 };

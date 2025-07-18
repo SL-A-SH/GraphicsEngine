@@ -28,7 +28,7 @@
 #include "../../Core/System/PerformanceProfiler.h"
 #include "../../Core/System/Logger.h"
 #include "../../Core/System/PerformanceLogger.h"
-#include "../../Core/System/RenderingBenchmark.h"
+// #include "../../Core/System/RenderingBenchmark.h" // DISABLED: Commented out for minimal GPU-driven rendering testing
 
 PerformanceWidget::PerformanceWidget(QWidget* parent)
     : QWidget(parent)

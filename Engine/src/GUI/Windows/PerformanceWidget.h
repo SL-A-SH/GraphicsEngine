@@ -5,12 +5,12 @@
 #include <QString>
 #include <vector>
 #include <memory>
-#include "../../Core/System/RenderingBenchmark.h"
+// #include "../../Core/System/RenderingBenchmark.h" // DISABLED: Commented out for minimal GPU-driven rendering testing
 
-// Forward declarations for benchmark system
-struct BenchmarkResult;
-struct BenchmarkConfig;
-class RenderingBenchmark;
+// Forward declarations for benchmark system (DISABLED for minimal testing)
+// struct BenchmarkResult;
+// struct BenchmarkConfig;
+// class RenderingBenchmark;
 
 // Forward declarations
 class QVBoxLayout;
@@ -135,7 +135,7 @@ private:
     int m_InternalTabIndex;
     
     // Benchmark system
-    std::unique_ptr<RenderingBenchmark> m_BenchmarkSystem;
+    // std::unique_ptr<RenderingBenchmark> m_BenchmarkSystem; // DISABLED: Commented out for minimal GPU-driven rendering testing
     bool m_BenchmarkRunning;
     std::vector<BenchmarkResult> m_CurrentBenchmarkResults;
     QTimer* m_BenchmarkTimer;
