@@ -22,7 +22,7 @@
 #include "../../GUI/Components/UserInterface.h"
 #include "../../Core/Input/Management/InputManager.h"
 #include "../../Core/System/RenderingBenchmark.h"
-#include "../../GUI/Windows/PerformanceWidget.h"
+// #include "../../GUI/Windows/PerformanceWidget.h" // Now handled by MainWindow
 
 Application::Application()
 {
@@ -53,7 +53,7 @@ Application::Application()
 	m_GPUDrivenRenderer = 0;
 	m_enableGPUDrivenRendering = false;
 	m_BenchmarkSystem = 0;
-	m_PerformanceWidget = 0;
+	// m_PerformanceWidget = 0; // Now handled by MainWindow
 }
 
 
@@ -312,19 +312,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 		LOG("Benchmark system initialized successfully");
 	}
 
-	// Initialize performance widget
-	m_PerformanceWidget = new PerformanceWidget;
-	result = m_PerformanceWidget->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), hwnd);
-	if (!result)
-	{
-		LOG_ERROR("Could not initialize performance widget - performance UI will be disabled");
-		delete m_PerformanceWidget;
-		m_PerformanceWidget = nullptr;
-	}
-	else
-	{
-		LOG("Performance widget initialized successfully");
-	}
+	// Note: PerformanceWidget now handled by MainWindow with Qt tabbed interface
 
 	// Set up callbacks for model selection
 	if (m_mainWindow && m_mainWindow->GetModelListUI())
@@ -512,13 +500,7 @@ void Application::Shutdown()
 		m_BenchmarkSystem = 0;
 	}
 
-	// Release the performance widget
-	if (m_PerformanceWidget)
-	{
-		m_PerformanceWidget->Shutdown();
-		delete m_PerformanceWidget;
-		m_PerformanceWidget = 0;
-	}
+	// Note: PerformanceWidget cleanup handled by MainWindow
 
 	LOG("Application shutdown completed");
 	return;
@@ -845,12 +827,7 @@ bool Application::Frame(InputManager* Input)
 		return false;
 	}
 
-	// Update and render performance widget
-	if (m_PerformanceWidget)
-	{
-		m_PerformanceWidget->Update(frameTime);
-		m_PerformanceWidget->Render();
-	}
+	// Note: PerformanceWidget rendering handled by MainWindow/Qt
 
 	// Track UI rendering performance
 	PerformanceProfiler::GetInstance().IncrementDrawCalls(); // UI rendering adds draw calls

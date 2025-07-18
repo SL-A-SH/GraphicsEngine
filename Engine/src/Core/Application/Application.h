@@ -26,7 +26,7 @@ class DisplayPlane;
 class GPUDrivenRenderer;
 class PerformanceProfiler;
 class RenderingBenchmark;
-class PerformanceWidget;
+// class PerformanceWidget; // Now handled by MainWindow
 
 using namespace DirectX;
 
@@ -119,7 +119,7 @@ private:
 	GPUDrivenRenderer* m_GPUDrivenRenderer;
 	bool m_enableGPUDrivenRendering;
 	RenderingBenchmark* m_BenchmarkSystem;
-	PerformanceWidget* m_PerformanceWidget;
+	// PerformanceWidget* m_PerformanceWidget; // Now handled by MainWindow
 	
 	// Debug logging
 	bool m_debugLogging;

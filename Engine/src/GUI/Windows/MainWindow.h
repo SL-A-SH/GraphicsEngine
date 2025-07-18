@@ -5,7 +5,7 @@
 
 // Forward declarations
 class DirectXViewport;
-// class PerformanceWidget; // Now handled directly by Application
+class PerformanceWidget;
 class TransformUI;
 class ModelListUI;
 class QVBoxLayout;
@@ -47,7 +47,7 @@ private:
 private:
     // UI Components
     DirectXViewport* m_ViewportWidget;
-    // PerformanceWidget* m_PerformanceWidget; // Now handled by Application
+    PerformanceWidget* m_PerformanceWidget;
     TransformUI* m_TransformUI;
     ModelListUI* m_ModelListUI;
     

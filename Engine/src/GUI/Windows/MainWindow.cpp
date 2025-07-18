@@ -18,13 +18,13 @@
 #include "../Components/ModelListUI.h"
 #include "../Components/UserInterface.h"
 #include "DirectXViewport.h"
-// #include "PerformanceWidget.h" // Now handled by Application
+#include "PerformanceWidget.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , m_ViewportWidget(nullptr)
     , m_MainLayout(nullptr)
-    // , m_PerformanceWidget(nullptr) // Now handled by Application
+    , m_PerformanceWidget(nullptr)
     , m_TabWidget(nullptr)
     , m_PropertiesDock(nullptr)
     , m_TransformUI(nullptr)
@@ -59,7 +59,9 @@ MainWindow::MainWindow(QWidget* parent)
     m_ViewportWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     m_TabWidget->addTab(m_ViewportWidget, "Viewport");
 
-    // Note: PerformanceWidget is now handled directly by Application as ImGui widget
+    // Create performance widget
+    m_PerformanceWidget = new PerformanceWidget(centralWidget);
+    m_TabWidget->addTab(m_PerformanceWidget, "Performance");
 
     // Connect signals
     connect(m_TabWidget, &QTabWidget::tabCloseRequested, this, &MainWindow::OnTabCloseRequested);
@@ -259,12 +261,12 @@ void MainWindow::OpenBenchmarking()
     m_TabWidget->tabBar()->setVisible(true);
     m_TabWidget->setCurrentIndex(1);
     
-    // Update PerformanceWidget with the main window tab index (DISABLED for minimal testing)
-    // if (m_PerformanceWidget)
-    // {
-    //     m_PerformanceWidget->SetMainWindowTabIndex(1);
-    //     m_PerformanceWidget->SwitchToBenchmarkTab();
-    // }
+    // Update PerformanceWidget with the main window tab index
+    if (m_PerformanceWidget)
+    {
+        m_PerformanceWidget->SetMainWindowTabIndex(1);
+        m_PerformanceWidget->SwitchToBenchmarkTab();
+    }
     
     LOG("Benchmarking tab opened");
 }
@@ -283,11 +285,11 @@ void MainWindow::ToggleProfiler(bool show)
         m_TabWidget->tabBar()->setVisible(true);
         m_TabWidget->setCurrentIndex(1);
         
-            // Update PerformanceWidget with the main window tab index (DISABLED for minimal testing)
-    // if (m_PerformanceWidget)
-    // {
-    //     m_PerformanceWidget->SetMainWindowTabIndex(1);
-    // }
+        // Update PerformanceWidget with the main window tab index
+        if (m_PerformanceWidget)
+        {
+            m_PerformanceWidget->SetMainWindowTabIndex(1);
+        }
     }
     else
     {
@@ -296,11 +298,11 @@ void MainWindow::ToggleProfiler(bool show)
         m_TabWidget->setCurrentIndex(0);
         m_TabWidget->tabBar()->setVisible(false);
         
-        // Update PerformanceWidget with the main window tab index (DISABLED for minimal testing)
-        // if (m_PerformanceWidget)
-        // {
-        //     m_PerformanceWidget->SetMainWindowTabIndex(0);
-        // }
+        // Update PerformanceWidget with the main window tab index
+        if (m_PerformanceWidget)
+        {
+            m_PerformanceWidget->SetMainWindowTabIndex(0);
+        }
     }
 }
 
@@ -316,11 +318,11 @@ void MainWindow::OnTabChanged(int index)
     std::string tabName = (index == 0) ? "Viewport" : "Performance";
     PerformanceLogger::GetInstance().LogTabFocus(tabName);
     
-    // Update PerformanceWidget with the main window tab index (DISABLED for minimal testing)
-    // if (m_PerformanceWidget)
-    // {
-    //     m_PerformanceWidget->SetMainWindowTabIndex(index);
-    // }
+    // Update PerformanceWidget with the main window tab index
+    if (m_PerformanceWidget)
+    {
+        m_PerformanceWidget->SetMainWindowTabIndex(index);
+    }
     
     // Set focus to the appropriate widget based on the active tab
     if (index == 0) // Viewport tab
@@ -336,7 +338,7 @@ void MainWindow::OnTabChanged(int index)
     }
     else if (index == 1) // Performance tab
     {
-        // m_PerformanceWidget->setFocus(); // DISABLED: Commented out for minimal GPU-driven rendering testing
+        m_PerformanceWidget->setFocus();
         // Enable background rendering and hide viewport
         if (m_ViewportWidget)
         {
