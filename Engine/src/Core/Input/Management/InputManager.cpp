@@ -66,6 +66,10 @@ void InputManager::HandleKeyEvent(QKeyEvent* event, bool pressed)
 			m_keys[Qt::Key_F12] = pressed;
 			LOG("F12 key state: " + std::to_string(pressed));
 			break;
+		case Qt::Key_L:
+			m_keys[Qt::Key_L] = pressed;
+			LOG("L key state: " + std::to_string(pressed));
+			break;
 		case Qt::Key_Escape:
 			m_keys[Qt::Key_Escape] = pressed;
 			LOG("Escape key state: " + std::to_string(pressed));
@@ -194,4 +198,9 @@ bool InputManager::IsF11Pressed() const
 bool InputManager::IsF12Pressed() const
 {
 	return m_keys.value(Qt::Key_F12, false);
+}
+
+bool InputManager::IsLPressed() const
+{
+	return m_keys.value(Qt::Key_L, false);
 }

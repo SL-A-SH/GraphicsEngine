@@ -111,16 +111,16 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	}
 	LOG("Zone initialized successfully");
 
-	// Set the file name of the model.
-	strcpy_s(modelFilename, "../Engine/assets/models/spaceship/low-poly/nave-modelo.fbx");
-	LOG("Attempting to load spaceship model: " + std::string(modelFilename));
+	// Set the file name of the model - using cube for testing GPU compute shaders
+	strcpy_s(modelFilename, "../Engine/assets/models/Cube.txt");
+	LOG("Attempting to load cube model for GPU testing: " + std::string(modelFilename));
 
 	// Create and initialize the model object.
 	LOG("Creating model object");
 	m_Model = new Model;
 
-	// Use spaceship FBX model with proper FBX initialization
-	result = m_Model->InitializeFBX(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename);
+	// Use simple cube model for GPU compute shader testing
+	result = m_Model->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename, nullptr);
 	if (!result)
 	{
 		LOG_ERROR("Could not initialize the model object");
@@ -128,7 +128,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 		MessageBox(hwnd, L"Could not initialize the model object.", L"Error", MB_OK);
 		return false;
 	}
-	LOG("Spaceship model initialized successfully");
+	LOG("Cube model initialized successfully");
 
 	// Create and initialize gizmo models
 	LOG("Creating gizmo models");
@@ -214,7 +214,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	// Create and initialize the model list object.
 	LOG("Creating model list");
 	m_ModelList = new ModelList;
-	m_ModelList->Initialize(6);
+	m_ModelList->Initialize(5000); // Increased to 5000 spaceships for performance testing
 	LOG("Model list initialized successfully");
 	
 	// Debug: Check if ModelList was initialized correctly
@@ -244,6 +244,10 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	// Create the position class object.
 	LOG("Creating position object");
 	m_Position = new Position;
+	
+	// Initialize the position object with the same initial camera position
+	// This ensures the camera starts at the correct position
+	m_Position->SetPosition(0.0f, 50.0f, -150.0f);
 
 	// Create the frustum class object.
 	LOG("Creating frustum object");
@@ -278,7 +282,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 
 	// Initialize GPU-driven renderer
 	m_GPUDrivenRenderer = new GPUDrivenRenderer;
-	result = m_GPUDrivenRenderer->Initialize(m_Direct3D->GetDevice(), hwnd, 10000); // Support up to 10,000 objects
+	result = m_GPUDrivenRenderer->Initialize(m_Direct3D->GetDevice(), hwnd, 100000); // Support up to 100,000 objects for performance testing
 	if (!result)
 	{
 		LOG_ERROR("Could not initialize GPU-driven renderer - will use CPU-driven rendering only");
@@ -369,6 +373,9 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 
 	LOG("Model List UI initialized successfully");
 	LOG("Transform UI initialized successfully");
+	
+	// Initialize debug logging
+	m_debugLogging = false;
 
 	LOG("Application initialization completed successfully");
 	return true;
@@ -545,6 +552,27 @@ bool Application::Frame(InputManager* Input)
 	else if (!Input->IsF12Pressed())
 	{
 		wasF12Pressed = false;
+	}
+	
+	// Check for L key debug logging toggle
+	static bool wasLPressed = false;
+	if (Input->IsLPressed() && !wasLPressed)
+	{
+		wasLPressed = true;
+		m_debugLogging = !m_debugLogging;
+		LOG("=== DEBUG LOGGING " + std::string(m_debugLogging ? "ENABLED" : "DISABLED") + " ===");
+		if (m_debugLogging)
+		{
+			LOG("Press L again to disable debug logging");
+			// Get current camera position for debug info
+			XMFLOAT3 cameraPos = m_Camera->GetPosition();
+			LOG("Current camera position: (" + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
+			LOG("Current rendering mode: " + std::string(m_enableGPUDrivenRendering ? "GPU-Driven" : "CPU-Driven"));
+		}
+	}
+	else if (!Input->IsLPressed())
+	{
+		wasLPressed = false;
 	}
 
 	// Get the location of the mouse from the input object
@@ -801,7 +829,6 @@ bool Application::Render()
 	
 	// Debug: Log camera position during rendering
 	XMFLOAT3 cameraPos = m_Camera->GetPosition();
-	LOG("Application::Render - Camera position: (" + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
 
 	// Get the number of models that will be rendered.
 	modelCount = m_ModelList->GetModelCount();
@@ -811,6 +838,13 @@ bool Application::Render()
 
 	// Construct the frustum.
 	m_Frustum->ConstructFrustum(viewMatrix, projectionMatrix, AppConfig::SCREEN_DEPTH);
+	
+	// Debug: Log CPU frustum planes for comparison with GPU mode
+	if (m_debugLogging)
+	{
+		LOG("CPU-Driven Frustum Construction:");
+		LOG("  Screen Depth: " + std::to_string(AppConfig::SCREEN_DEPTH));
+	}
 
 	// Set render states for skybox
 	m_Direct3D->TurnOffCulling();
@@ -851,8 +885,12 @@ bool Application::Render()
 			std::vector<ObjectData> objectData;
 			objectData.reserve(modelCount);
 			
-			LOG("Application::Render - Preparing object data for GPU-driven rendering:");
-			LOG("  Model count: " + std::to_string(modelCount));
+			if (m_debugLogging)
+			{
+				LOG("=== GPU-DRIVEN RENDERING DEBUG ===");
+				LOG("Preparing object data for GPU-driven rendering with " + std::to_string(modelCount) + " models");
+				LOG("Camera position: (" + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
+			}
 			
 			for (int i = 0; i < modelCount; i++)
 			{
@@ -863,21 +901,46 @@ bool Application::Render()
 				objData.position = XMFLOAT3(posX, posY, posZ);
 				objData.scale = XMFLOAT3(scaleX, scaleY, scaleZ);
 				objData.rotation = XMFLOAT3(rotX, rotY, rotZ);
-				objData.boundingBoxMin = XMFLOAT3(-1.0f, -1.0f, -1.0f);
-				objData.boundingBoxMax = XMFLOAT3(1.0f, 1.0f, 1.0f);
+				
+				// Use the actual model's bounding box for consistent frustum culling
+				const Model::AABB& bbox = m_Model->GetBoundingBox();
+				objData.boundingBoxMin = bbox.min;
+				objData.boundingBoxMax = bbox.max;
+				
 				objData.objectIndex = static_cast<uint32_t>(i);
 				objData.padding[0] = 0;
 				objData.padding[1] = 0;
 				
 				objectData.push_back(objData);
 				
-				LOG("  Object " + std::to_string(i) + ":");
-				LOG("    Position: (" + std::to_string(posX) + ", " + std::to_string(posY) + ", " + std::to_string(posZ) + ")");
-				LOG("    Scale: (" + std::to_string(scaleX) + ", " + std::to_string(scaleY) + ", " + std::to_string(scaleZ) + ")");
-				LOG("    Rotation: (" + std::to_string(rotX) + ", " + std::to_string(rotY) + ", " + std::to_string(rotZ) + ")");
+				// Debug logging for first few objects when debug mode is enabled
+				if (m_debugLogging && i < 10)
+				{
+					LOG("  Object " + std::to_string(i) + ":");
+					LOG("    Position: (" + std::to_string(posX) + ", " + std::to_string(posY) + ", " + std::to_string(posZ) + ")");
+					LOG("    Scale: (" + std::to_string(scaleX) + ", " + std::to_string(scaleY) + ", " + std::to_string(scaleZ) + ")");
+					LOG("    Rotation: (" + std::to_string(rotX) + ", " + std::to_string(rotY) + ", " + std::to_string(rotZ) + ")");
+					LOG("    BoundingBox Min: (" + std::to_string(bbox.min.x) + ", " + std::to_string(bbox.min.y) + ", " + std::to_string(bbox.min.z) + ")");
+					LOG("    BoundingBox Max: (" + std::to_string(bbox.max.x) + ", " + std::to_string(bbox.max.y) + ", " + std::to_string(bbox.max.z) + ")");
+					
+					// Calculate world space bounding box for debugging
+					XMFLOAT3 worldMin, worldMax;
+					worldMin.x = bbox.min.x * scaleX + posX;
+					worldMin.y = bbox.min.y * scaleY + posY;
+					worldMin.z = bbox.min.z * scaleZ + posZ;
+					worldMax.x = bbox.max.x * scaleX + posX;
+					worldMax.y = bbox.max.y * scaleY + posY;
+					worldMax.z = bbox.max.z * scaleZ + posZ;
+					LOG("    World BoundingBox Min: (" + std::to_string(worldMin.x) + ", " + std::to_string(worldMin.y) + ", " + std::to_string(worldMin.z) + ")");
+					LOG("    World BoundingBox Max: (" + std::to_string(worldMax.x) + ", " + std::to_string(worldMax.y) + ", " + std::to_string(worldMax.z) + ")");
+				}
 			}
 			
 			// Update GPU-driven renderer with object data
+			if (m_debugLogging)
+			{
+				LOG("Updating GPU-driven renderer with " + std::to_string(objectData.size()) + " objects");
+			}
 			m_GPUDrivenRenderer->UpdateObjects(m_Direct3D->GetDeviceContext(), objectData);
 			
 			// Update camera data
@@ -889,11 +952,14 @@ bool Application::Render()
 			m_Camera->GetViewMatrix(viewMatrix);
 			m_Direct3D->GetProjectionMatrix(projectionMatrix);
 			
-			LOG("Application::Render - Camera data for GPU-driven rendering:");
-			LOG("  Camera position: (" + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
-			LOG("  Camera target: (" + std::to_string(cameraTarget.x) + ", " + std::to_string(cameraTarget.y) + ", " + std::to_string(cameraTarget.z) + ")");
+			if (m_debugLogging)
+			{
+				LOG("Camera data for GPU-driven rendering:");
+				LOG("  Camera position: (" + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
+				LOG("  Camera target: (" + std::to_string(cameraTarget.x) + ", " + std::to_string(cameraTarget.y) + ", " + std::to_string(cameraTarget.z) + ")");
+			}
 			
-			m_GPUDrivenRenderer->UpdateCamera(m_Direct3D->GetDeviceContext(), cameraPos, cameraTarget, viewMatrix, projectionMatrix);
+			m_GPUDrivenRenderer->UpdateCamera(m_Direct3D->GetDeviceContext(), cameraPos, cameraTarget, viewMatrix, projectionMatrix, m_debugLogging);
 			
 			// Validate that the Model is properly initialized before getting its buffers
 			if (!m_Model)
@@ -905,8 +971,6 @@ bool Application::Render()
 			
 			// Check if the Model has valid index count
 			int indexCount = m_Model->GetIndexCount();
-			LOG("Application::Render - Model statistics:");
-			LOG("  IndexCount: " + std::to_string(indexCount));
 			
 			if (indexCount <= 0)
 			{
@@ -926,7 +990,6 @@ bool Application::Render()
 			
 			// Ensure the Model has been rendered at least once to set up the rendering pipeline
 			// This is important because some DirectX operations require the pipeline to be set up
-			LOG("Application::Render - Ensuring Model is ready for GPU-driven rendering");
 			m_Model->Render(m_Direct3D->GetDeviceContext());
 			
 			// Validate that the ShaderManager is properly initialized before getting shader resources
@@ -943,7 +1006,6 @@ bool Application::Render()
 			if (err != 0 || !testFile)
 			{
 				LOG_ERROR("Application::Render - PBRVertexShader.hlsl file not found, falling back to CPU-driven rendering");
-				LOG_ERROR("  Expected path: ../Engine/assets/shaders/PBRVertexShader.hlsl");
 				m_enableGPUDrivenRendering = false;
 				return true; // Continue with CPU-driven rendering
 			}
@@ -953,13 +1015,10 @@ bool Application::Render()
 			if (err != 0 || !testFile)
 			{
 				LOG_ERROR("Application::Render - PBRPixelShader.hlsl file not found, falling back to CPU-driven rendering");
-				LOG_ERROR("  Expected path: ../Engine/assets/shaders/PBRPixelShader.hlsl");
 				m_enableGPUDrivenRendering = false;
 				return true; // Continue with CPU-driven rendering
 			}
 			fclose(testFile);
-			
-			LOG("Application::Render - PBR shader files found, proceeding with GPU-driven rendering");
 			
 			// Perform GPU-driven rendering with additional safety checks
 			ID3D11Buffer* vertexBuffer = m_Model->GetVertexBuffer();
@@ -969,12 +1028,15 @@ bool Application::Render()
 			ID3D11InputLayout* inputLayout = m_ShaderManager->GetInputLayout();
 			
 			// Comprehensive validation of all resources
-			LOG("Application::Render - Validating GPU-driven rendering resources:");
-			LOG("  VertexBuffer: " + std::string(vertexBuffer ? "valid" : "NULL"));
-			LOG("  IndexBuffer: " + std::string(indexBuffer ? "valid" : "NULL"));
-			LOG("  VertexShader: " + std::string(vertexShader ? "valid" : "NULL"));
-			LOG("  PixelShader: " + std::string(pixelShader ? "valid" : "NULL"));
-			LOG("  InputLayout: " + std::string(inputLayout ? "valid" : "NULL"));
+			if (m_debugLogging)
+			{
+				LOG("Validating GPU-driven rendering resources:");
+				LOG("  VertexBuffer: " + std::string(vertexBuffer ? "valid" : "NULL"));
+				LOG("  IndexBuffer: " + std::string(indexBuffer ? "valid" : "NULL"));
+				LOG("  VertexShader: " + std::string(vertexShader ? "valid" : "NULL"));
+				LOG("  PixelShader: " + std::string(pixelShader ? "valid" : "NULL"));
+				LOG("  InputLayout: " + std::string(inputLayout ? "valid" : "NULL"));
+			}
 			
 			// Check if any resource is null
 			if (!vertexBuffer)
@@ -1021,40 +1083,54 @@ bool Application::Render()
 			}
 			
 			// All resources are valid, proceed with GPU-driven rendering
-			LOG("Application::Render - All GPU-driven rendering resources are valid, proceeding with render");
-			
-			// Additional debugging information
-			LOG("Application::Render - Debug information:");
-			LOG("  Model pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_Model)));
-			LOG("  ShaderManager pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_ShaderManager)));
-			LOG("  GPUDrivenRenderer pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_GPUDrivenRenderer)));
-			LOG("  Direct3D pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_Direct3D)));
-			LOG("  DeviceContext pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_Direct3D->GetDeviceContext())));
-			
-			// Test if we can access the buffers safely
-			try
+			if (m_debugLogging)
 			{
-				LOG("Application::Render - Testing buffer access:");
-				LOG("  VertexBuffer pointer: " + std::to_string(reinterpret_cast<uintptr_t>(vertexBuffer)));
-				LOG("  IndexBuffer pointer: " + std::to_string(reinterpret_cast<uintptr_t>(indexBuffer)));
-				LOG("  VertexShader pointer: " + std::to_string(reinterpret_cast<uintptr_t>(vertexShader)));
-				LOG("  PixelShader pointer: " + std::to_string(reinterpret_cast<uintptr_t>(pixelShader)));
-				LOG("  InputLayout pointer: " + std::to_string(reinterpret_cast<uintptr_t>(inputLayout)));
-			}
-			catch (...)
-			{
-				LOG_ERROR("Application::Render - Exception occurred while accessing buffer pointers");
-				m_enableGPUDrivenRendering = false;
-				return true; // Continue with CPU-driven rendering
+				LOG("All GPU-driven rendering resources are valid, proceeding with render");
+				LOG("Debug information:");
+				LOG("  Model pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_Model)));
+				LOG("  ShaderManager pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_ShaderManager)));
+				LOG("  GPUDrivenRenderer pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_GPUDrivenRenderer)));
+				LOG("  Direct3D pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_Direct3D)));
+				LOG("  DeviceContext pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_Direct3D->GetDeviceContext())));
+				
+				// Test if we can access the buffers safely
+				try
+				{
+					LOG("Testing buffer access:");
+					LOG("  VertexBuffer pointer: " + std::to_string(reinterpret_cast<uintptr_t>(vertexBuffer)));
+					LOG("  IndexBuffer pointer: " + std::to_string(reinterpret_cast<uintptr_t>(indexBuffer)));
+					LOG("  VertexShader pointer: " + std::to_string(reinterpret_cast<uintptr_t>(vertexShader)));
+					LOG("  PixelShader pointer: " + std::to_string(reinterpret_cast<uintptr_t>(pixelShader)));
+					LOG("  InputLayout pointer: " + std::to_string(reinterpret_cast<uintptr_t>(inputLayout)));
+				}
+				catch (...)
+				{
+					LOG_ERROR("Exception occurred while accessing buffer pointers");
+					m_enableGPUDrivenRendering = false;
+					return true; // Continue with CPU-driven rendering
+				}
 			}
 			
 			// Call GPU-driven renderer with exception handling
 			try
 			{
-				LOG("Application::Render - Calling GPU-driven renderer...");
+				if (m_debugLogging)
+				{
+					LOG("=== CALLING GPU-DRIVEN RENDERER ===");
+					LOG("Object data size: " + std::to_string(objectData.size()));
+					LOG("Model count: " + std::to_string(modelCount));
+					LOG("Index count: " + std::to_string(m_Model->GetIndexCount()));
+					LOG("About to call GPUDrivenRenderer::Render...");
+				}
+				
 				m_GPUDrivenRenderer->Render(m_Direct3D->GetDeviceContext(), vertexBuffer, indexBuffer,
-										   vertexShader, pixelShader, inputLayout, m_Model, m_ShaderManager->GetPBRShader(), m_Light, m_Camera, m_Direct3D);
-				LOG("Application::Render - GPU-driven renderer call completed successfully");
+										   vertexShader, pixelShader, inputLayout, m_Model, m_ShaderManager->GetPBRShader(), m_Light, m_Camera, m_Direct3D, m_debugLogging);
+				
+				if (m_debugLogging)
+				{
+					LOG("GPU-driven renderer call completed successfully");
+					LOG("Render count from GPU renderer: " + std::to_string(m_GPUDrivenRenderer->GetRenderCount()));
+				}
 				
 				// Check if GPU-driven rendering was disabled by the renderer
 				if (!m_GPUDrivenRenderer->IsGPUDrivenEnabled())
@@ -1082,8 +1158,6 @@ bool Application::Render()
 	// CPU-Driven Rendering Path (fallback or primary)
 	if (!m_enableGPUDrivenRendering)
 	{
-		LOG("Application::Render - Using CPU-driven rendering path");
-		
 		// Traditional CPU-Driven Rendering Path
 
 		// Set render states for skybox
@@ -1110,6 +1184,7 @@ bool Application::Render()
 		m_Direct3D->TurnZBufferOn();
 
 		// Go through all the models and render them only if they can be seen by the camera view.
+		int cpuVisibleCount = 0;
 		for (i = 0; i < modelCount; i++)
 		{
 			// Get the full transform data for this model
@@ -1128,21 +1203,31 @@ bool Application::Render()
 			worldMax.y = bbox.max.y * scaleY + posY;
 			worldMax.z = bbox.max.z * scaleZ + posZ;
 
+			// Debug: Log bounding box transformation for first few objects
+			if (m_debugLogging && i < 3)
+			{
+				LOG("CPU Object " + std::to_string(i) + " Bounding Box:");
+				LOG("  Position: (" + std::to_string(posX) + ", " + std::to_string(posY) + ", " + std::to_string(posZ) + ")");
+				LOG("  Scale: (" + std::to_string(scaleX) + ", " + std::to_string(scaleY) + ", " + std::to_string(scaleZ) + ")");
+				LOG("  Model BBox Min: (" + std::to_string(bbox.min.x) + ", " + std::to_string(bbox.min.y) + ", " + std::to_string(bbox.min.z) + ")");
+				LOG("  Model BBox Max: (" + std::to_string(bbox.max.x) + ", " + std::to_string(bbox.max.y) + ", " + std::to_string(bbox.max.z) + ")");
+				LOG("  World BBox Min: (" + std::to_string(worldMin.x) + ", " + std::to_string(worldMin.y) + ", " + std::to_string(worldMin.z) + ")");
+				LOG("  World BBox Max: (" + std::to_string(worldMax.x) + ", " + std::to_string(worldMax.y) + ", " + std::to_string(worldMax.z) + ")");
+			}
+
 			// Check if the model's AABB is in the view frustum
 			renderModel = m_Frustum->CheckAABB(worldMin, worldMax);
-
-			// Debug logging for CPU-driven rendering
-			LOG("CPU-Driven Rendering - Model " + std::to_string(i) + ":");
-			LOG("  Position: (" + std::to_string(posX) + ", " + std::to_string(posY) + ", " + std::to_string(posZ) + ")");
-			LOG("  Scale: (" + std::to_string(scaleX) + ", " + std::to_string(scaleY) + ", " + std::to_string(scaleZ) + ")");
-			LOG("  Rotation: (" + std::to_string(rotX) + ", " + std::to_string(rotY) + ", " + std::to_string(rotZ) + ")");
-			LOG("  World AABB Min: (" + std::to_string(worldMin.x) + ", " + std::to_string(worldMin.y) + ", " + std::to_string(worldMin.z) + ")");
-			LOG("  World AABB Max: (" + std::to_string(worldMax.x) + ", " + std::to_string(worldMax.y) + ", " + std::to_string(worldMax.z) + ")");
-			LOG("  In Frustum: " + std::string(renderModel ? "YES" : "NO"));
+			
+			// Debug: Log frustum culling results for first few objects
+			if (m_debugLogging && i < 5)
+			{
+				LOG("CPU Object " + std::to_string(i) + " frustum culling: " + std::string(renderModel ? "VISIBLE" : "CULLED"));
+			}
 
 			// If it can be seen then render it, if not skip this model and check the next one
 			if (renderModel)
 			{
+				cpuVisibleCount++;
 				// Create world matrix with position, rotation, and scale
 				XMMATRIX translationMatrix = XMMatrixTranslation(posX, posY, posZ);
 				XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(rotX, rotY, rotZ);
@@ -1158,18 +1243,11 @@ bool Application::Render()
 				// Check if this is an FBX model with PBR materials first
 				if (m_Model->HasFBXMaterial())
 				{
-					LOG("CPU-Driven Rendering - Using PBR shader for FBX model");
 					// Debug lighting parameters
 					XMFLOAT3 lightDir = m_Light->GetDirection();
 					XMFLOAT4 ambientColor = m_Light->GetAmbientColor();
 					XMFLOAT4 diffuseColor = m_Light->GetDiffuseColor();
 					XMFLOAT3 cameraPos = m_Camera->GetPosition();
-					
-					LOG("CPU-Driven Rendering - PBR shader parameters:");
-					LOG("  Light direction: (" + std::to_string(lightDir.x) + ", " + std::to_string(lightDir.y) + ", " + std::to_string(lightDir.z) + ")");
-					LOG("  Ambient color: (" + std::to_string(ambientColor.x) + ", " + std::to_string(ambientColor.y) + ", " + std::to_string(ambientColor.z) + ", " + std::to_string(ambientColor.w) + ")");
-					LOG("  Diffuse color: (" + std::to_string(diffuseColor.x) + ", " + std::to_string(diffuseColor.y) + ", " + std::to_string(diffuseColor.z) + ", " + std::to_string(diffuseColor.w) + ")");
-					LOG("  Camera position: (" + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
 					
 					// Use PBR shader for FBX models with multiple textures
 					result = m_ShaderManager->RenderPBRShader(m_Direct3D->GetDeviceContext(), m_Model->GetIndexCount(), worldMatrix, viewMatrix, projectionMatrix,
@@ -1182,7 +1260,6 @@ bool Application::Render()
 						LOG_ERROR("Model render with PBRShader failed");
 						return false;
 					}
-					LOG("CPU-Driven Rendering - PBR shader render completed successfully");
 				}
 				else
 				{

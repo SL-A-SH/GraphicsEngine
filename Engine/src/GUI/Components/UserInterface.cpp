@@ -81,8 +81,8 @@ bool UserInterface::Initialize(D3D11Device* Direct3D, int screenHeight, int scre
 
     renderStringX = 0;
     renderStringY = m_screenHeight - m_QTOffset;
-    // Initialize the render count text string.
-    result = m_RenderCountString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 16, m_Font, renderString, renderStringX, renderStringY, 1.0f, 1.0f, 1.0f);
+    // Initialize the render count text string with larger buffer for thousands of objects.
+    result = m_RenderCountString->Initialize(Direct3D->GetDevice(), Direct3D->GetDeviceContext(), screenWidth, screenHeight, 64, m_Font, renderString, renderStringX, renderStringY, 1.0f, 1.0f, 1.0f);
     if (!result)
     {
         return false;
@@ -317,8 +317,8 @@ bool UserInterface::UpdateFpsString(ID3D11DeviceContext* deviceContext, int fps)
 
 bool UserInterface::UpdateRenderCountString(ID3D11DeviceContext* deviceContext, int renderCount)
 {
-    char tempString[16];
-    char finalString[32];
+    char tempString[32];
+    char finalString[64];
     int renderStringX, renderStringY;
     bool result;
 

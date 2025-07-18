@@ -65,6 +65,10 @@ public:
 	{ 
 		return m_enableGPUDrivenRendering ? 1 : 0; // 0 = CPU_DRIVEN, 1 = GPU_DRIVEN
 	}
+	
+	// Debug logging control
+	void SetDebugLogging(bool enable) { m_debugLogging = enable; }
+	bool IsDebugLoggingEnabled() const { return m_debugLogging; }
 
 private:
 	bool Render();
@@ -114,6 +118,9 @@ private:
 	GPUDrivenRenderer* m_GPUDrivenRenderer;
 	bool m_enableGPUDrivenRendering;
 	RenderingBenchmark* m_BenchmarkSystem;
+	
+	// Debug logging
+	bool m_debugLogging;
 };
 
 #endif

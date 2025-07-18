@@ -34,20 +34,29 @@ void ModelList::Initialize(int numModels)
     // Seed the random generator with the current time.
     srand((unsigned int)time(NULL));
 
-    // Define battle formation parameters
-    float formationRadius = 50.0f;  // Smaller radius for closer formation
-    float spacing = 20.0f;         // Closer spacing between ships
+    // Define battle formation parameters for thousands of ships
+    float baseFormationRadius = 600.0f;  // Much larger radius for more spacing between ships
+    float maxFormationRadius = 2000.0f;  // Increased maximum radius for outer ships
+    float layerSpacing = 200.0f;         // Increased spacing between layers
     XMFLOAT3 targetPosition = XMFLOAT3(0.0f, 0.0f, 100.0f); // Common target point
     
-    // Go through all the models and position them in a battle formation
+    // Go through all the models and position them in a multi-layered battle formation
     for (i = 0; i < m_modelCount; i++)
     {
-        // Calculate position in a circular formation
-        float angle = (2.0f * 3.14159f * i) / m_modelCount;
-        float radius = formationRadius + (rand() % 20 - 10); // Slight random variation
+        // Create multiple layers of formations with better distribution
+        int layer = i / 1000;  // Each layer has ~1000 ships
+        int shipInLayer = i % 1000;
+        
+        // Calculate radius based on layer with increased spacing
+        float layerRadius = baseFormationRadius + (layer * layerSpacing);
+        if (layerRadius > maxFormationRadius) layerRadius = maxFormationRadius;
+        
+        // Calculate position in a circular formation within the layer with more spacing
+        float angle = (2.0f * 3.14159f * shipInLayer) / 1000.0f;
+        float radius = layerRadius + (rand() % 200 - 100); // More variation for natural look
         
         m_ModelInfoList[i].positionX = cos(angle) * radius;
-        m_ModelInfoList[i].positionY = 0.0f;  // Keep all ships in the same plane
+        m_ModelInfoList[i].positionY = (rand() % 400 - 200) * 0.1f;  // More height variation
         m_ModelInfoList[i].positionZ = sin(angle) * radius;
         
         // Calculate direction to target for proper orientation
@@ -66,13 +75,11 @@ void ModelList::Initialize(int numModels)
         directionToTarget.z /= length;
         
         // Calculate rotation to face the target
-        // For a spaceship, we want to rotate around Y axis to face the target
         float targetAngle = atan2(directionToTarget.x, directionToTarget.z);
-        
-        // Add some random variation to make it look more natural
         float randomVariation = ((float)rand() / RAND_MAX - 0.5f) * 0.2f; // ±0.1 radians
         
-        m_ModelInfoList[i].rotationX = 0.0f;  // No pitch for space battle
+        // Fix the model orientation: add 90 degrees (π/2 radians) around X-axis to make ships face forward
+        m_ModelInfoList[i].rotationX = 1.570796f;  // 90 degrees in radians (π/2)
         m_ModelInfoList[i].rotationY = targetAngle + randomVariation;  // Face target with slight variation
         m_ModelInfoList[i].rotationZ = 0.0f;  // No roll for space battle
         
@@ -80,17 +87,6 @@ void ModelList::Initialize(int numModels)
         m_ModelInfoList[i].scaleX = 1.0f;
         m_ModelInfoList[i].scaleY = 1.0f;
         m_ModelInfoList[i].scaleZ = 1.0f;
-        
-        LOG("ModelList::Initialize - Model " + std::to_string(i) + " transform:");
-        LOG("  Position: (" + std::to_string(m_ModelInfoList[i].positionX) + ", " + 
-            std::to_string(m_ModelInfoList[i].positionY) + ", " + 
-            std::to_string(m_ModelInfoList[i].positionZ) + ")");
-        LOG("  Rotation: (" + std::to_string(m_ModelInfoList[i].rotationX) + ", " + 
-            std::to_string(m_ModelInfoList[i].rotationY) + ", " + 
-            std::to_string(m_ModelInfoList[i].rotationZ) + ")");
-        LOG("  Scale: (" + std::to_string(m_ModelInfoList[i].scaleX) + ", " + 
-            std::to_string(m_ModelInfoList[i].scaleY) + ", " + 
-            std::to_string(m_ModelInfoList[i].scaleZ) + ")");
     }
 
     return;

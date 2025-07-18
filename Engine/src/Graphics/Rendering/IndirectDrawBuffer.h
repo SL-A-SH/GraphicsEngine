@@ -52,7 +52,8 @@ struct FrustumData
     XMFLOAT4 lodDistances[4];
     UINT maxLODLevels;
     UINT objectCount;
-    UINT padding[2];
+    UINT currentPass; // 0 = visibility pass, 1 = command generation pass
+    UINT padding;
 };
 
 class IndirectDrawBuffer
@@ -69,6 +70,9 @@ public:
     
     // Update frustum data
     void UpdateFrustumData(ID3D11DeviceContext* context, const FrustumData& frustumData);
+    
+    // Get frustum data
+    FrustumData GetFrustumData() const { return m_frustumData; }
     
     // Get buffers for compute shaders
     ID3D11Buffer* GetObjectDataBuffer() const { return m_objectDataBuffer; }
@@ -131,6 +135,7 @@ private:
     
     // Data
     std::vector<LODLevel> m_lodLevels;
+    FrustumData m_frustumData;
     UINT m_maxObjects;
     UINT m_visibleObjectCount;
     UINT m_objectCount;

@@ -116,6 +116,14 @@ void Position::GetRotationX(float& x)
     return;
 }
 
+void Position::SetPosition(float x, float y, float z)
+{
+    m_positionX = x;
+    m_positionY = y;
+    m_positionZ = z;
+    return;
+}
+
 void Position::GetPosition(float& x, float& y, float& z)
 {
     x = m_positionX;

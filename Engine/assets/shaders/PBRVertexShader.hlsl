@@ -42,7 +42,17 @@ PixelInputType PBRVertexShader(VertexInputType input)
     if (useGPUDrivenRendering != 0)
     {
         // Use per-instance world matrix for GPU-driven rendering
-        finalWorldMatrix = worldMatrixBuffer[input.instanceID];
+        // Add bounds checking to prevent out-of-bounds access
+        uint matrixIndex = input.instanceID;
+        if (matrixIndex < 5000) // Max objects limit
+        {
+            finalWorldMatrix = worldMatrixBuffer[matrixIndex];
+        }
+        else
+        {
+            // Fallback to identity matrix if index is out of bounds
+            finalWorldMatrix = float4x4(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1);
+        }
     }
     else
     {

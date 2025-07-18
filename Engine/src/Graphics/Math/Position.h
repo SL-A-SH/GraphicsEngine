@@ -11,6 +11,7 @@ public:
     ~Position();
 
     void SetFrameTime(float);
+    void SetPosition(float, float, float);
     void GetRotation(float&);
     void GetRotationX(float&);
     void GetPosition(float&, float&, float&);

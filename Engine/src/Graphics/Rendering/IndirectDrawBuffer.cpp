@@ -126,9 +126,9 @@ bool IndirectDrawBuffer::CreateBuffers(ID3D11Device* device, UINT maxObjects)
         return false;
     }
     
-    // Create visible object count buffer (UAV)
+    // Create visible object count buffer (UAV) - expanded for debug support
     bufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    bufferDesc.ByteWidth = sizeof(UINT);
+    bufferDesc.ByteWidth = sizeof(UINT) * 1000; // Support 1000 UINT elements for debug
     bufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
     bufferDesc.CPUAccessFlags = 0;
     bufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
@@ -143,6 +143,7 @@ bool IndirectDrawBuffer::CreateBuffers(ID3D11Device* device, UINT maxObjects)
     
     // Create staging buffer for reading visible object count
     bufferDesc.Usage = D3D11_USAGE_STAGING;
+    bufferDesc.ByteWidth = sizeof(UINT) * 1000; // Match the expanded buffer size
     bufferDesc.BindFlags = 0;
     bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
     bufferDesc.MiscFlags = 0;
@@ -223,7 +224,7 @@ bool IndirectDrawBuffer::CreateBuffers(ID3D11Device* device, UINT maxObjects)
     
     // Create UAV for visible object count buffer (structured buffer)
     uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-    uavDesc.Buffer.NumElements = 1;
+    uavDesc.Buffer.NumElements = 1000; // Match the expanded buffer size
     uavDesc.Buffer.Flags = 0;
     
     result = device->CreateUnorderedAccessView(m_visibleObjectCountBuffer, &uavDesc, &m_visibleObjectCountUAV);
@@ -280,12 +281,15 @@ void IndirectDrawBuffer::UpdateObjectData(ID3D11DeviceContext* context, const st
         context->Unmap(m_objectDataBuffer, 0);
     }
     
-    // Reset visible object count to 0 before compute shader runs
-    ResetVisibleObjectCount(context);
+    // TEMPORARILY DISABLED: Reset visible object count to 0 before compute shader runs
+    // ResetVisibleObjectCount(context);  // Disabled to prevent debug buffer corruption
 }
 
 void IndirectDrawBuffer::UpdateFrustumData(ID3D11DeviceContext* context, const FrustumData& frustumData)
 {
+    // Store the frustum data locally
+    m_frustumData = frustumData;
+    
     D3D11_MAPPED_SUBRESOURCE mappedResource;
     HRESULT result = context->Map(m_frustumBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
     if (SUCCEEDED(result))
@@ -390,10 +394,14 @@ void IndirectDrawBuffer::ResetVisibleObjectCount(ID3D11DeviceContext* context)
     if (!m_visibleObjectCountBuffer)
         return;
     
-    // Create a temporary buffer with initial value of 0
+    // Get the actual buffer size to match our expanded debug buffer
+    D3D11_BUFFER_DESC actualBufferDesc = {};
+    m_visibleObjectCountBuffer->GetDesc(&actualBufferDesc);
+    
+    // Create a temporary buffer with the same size and initial value of 0
     D3D11_BUFFER_DESC bufferDesc = {};
     bufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    bufferDesc.ByteWidth = sizeof(UINT);
+    bufferDesc.ByteWidth = actualBufferDesc.ByteWidth; // Match the actual buffer size (4000 bytes)
     bufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
     bufferDesc.CPUAccessFlags = 0;
     bufferDesc.MiscFlags = 0;
@@ -404,9 +412,10 @@ void IndirectDrawBuffer::ResetVisibleObjectCount(ID3D11DeviceContext* context)
     if (!device)
         return;
     
-    UINT zeroValue = 0;
+    // Create zero data for the entire buffer
+    std::vector<UINT> zeroData(actualBufferDesc.ByteWidth / sizeof(UINT), 0);
     D3D11_SUBRESOURCE_DATA initData = {};
-    initData.pSysMem = &zeroValue;
+    initData.pSysMem = zeroData.data();
     
     HRESULT result = device->CreateBuffer(&bufferDesc, &initData, &tempBuffer);
     if (SUCCEEDED(result))

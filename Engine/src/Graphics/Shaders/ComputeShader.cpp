@@ -71,6 +71,8 @@ bool ComputeShader::Initialize(ID3D11Device* device, HWND hwnd, const WCHAR* fil
     }
     
     LOG("Compute shader initialized successfully: " + WideToNarrow(filename));
+    LOG("Compute shader buffer size: " + std::to_string(m_computeShaderBuffer->GetBufferSize()) + " bytes");
+    LOG("Compute shader pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_computeShader)));
     return true;
 }
 
@@ -166,21 +168,30 @@ void ComputeShader::Dispatch(ID3D11DeviceContext* context, UINT threadGroupCount
         return;
     }
     
+    LOG("ComputeShader::Dispatch - Setting compute shader and dispatching");
+    LOG("ComputeShader::Dispatch - Compute shader pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_computeShader)));
+    LOG("ComputeShader::Dispatch - Thread groups: " + std::to_string(threadGroupCountX) + "x" + std::to_string(threadGroupCountY) + "x" + std::to_string(threadGroupCountZ));
+    
     context->CSSetShader(m_computeShader, nullptr, 0);
     context->Dispatch(threadGroupCountX, threadGroupCountY, threadGroupCountZ);
+    
+    LOG("ComputeShader::Dispatch - Dispatch completed");
 }
 
 void ComputeShader::SetShaderResourceView(ID3D11DeviceContext* context, UINT slot, ID3D11ShaderResourceView* srv)
 {
+    LOG("ComputeShader::SetShaderResourceView - Setting SRV at slot " + std::to_string(slot) + " with pointer: " + std::to_string(reinterpret_cast<uintptr_t>(srv)));
     context->CSSetShaderResources(slot, 1, &srv);
 }
 
 void ComputeShader::SetUnorderedAccessView(ID3D11DeviceContext* context, UINT slot, ID3D11UnorderedAccessView* uav)
 {
+    LOG("ComputeShader::SetUnorderedAccessView - Setting UAV at slot " + std::to_string(slot) + " with pointer: " + std::to_string(reinterpret_cast<uintptr_t>(uav)));
     context->CSSetUnorderedAccessViews(slot, 1, &uav, nullptr);
 }
 
 void ComputeShader::SetConstantBuffer(ID3D11DeviceContext* context, UINT slot, ID3D11Buffer* buffer)
 {
+    LOG("ComputeShader::SetConstantBuffer - Setting CB at slot " + std::to_string(slot) + " with pointer: " + std::to_string(reinterpret_cast<uintptr_t>(buffer)));
     context->CSSetConstantBuffers(slot, 1, &buffer);
 } 

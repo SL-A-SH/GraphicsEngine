@@ -203,8 +203,6 @@ void ModelListUI::UpdateModelListItems()
         QListWidgetItem* item = new QListWidgetItem(itemText);
         item->setData(Qt::UserRole, i); // Store model index
         m_modelListWidget->addItem(item);
-        
-        LOG("ModelListUI: Added model " + std::to_string(i) + " with text: " + itemText.toStdString());
     }
     
     LOG("ModelListUI: Successfully added " + std::to_string(modelCount) + " models to list");

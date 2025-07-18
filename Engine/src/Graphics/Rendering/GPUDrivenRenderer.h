@@ -24,12 +24,12 @@ public:
     
     // Update camera and frustum data
     void UpdateCamera(ID3D11DeviceContext* context, const XMFLOAT3& cameraPos, const XMFLOAT3& cameraForward, 
-                     const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix);
+                     const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix, bool debugLogging = false);
     
     // Perform GPU-driven rendering
     	void Render(ID3D11DeviceContext* context, ID3D11Buffer* vertexBuffer, ID3D11Buffer* indexBuffer,
 				ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader, ID3D11InputLayout* inputLayout,
-				class Model* model, class PBRShader* pbrShader, class Light* light, class Camera* camera, class D3D11Device* direct3D);
+				class Model* model, class PBRShader* pbrShader, class Light* light, class Camera* camera, class D3D11Device* direct3D, bool debugLogging = false);
     
     // Get rendering statistics
     UINT GetVisibleObjectCount() const { return m_indirectBuffer.GetVisibleObjectCount(); }
