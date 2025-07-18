@@ -1,3 +1,4 @@
+#include <chrono>
 #include "application.h"
 #include "../../Core/System/Logger.h"
 #include "../../Core/System/PerformanceProfiler.h"
@@ -20,7 +21,8 @@
 #include "../../Graphics/Rendering/IndirectDrawBuffer.h"
 #include "../../GUI/Components/UserInterface.h"
 #include "../../Core/Input/Management/InputManager.h"
-// #include "../../Core/System/RenderingBenchmark.h" // DISABLED: Commented out for minimal GPU-driven rendering testing
+#include "../../Core/System/RenderingBenchmark.h"
+#include "../../GUI/Windows/PerformanceWidget.h"
 
 Application::Application()
 {
@@ -50,7 +52,8 @@ Application::Application()
 	m_ScaleGizmo = 0;
 	m_GPUDrivenRenderer = 0;
 	m_enableGPUDrivenRendering = false;
-	// m_BenchmarkSystem = 0; // DISABLED: Commented out for minimal GPU-driven rendering testing
+	m_BenchmarkSystem = 0;
+	m_PerformanceWidget = 0;
 }
 
 
@@ -214,7 +217,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	// Create and initialize the model list object.
 	LOG("Creating model list");
 	m_ModelList = new ModelList;
-	m_ModelList->Initialize(5); // TESTING: Only 5 spaceships for GPU-driven rendering debug
+	m_ModelList->Initialize(500); // PERFORMANCE TESTING: 500 spaceships to test GPU vs CPU performance
 	LOG("Model list initialized successfully");
 	
 	// Debug: Check if ModelList was initialized correctly
@@ -282,7 +285,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 
 	// Initialize GPU-driven renderer
 	m_GPUDrivenRenderer = new GPUDrivenRenderer;
-	result = m_GPUDrivenRenderer->Initialize(m_Direct3D->GetDevice(), hwnd, 10); // TESTING: Small buffer for 5 spaceships + some extra
+	result = m_GPUDrivenRenderer->Initialize(m_Direct3D->GetDevice(), hwnd, 1000); // PERFORMANCE TESTING: Large buffer for 500+ objects
 	if (!result)
 	{
 		LOG_ERROR("Could not initialize GPU-driven renderer - will use CPU-driven rendering only");
@@ -294,24 +297,34 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 		LOG("GPU-driven renderer initialized successfully");
 	}
 
-	// DISABLED: Initialize benchmark system (commented out for minimal GPU-driven rendering testing)
-	
-	//m_BenchmarkSystem = new RenderingBenchmark;
-	//result = m_BenchmarkSystem->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), hwnd);
-	//if (!result)
-	//{
-	//	LOG_ERROR("Could not initialize benchmark system - benchmarking features will be disabled");
-	//	// Don't return false - continue without benchmark system
-	//	delete m_BenchmarkSystem;
-	//	m_BenchmarkSystem = nullptr;
-	//}
-	//else
-	//{
-	//	LOG("Benchmark system initialized successfully");
-	//}
-	
-	// m_BenchmarkSystem = nullptr; // Temporarily disabled for minimal GPU-driven rendering testing
-	LOG("Benchmark system temporarily disabled for minimal GPU-driven rendering testing");
+	// Initialize benchmark system
+	m_BenchmarkSystem = new RenderingBenchmark;
+	result = m_BenchmarkSystem->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), hwnd);
+	if (!result)
+	{
+		LOG_ERROR("Could not initialize benchmark system - benchmarking features will be disabled");
+		// Don't return false - continue without benchmark system
+		delete m_BenchmarkSystem;
+		m_BenchmarkSystem = nullptr;
+	}
+	else
+	{
+		LOG("Benchmark system initialized successfully");
+	}
+
+	// Initialize performance widget
+	m_PerformanceWidget = new PerformanceWidget;
+	result = m_PerformanceWidget->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), hwnd);
+	if (!result)
+	{
+		LOG_ERROR("Could not initialize performance widget - performance UI will be disabled");
+		delete m_PerformanceWidget;
+		m_PerformanceWidget = nullptr;
+	}
+	else
+	{
+		LOG("Performance widget initialized successfully");
+	}
 
 	// Set up callbacks for model selection
 	if (m_mainWindow && m_mainWindow->GetModelListUI())
@@ -490,6 +503,21 @@ void Application::Shutdown()
 		m_GPUDrivenRenderer->Shutdown();
 		delete m_GPUDrivenRenderer;
 		m_GPUDrivenRenderer = 0;
+	}
+
+	// Release the benchmark system
+	if (m_BenchmarkSystem)
+	{
+		delete m_BenchmarkSystem;
+		m_BenchmarkSystem = 0;
+	}
+
+	// Release the performance widget
+	if (m_PerformanceWidget)
+	{
+		m_PerformanceWidget->Shutdown();
+		delete m_PerformanceWidget;
+		m_PerformanceWidget = 0;
 	}
 
 	LOG("Application shutdown completed");
@@ -796,11 +824,32 @@ bool Application::Frame(InputManager* Input)
 	// Use GPU-driven renderer's render count if GPU-driven rendering is enabled
 	int renderCount = m_enableGPUDrivenRendering && m_GPUDrivenRenderer ? 
 		m_GPUDrivenRenderer->GetRenderCount() : m_RenderCount;
+	
+	// Performance comparison logging (when debug logging is enabled)
+	if (m_debugLogging && m_enableGPUDrivenRendering && m_GPUDrivenRenderer)
+	{
+		long long gpuTime = m_GPUDrivenRenderer->GetLastFrustumCullingTimeMicroseconds();
+		if (gpuTime > 0)
+		{
+			LOG("=== PERFORMANCE COMPARISON ===");
+			LOG("GPU Frustum Culling: " + std::to_string(gpuTime) + " μs for " + std::to_string(renderCount) + " visible objects");
+			LOG("Note: Compare with CPU frustum culling time when switching modes (F12)");
+			LOG("===============================");
+		}
+	}
+	
 	result = m_UserInterface->Frame(m_Direct3D->GetDeviceContext(), m_Fps, renderCount, m_enableGPUDrivenRendering);
 	if (!result)
 	{
 		LOG_ERROR("User interface update failed");
 		return false;
+	}
+
+	// Update and render performance widget
+	if (m_PerformanceWidget)
+	{
+		m_PerformanceWidget->Update(frameTime);
+		m_PerformanceWidget->Render();
 	}
 
 	// Track UI rendering performance
@@ -1185,6 +1234,10 @@ bool Application::Render()
 
 		// Go through all the models and render them only if they can be seen by the camera view.
 		int cpuVisibleCount = 0;
+		
+		// Start CPU frustum culling timing
+		auto cpuCullingStart = std::chrono::high_resolution_clock::now();
+		
 		for (i = 0; i < modelCount; i++)
 		{
 			// Get the full transform data for this model
@@ -1324,6 +1377,20 @@ bool Application::Render()
 				// Since this model was rendered then increase the count for this frame.
 				m_RenderCount++;
 			}
+		}
+		
+		// End CPU frustum culling timing
+		auto cpuCullingEnd = std::chrono::high_resolution_clock::now();
+		auto cpuCullingDuration = std::chrono::duration_cast<std::chrono::microseconds>(cpuCullingEnd - cpuCullingStart);
+		
+		// Update PerformanceProfiler with CPU frustum culling data
+		PerformanceProfiler::GetInstance().SetCPUFrustumCullingTime(static_cast<double>(cpuCullingDuration.count()));
+		PerformanceProfiler::GetInstance().SetFrustumCullingObjects(static_cast<uint32_t>(modelCount), static_cast<uint32_t>(cpuVisibleCount));
+		
+		if (m_debugLogging)
+		{
+			LOG("CPU Frustum Culling Performance: " + std::to_string(cpuCullingDuration.count()) + " microseconds (" + 
+			    std::to_string(cpuVisibleCount) + "/" + std::to_string(modelCount) + " objects visible)");
 		}
 
 		// Render gizmos for selected model

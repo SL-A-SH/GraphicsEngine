@@ -18,13 +18,13 @@
 #include "../Components/ModelListUI.h"
 #include "../Components/UserInterface.h"
 #include "DirectXViewport.h"
-// #include "PerformanceWidget.h" // DISABLED: Commented out for minimal GPU-driven rendering testing
+// #include "PerformanceWidget.h" // Now handled by Application
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , m_ViewportWidget(nullptr)
     , m_MainLayout(nullptr)
-    // , m_PerformanceWidget(nullptr) // DISABLED: Commented out for minimal GPU-driven rendering testing
+    // , m_PerformanceWidget(nullptr) // Now handled by Application
     , m_TabWidget(nullptr)
     , m_PropertiesDock(nullptr)
     , m_TransformUI(nullptr)
@@ -59,9 +59,7 @@ MainWindow::MainWindow(QWidget* parent)
     m_ViewportWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     m_TabWidget->addTab(m_ViewportWidget, "Viewport");
 
-    // Create performance widget
-    // m_PerformanceWidget = new PerformanceWidget(centralWidget); // DISABLED: Commented out for minimal GPU-driven rendering testing
-    // m_TabWidget->addTab(m_PerformanceWidget, "Performance"); // DISABLED: Commented out for minimal GPU-driven rendering testing
+    // Note: PerformanceWidget is now handled directly by Application as ImGui widget
 
     // Connect signals
     connect(m_TabWidget, &QTabWidget::tabCloseRequested, this, &MainWindow::OnTabCloseRequested);

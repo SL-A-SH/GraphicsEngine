@@ -29,7 +29,7 @@ PerformanceProfiler::PerformanceProfiler()
     , m_Frequency(0.0)
     , m_LastFrameTime(0.0)
 {
-    m_LastFrameTiming = { 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0.0, 0.0, 0.0 };
+    m_LastFrameTiming = { 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0 };
     
     // Initialize QueryPerformanceCounter frequency for consistent timing
     LARGE_INTEGER freq;

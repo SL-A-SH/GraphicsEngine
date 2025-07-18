@@ -5,7 +5,7 @@
 
 // Forward declarations
 class DirectXViewport;
-// class PerformanceWidget; // DISABLED: Commented out for minimal GPU-driven rendering testing
+// class PerformanceWidget; // Now handled directly by Application
 class TransformUI;
 class ModelListUI;
 class QVBoxLayout;
@@ -47,7 +47,7 @@ private:
 private:
     // UI Components
     DirectXViewport* m_ViewportWidget;
-    // PerformanceWidget* m_PerformanceWidget; // DISABLED: Commented out for minimal GPU-driven rendering testing
+    // PerformanceWidget* m_PerformanceWidget; // Now handled by Application
     TransformUI* m_TransformUI;
     ModelListUI* m_ModelListUI;
     

@@ -31,6 +31,7 @@ public:
     
     // Get rendering statistics
     int GetRenderCount() const { return m_renderCount; }
+    long long GetLastFrustumCullingTimeMicroseconds() const { return m_lastFrustumCullingTime; }
     
     // Set rendering mode
     void SetRenderingMode(bool enableGPUDriven) { m_enableGPUDriven = enableGPUDriven; }
@@ -102,6 +103,7 @@ private:
     bool m_enableGPUDriven;
     UINT m_maxObjects;
     int m_renderCount;
+    long long m_lastFrustumCullingTime; // Last frustum culling time in microseconds
     
     // Camera data
     XMFLOAT3 m_cameraPosition;

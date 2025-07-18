@@ -27,6 +27,13 @@ public:
         double gpuMemoryUsage;  // GPU memory usage in MB
         double cpuMemoryUsage;  // CPU memory usage in MB
         double bandwidthUsage;  // Memory bandwidth usage in GB/s
+        
+        // Frustum culling performance metrics
+        double cpuFrustumCullingTime;  // CPU frustum culling time in microseconds
+        double gpuFrustumCullingTime;  // GPU frustum culling time in microseconds
+        uint32_t totalObjects;         // Total objects processed
+        uint32_t visibleObjects;       // Objects that passed frustum culling
+        
         std::unordered_map<std::string, TimingData> sections;
     };
 
@@ -128,6 +135,14 @@ public:
     void SetGPUMemoryUsage(double usageMB) { m_LastFrameTiming.gpuMemoryUsage = usageMB; }
     void SetCPUMemoryUsage(double usageMB) { m_LastFrameTiming.cpuMemoryUsage = usageMB; }
     void SetBandwidthUsage(double usageGBs) { m_LastFrameTiming.bandwidthUsage = usageGBs; }
+    
+    // Frustum culling tracking
+    void SetCPUFrustumCullingTime(double timeMicroseconds) { m_LastFrameTiming.cpuFrustumCullingTime = timeMicroseconds; }
+    void SetGPUFrustumCullingTime(double timeMicroseconds) { m_LastFrameTiming.gpuFrustumCullingTime = timeMicroseconds; }
+    void SetFrustumCullingObjects(uint32_t total, uint32_t visible) { 
+        m_LastFrameTiming.totalObjects = total; 
+        m_LastFrameTiming.visibleObjects = visible; 
+    }
 
     // Rendering mode management
     void SetRenderingMode(RenderingMode mode) { m_CurrentMode = mode; }

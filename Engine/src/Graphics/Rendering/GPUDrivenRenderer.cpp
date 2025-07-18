@@ -3,6 +3,7 @@
 #include "../../Core/System/PerformanceProfiler.h"
 #include "../../Core/Application/Application.h"
 #include "../../Core/Common/EngineTypes.h"
+#include <chrono>
 #include "../Resource/Model.h"
 #include "Light.h"
 #include "../Rendering/Camera.h"
@@ -23,6 +24,7 @@ GPUDrivenRenderer::GPUDrivenRenderer()
     , m_enableGPUDriven(true)
     , m_maxObjects(0)
     , m_renderCount(0)
+    , m_lastFrustumCullingTime(0)
     , m_cameraPosition(0.0f, 0.0f, 0.0f)
     , m_viewMatrix(XMMatrixIdentity())
     , m_projectionMatrix(XMMatrixIdentity())
@@ -280,15 +282,23 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
                 UINT frustumThreadGroupCount = (objectCount + 63) / 64;
                 LOG("GPUDrivenRenderer::Render - Dispatching frustum culling: " + std::to_string(frustumThreadGroupCount) + " thread groups for " + std::to_string(objectCount) + " objects");
                 
+                // Start GPU frustum culling timing
+                auto gpuCullingStart = std::chrono::high_resolution_clock::now();
+                
                 // Dispatch frustum culling compute shader
                 m_frustumCullingCS->Dispatch(context, frustumThreadGroupCount, 1, 1);
                 
-                // Flush and unbind UAV
+                // Flush and wait for completion
                 context->Flush();
                 m_frustumCullingCS->SetUnorderedAccessView(context, 0, nullptr);
                 context->Flush();
                 
-                LOG("GPUDrivenRenderer::Render - GPU frustum culling completed");
+                // End GPU frustum culling timing
+                auto gpuCullingEnd = std::chrono::high_resolution_clock::now();
+                auto gpuCullingDuration = std::chrono::duration_cast<std::chrono::microseconds>(gpuCullingEnd - gpuCullingStart);
+                m_lastFrustumCullingTime = gpuCullingDuration.count();
+                
+                LOG("GPUDrivenRenderer::Render - GPU frustum culling completed in " + std::to_string(gpuCullingDuration.count()) + " microseconds");
                 
                 // Copy visibility buffer to readback buffer for CPU access
                 context->CopyResource(m_visibilityReadbackBuffer, m_visibilityBuffer);
@@ -311,7 +321,11 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
                     
                     context->Unmap(m_visibilityReadbackBuffer, 0);
                     
-                    LOG("GPUDrivenRenderer::Render - GPU Frustum Culling Results: " + std::to_string(visibleCount) + "/" + std::to_string(objectCount) + " objects visible");
+                    LOG("GPUDrivenRenderer::Render - GPU Frustum Culling Results: " + std::to_string(visibleCount) + "/" + std::to_string(objectCount) + " objects visible (took " + std::to_string(gpuCullingDuration.count()) + " μs)");
+                    
+                    // Update PerformanceProfiler with GPU frustum culling data
+                    PerformanceProfiler::GetInstance().SetGPUFrustumCullingTime(static_cast<double>(gpuCullingDuration.count()));
+                    PerformanceProfiler::GetInstance().SetFrustumCullingObjects(objectCount, visibleCount);
                     
                     // Update render count to reflect visible objects (for demonstration)
                     m_renderCount = static_cast<int>(visibleCount);
