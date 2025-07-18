@@ -32,11 +32,8 @@ PixelInputType GPUDrivenPBRVertexShader(VertexInputType input, uint instanceID :
 {
     PixelInputType output;
     
-    // Get the world matrix for this instance - now directly a float4x4
+    // Get the world matrix for this instance - directly from compute shader
     float4x4 worldMatrix = worldMatrixBuffer[instanceID];
-    
-    // Transpose world matrix to match transposed view/projection matrices
-    worldMatrix = transpose(worldMatrix);
     
     // Calculate the position of the vertex against the world, view, and projection matrices.
     float4 worldPosition = mul(input.position, worldMatrix);

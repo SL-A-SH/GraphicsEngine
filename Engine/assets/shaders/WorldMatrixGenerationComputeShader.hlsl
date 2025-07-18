@@ -26,22 +26,28 @@ StructuredBuffer<ObjectData> objectBuffer : register(t0);
 // Output world matrix buffer
 RWStructuredBuffer<float4x4> worldMatrixBuffer : register(u0);
 
-// Helper function to create rotation matrix from Euler angles (in radians) - column-major
+// Helper function to create rotation matrix from Euler angles (in radians) 
+// Matches DirectX XMMatrixRotationRollPitchYaw order: Z(roll) * X(pitch) * Y(yaw)
 float4x4 CreateRotationMatrix(float3 rotation)
 {
-    float cx = cos(rotation.x);
-    float sx = sin(rotation.x);
-    float cy = cos(rotation.y);
-    float sy = sin(rotation.y);
-    float cz = cos(rotation.z);
-    float sz = sin(rotation.z);
+    float pitch = rotation.x; // X rotation (pitch)
+    float yaw = rotation.y;   // Y rotation (yaw)  
+    float roll = rotation.z;  // Z rotation (roll)
     
-    // Combined rotation matrix (ZYX order) - column-major format
+    float cp = cos(pitch);
+    float sp = sin(pitch);
+    float cy = cos(yaw);
+    float sy = sin(yaw);
+    float cr = cos(roll);
+    float sr = sin(roll);
+    
+    // DirectX rotation order: Yaw * Pitch * Roll (Y * X * Z)
+    // Row-major matrix to match DirectX conventions
     return float4x4(
-        cy * cz,                    cy * sz,                    -sy,        0.0f,
-        sx * sy * cz - cx * sz,     sx * sy * sz + cx * cz,     sx * cy,    0.0f,
-        cx * sy * cz + sx * sz,     cx * sy * sz - sx * cz,     cx * cy,    0.0f,
-        0.0f,                       0.0f,                       0.0f,       1.0f
+        cy * cr + sy * sp * sr,    sr * cp,    -sy * cr + cy * sp * sr,   0.0f,
+        -cy * sr + sy * sp * cr,   cr * cp,    sy * sr + cy * sp * cr,    0.0f,
+        sy * cp,                   -sp,        cy * cp,                   0.0f,
+        0.0f,                      0.0f,       0.0f,                      1.0f
     );
 }
 
@@ -56,14 +62,14 @@ float4x4 CreateScaleMatrix(float3 scale)
     );
 }
 
-// Helper function to create translation matrix (column-major)
+// Helper function to create translation matrix (row-major to match DirectX)
 float4x4 CreateTranslationMatrix(float3 position)
 {
     return float4x4(
-        1.0f, 0.0f, 0.0f, position.x,
-        0.0f, 1.0f, 0.0f, position.y,
-        0.0f, 0.0f, 1.0f, position.z,
-        0.0f, 0.0f, 0.0f, 1.0f
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        position.x, position.y, position.z, 1.0f
     );
 }
 
@@ -85,9 +91,9 @@ void main(uint3 dispatchId : SV_DispatchThreadID)
     float4x4 rotationMatrix = CreateRotationMatrix(object.rotation);
     float4x4 translationMatrix = CreateTranslationMatrix(object.position);
     
-    // Combine matrices: World = Translation * Rotation * Scale
-    // For column-major matrices, multiply in standard order
-    float4x4 worldMatrix = mul(mul(translationMatrix, rotationMatrix), scaleMatrix);
+    // Combine matrices to match CPU path: Scale * Rotation * Translation
+    // This matches XMMatrixMultiply(XMMatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix)
+    float4x4 worldMatrix = mul(mul(scaleMatrix, rotationMatrix), translationMatrix);
     
     // Store the world matrix
     worldMatrixBuffer[objectIndex] = worldMatrix;

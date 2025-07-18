@@ -40,11 +40,14 @@ public:
     bool AreComputeShadersInitialized() const 
     { 
         bool worldMatrixValid = m_worldMatrixGenerationCS && m_worldMatrixGenerationCS->GetComputeShader();
+        bool frustumCullingValid = m_frustumCullingCS && m_frustumCullingCS->GetComputeShader();
         
         if (!worldMatrixValid)
             LOG_ERROR("GPUDrivenRenderer: World matrix generation compute shader is not valid");
+        if (!frustumCullingValid)
+            LOG_ERROR("GPUDrivenRenderer: Frustum culling compute shader is not valid");
         
-        return worldMatrixValid;
+        return worldMatrixValid && frustumCullingValid;
     }
     
     // Check if indirect buffer is properly initialized
@@ -68,10 +71,18 @@ private:
     // Initialize GPU-driven rendering shaders
     bool InitializeGPUDrivenShaders(ID3D11Device* device, HWND hwnd);
     void ReleaseGPUDrivenShaders();
+    
+    // Initialize frustum culling buffers
+    bool InitializeVisibilityBuffer(ID3D11Device* device, UINT maxObjects);
+    void ReleaseVisibilityBuffer();
+    
+    // Extract frustum planes from view-projection matrix
+    void ExtractFrustumPlanes(const XMMATRIX& viewProjectionMatrix);
 
 private:
-    // SIMPLIFIED: Only world matrix generation compute shader
+    // Compute shaders for GPU-driven rendering
     ComputeShader* m_worldMatrixGenerationCS;
+    ComputeShader* m_frustumCullingCS;
     
     // GPU-driven rendering shaders
     ID3D11VertexShader* m_gpuDrivenVertexShader;
@@ -80,6 +91,12 @@ private:
     
     // Indirect rendering buffers
     IndirectDrawBuffer m_indirectBuffer;
+    
+    // Frustum culling buffers
+    ID3D11Buffer* m_visibilityBuffer;
+    ID3D11ShaderResourceView* m_visibilitySRV;
+    ID3D11UnorderedAccessView* m_visibilityUAV;
+    ID3D11Buffer* m_visibilityReadbackBuffer; // CPU-readable copy for conditional rendering
     
     // Rendering state
     bool m_enableGPUDriven;
@@ -90,6 +107,9 @@ private:
     XMFLOAT3 m_cameraPosition;
     XMMATRIX m_viewMatrix;
     XMMATRIX m_projectionMatrix;
+    
+    // Frustum data
+    XMFLOAT4 m_frustumPlanes[6]; // Left, Right, Top, Bottom, Near, Far
 };
 
 #endif // GPU_DRIVEN_RENDERER_H 
