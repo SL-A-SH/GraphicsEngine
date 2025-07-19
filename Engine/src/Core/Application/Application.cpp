@@ -217,7 +217,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	// Create and initialize the model list object.
 	LOG("Creating model list");
 	m_ModelList = new ModelList;
-	m_ModelList->Initialize(500); // PERFORMANCE TESTING: 500 spaceships to test GPU vs CPU performance
+	m_ModelList->Initialize(5000); // PERFORMANCE TESTING: 5000 spaceships to test GPU vs CPU performance at scale
 	LOG("Model list initialized successfully");
 	
 	// Debug: Check if ModelList was initialized correctly
@@ -249,7 +249,6 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	m_Position = new Position;
 	
 	// Initialize the position object with the same initial camera position
-	// This ensures the camera starts at the correct position
 	m_Position->SetPosition(0.0f, 50.0f, -150.0f);
 
 	// Create the frustum class object.
@@ -285,7 +284,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 
 	// Initialize GPU-driven renderer
 	m_GPUDrivenRenderer = new GPUDrivenRenderer;
-	result = m_GPUDrivenRenderer->Initialize(m_Direct3D->GetDevice(), hwnd, 1000); // PERFORMANCE TESTING: Large buffer for 500+ objects
+	result = m_GPUDrivenRenderer->Initialize(m_Direct3D->GetDevice(), hwnd, 10000); // PERFORMANCE TESTING: Large buffer for 5000+ objects
 	if (!result)
 	{
 		LOG_ERROR("Could not initialize GPU-driven renderer - will use CPU-driven rendering only");
@@ -311,8 +310,6 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	{
 		LOG("Benchmark system initialized successfully");
 	}
-
-	// Note: PerformanceWidget now handled by MainWindow with Qt tabbed interface
 
 	// Set up callbacks for model selection
 	if (m_mainWindow && m_mainWindow->GetModelListUI())

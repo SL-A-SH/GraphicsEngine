@@ -63,7 +63,7 @@ PerformanceWidget::PerformanceWidget(QWidget* parent)
     // Set up update timer
     m_UpdateTimer = new QTimer(this);
     connect(m_UpdateTimer, &QTimer::timeout, this, &PerformanceWidget::OnUpdateTimer);
-    m_UpdateTimer->start(UPDATE_INTERVAL_MS);
+    m_UpdateTimer->start(1000); // Changed from 16 to 1000ms
     
     // Set up benchmark timer
     m_BenchmarkTimer = new QTimer(this);
@@ -112,8 +112,23 @@ void PerformanceWidget::CreateRealTimeTab()
     // Performance statistics table
     m_StatsTable = new QTableWidget(20, 2, realTimeTab);
     m_StatsTable->setHorizontalHeaderLabels(QStringList() << "Metric" << "Value");
-    m_StatsTable->horizontalHeader()->setStretchLastSection(true);
-    m_StatsTable->setAlternatingRowColors(true);
+    
+    // Set column widths to 50% each
+    QHeaderView* horizontalHeader = m_StatsTable->horizontalHeader();
+    horizontalHeader->setSectionResizeMode(0, QHeaderView::Stretch);
+    horizontalHeader->setSectionResizeMode(1, QHeaderView::Stretch);
+    
+    // Remove alternating row colors - keep all rows gray
+    m_StatsTable->setAlternatingRowColors(false);
+    m_StatsTable->setStyleSheet(
+        "QTableWidget { "
+        "   background-color: #2d2d2d; "
+        "} "
+        "QTableWidget::item { "
+        "   padding: 5px; "
+        "   background-color: #2d2d2d; "
+        "}"
+    );
     m_StatsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     
     // Populate initial metrics
@@ -316,9 +331,11 @@ void PerformanceWidget::UpdateRealTimeStats()
     }
     row++;
     
-    // GPU Speedup
-    if (timing.cpuFrustumCullingTime > 0.0 && timing.gpuFrustumCullingTime > 0.0) {
-        double speedup = timing.cpuFrustumCullingTime / timing.gpuFrustumCullingTime;
+    // GPU Speedup (use persistent values so we can compare across rendering modes)
+    double persistentCPUTime = profiler.GetLastCPUFrustumCullingTime();
+    double persistentGPUTime = profiler.GetLastGPUFrustumCullingTime();
+    if (persistentCPUTime > 0.0 && persistentGPUTime > 0.0) {
+        double speedup = persistentCPUTime / persistentGPUTime;
         m_StatsTable->item(row, 1)->setText(QString::number(speedup, 'f', 2) + "x");
     } else {
         m_StatsTable->item(row, 1)->setText("N/A");
@@ -333,23 +350,24 @@ void PerformanceWidget::UpdateRealTimeStats()
     m_StatsTable->item(row++, 1)->setText(QString::number(timing.cpuTime, 'f', 3));
     m_StatsTable->item(row++, 1)->setText(QString::number(timing.gpuTime, 'f', 3));
     
-    // Memory usage
+    // Memory usage (values are already in MB from PerformanceProfiler)
     if (timing.gpuMemoryUsage > 0.0) {
-        m_StatsTable->item(row, 1)->setText(QString::number(timing.gpuMemoryUsage / (1024.0 * 1024.0), 'f', 1));
+        m_StatsTable->item(row, 1)->setText(QString::number(timing.gpuMemoryUsage, 'f', 1));
     } else {
         m_StatsTable->item(row, 1)->setText("N/A");
     }
     row++;
     
     if (timing.cpuMemoryUsage > 0.0) {
-        m_StatsTable->item(row, 1)->setText(QString::number(timing.cpuMemoryUsage / (1024.0 * 1024.0), 'f', 1));
+        m_StatsTable->item(row, 1)->setText(QString::number(timing.cpuMemoryUsage, 'f', 1));
     } else {
         m_StatsTable->item(row, 1)->setText("N/A");
     }
     row++;
     
+    // Bandwidth usage (values are already in GB/s from PerformanceProfiler, convert to MB/s for display)
     if (timing.bandwidthUsage > 0.0) {
-        m_StatsTable->item(row, 1)->setText(QString::number(timing.bandwidthUsage / (1024.0 * 1024.0), 'f', 1));
+        m_StatsTable->item(row, 1)->setText(QString::number(timing.bandwidthUsage * 1024.0, 'f', 1));
     } else {
         m_StatsTable->item(row, 1)->setText("N/A");
     }

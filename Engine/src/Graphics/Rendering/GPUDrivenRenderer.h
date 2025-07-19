@@ -77,6 +77,10 @@ private:
     bool InitializeVisibilityBuffer(ID3D11Device* device, UINT maxObjects);
     void ReleaseVisibilityBuffer();
     
+    // Initialize reusable constant buffers for performance
+    bool InitializeConstantBuffers(ID3D11Device* device);
+    void ReleaseConstantBuffers();
+    
     // Extract frustum planes from view-projection matrix
     void ExtractFrustumPlanes(const XMMATRIX& viewProjectionMatrix);
 
@@ -98,6 +102,13 @@ private:
     ID3D11ShaderResourceView* m_visibilitySRV;
     ID3D11UnorderedAccessView* m_visibilityUAV;
     ID3D11Buffer* m_visibilityReadbackBuffer; // CPU-readable copy for conditional rendering
+    
+    // PERFORMANCE: Reusable constant buffers (created once, reused every frame)
+    ID3D11Buffer* m_frustumConstantBuffer;
+    ID3D11Buffer* m_objectCountBuffer;
+    ID3D11Buffer* m_viewProjectionBuffer;
+    ID3D11Buffer* m_lightBuffer;
+    ID3D11Buffer* m_materialBuffer;
     
     // Rendering state
     bool m_enableGPUDriven;

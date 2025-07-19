@@ -28,6 +28,8 @@ PerformanceProfiler::PerformanceProfiler()
     , m_BenchmarkCurrentFrame(0)
     , m_Frequency(0.0)
     , m_LastFrameTime(0.0)
+    , m_LastCPUFrustumCullingTime(0.0)
+    , m_LastGPUFrustumCullingTime(0.0)
 {
     m_LastFrameTiming = { 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0 };
     
@@ -95,8 +97,9 @@ void PerformanceProfiler::BeginFrame()
     // Use CommonTimer for consistent timing
     m_FrameStartTime = CommonTimer::GetInstance().GetCurrentTimeMs();
     
-    // Reset frame timing data
-    m_LastFrameTiming = { 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0.0, 0.0, 0.0 };
+    // Reset frame timing data (preserve CPU memory from previous frame for continuity)
+    double previousCPUMemory = m_LastFrameTiming.cpuMemoryUsage;
+    m_LastFrameTiming = { 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0.0, previousCPUMemory, 0.0, 0.0, 0.0, 0, 0 };
 
     // Begin GPU timing
     if (!m_QueryInFlight)
@@ -105,9 +108,6 @@ void PerformanceProfiler::BeginFrame()
         m_Context->End(m_TimestampStartQuery);
         m_QueryInFlight = true;
     }
-
-    // Update memory usage
-    UpdateMemoryUsage();
 }
 
 void PerformanceProfiler::EndFrame()
@@ -143,6 +143,9 @@ void PerformanceProfiler::EndFrame()
     double frameEndTime = CommonTimer::GetInstance().GetCurrentTimeMs();
     m_LastFrameTiming.cpuTime = frameEndTime - m_FrameStartTime;
     m_LastFrameTime = m_LastFrameTiming.cpuTime;
+
+    // Update memory usage at end of frame when we have rendering data
+    UpdateMemoryUsage();
 
     // Store frame data
     FrameData frameData;
@@ -266,23 +269,47 @@ void PerformanceProfiler::UpdateMemoryUsage()
     }
 
     // Calculate GPU memory usage based on actual resources
-    // This is a more sophisticated estimate based on triangles, textures, and draw calls
+    // More accurate estimation considering instanced vs individual rendering
     double estimatedGPUMemory = 0.0;
     
-    // Base memory for vertex/index buffers (rough estimate)
+    // Base memory for vertex/index buffers (based on triangles, not draw calls)
     estimatedGPUMemory += m_LastFrameTiming.triangles * 0.001; // ~1KB per triangle for vertex data
     
-    // Memory for textures (rough estimate)
-    estimatedGPUMemory += m_LastFrameTiming.drawCalls * 2.0; // ~2MB per draw call for textures
+    // Memory for textures - use instances count for more accurate estimation
+    // Each instance needs texture memory, regardless of how it's drawn
+    if (m_LastFrameTiming.instances > 0) {
+        // Estimate texture memory per instance (diffuse, normal, metallic, roughness, etc.)
+        estimatedGPUMemory += m_LastFrameTiming.instances * 0.5; // ~0.5MB per instance for all textures
+    } else {
+        // Fallback: estimate based on draw calls for non-instanced rendering
+        estimatedGPUMemory += m_LastFrameTiming.drawCalls * 2.0; // ~2MB per draw call for textures
+    }
     
-    // Memory for render targets and depth buffers
+    // Memory for render targets, depth buffers, and compute buffers
     estimatedGPUMemory += 50.0; // Base memory for render targets
+    
+    // Additional memory for GPU-driven rendering (compute buffers, etc.)
+    if (m_CurrentMode == RenderingMode::GPU_DRIVEN && m_LastFrameTiming.computeDispatches > 0) {
+        estimatedGPUMemory += 10.0; // Additional memory for compute shader buffers
+    }
     
     m_LastFrameTiming.gpuMemoryUsage = estimatedGPUMemory;
     
     // Calculate bandwidth usage (rough estimate)
-    // Based on memory transfers and rendering operations
-    double bandwidthEstimate = (m_LastFrameTiming.triangles * 0.0001) + (m_LastFrameTiming.drawCalls * 0.01);
+    // Based on triangles rendered and memory transfers
+    double bandwidthEstimate = 0.0;
+    if (m_LastFrameTiming.triangles > 0) {
+        // Bandwidth for vertex data transfers
+        bandwidthEstimate += (m_LastFrameTiming.triangles * 0.0001); // GB/s
+        
+        // Additional bandwidth for texture streaming
+        if (m_LastFrameTiming.instances > 0) {
+            bandwidthEstimate += (m_LastFrameTiming.instances * 0.0001); // GB/s for texture bandwidth
+        } else {
+            bandwidthEstimate += (m_LastFrameTiming.drawCalls * 0.001); // GB/s fallback
+        }
+    }
+    
     m_LastFrameTiming.bandwidthUsage = bandwidthEstimate;
 }
 

@@ -137,12 +137,22 @@ public:
     void SetBandwidthUsage(double usageGBs) { m_LastFrameTiming.bandwidthUsage = usageGBs; }
     
     // Frustum culling tracking
-    void SetCPUFrustumCullingTime(double timeMicroseconds) { m_LastFrameTiming.cpuFrustumCullingTime = timeMicroseconds; }
-    void SetGPUFrustumCullingTime(double timeMicroseconds) { m_LastFrameTiming.gpuFrustumCullingTime = timeMicroseconds; }
+    void SetCPUFrustumCullingTime(double timeMicroseconds) { 
+        m_LastFrameTiming.cpuFrustumCullingTime = timeMicroseconds; 
+        m_LastCPUFrustumCullingTime = timeMicroseconds; // Store persistently for speedup calculation
+    }
+    void SetGPUFrustumCullingTime(double timeMicroseconds) { 
+        m_LastFrameTiming.gpuFrustumCullingTime = timeMicroseconds; 
+        m_LastGPUFrustumCullingTime = timeMicroseconds; // Store persistently for speedup calculation
+    }
     void SetFrustumCullingObjects(uint32_t total, uint32_t visible) { 
         m_LastFrameTiming.totalObjects = total; 
         m_LastFrameTiming.visibleObjects = visible; 
     }
+    
+    // Get persistent frustum culling times for speedup calculation
+    double GetLastCPUFrustumCullingTime() const { return m_LastCPUFrustumCullingTime; }
+    double GetLastGPUFrustumCullingTime() const { return m_LastGPUFrustumCullingTime; }
 
     // Rendering mode management
     void SetRenderingMode(RenderingMode mode) { m_CurrentMode = mode; }
@@ -222,6 +232,10 @@ private:
     // Timing consistency with Timer class
     double m_Frequency;
     double m_LastFrameTime;
+
+    // Persistent frustum culling times for speedup calculation
+    double m_LastCPUFrustumCullingTime;
+    double m_LastGPUFrustumCullingTime;
 
     static const size_t MAX_FRAME_HISTORY = 300; // Store 5 seconds at 60 FPS
     static const size_t MAX_BENCHMARK_FRAMES = 3000; // Store up to 50 seconds at 60 FPS
