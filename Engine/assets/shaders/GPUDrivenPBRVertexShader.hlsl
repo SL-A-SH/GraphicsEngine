@@ -1,5 +1,6 @@
-// GPU-Driven PBR Vertex Shader
+// GPU-Driven PBR Vertex Shader with GPU Frustum Culling
 // Uses per-instance world matrices from a structured buffer
+// Uses indirection buffer to map instanceID to actual object indices
 
 cbuffer MatrixBuffer : register(b0)
 {
@@ -9,6 +10,9 @@ cbuffer MatrixBuffer : register(b0)
 
 // World matrices buffer - matches compute shader output format
 StructuredBuffer<float4x4> worldMatrixBuffer : register(t1);
+
+// Indirection buffer - maps instanceID to actual object index
+StructuredBuffer<uint> indirectionBuffer : register(t2);
 
 struct VertexInputType
 {
@@ -32,8 +36,11 @@ PixelInputType GPUDrivenPBRVertexShader(VertexInputType input, uint instanceID :
 {
     PixelInputType output;
     
-    // Get the world matrix for this instance - directly from compute shader
-    float4x4 worldMatrix = worldMatrixBuffer[instanceID];
+    // Map instanceID to actual object index using indirection buffer
+    uint actualObjectIndex = indirectionBuffer[instanceID];
+    
+    // Get the world matrix for the actual object - using indirection
+    float4x4 worldMatrix = worldMatrixBuffer[actualObjectIndex];
     
     // Calculate the position of the vertex against the world, view, and projection matrices.
     float4 worldPosition = mul(input.position, worldMatrix);

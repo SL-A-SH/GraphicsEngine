@@ -21,6 +21,8 @@ GPUDrivenRenderer::GPUDrivenRenderer()
     , m_visibilitySRV(nullptr)
     , m_visibilityUAV(nullptr)
     , m_visibilityReadbackBuffer(nullptr)
+    , m_indirectionBuffer(nullptr)
+    , m_indirectionSRV(nullptr)
     , m_frustumConstantBuffer(nullptr)
     , m_objectCountBuffer(nullptr)
     , m_viewProjectionBuffer(nullptr)
@@ -186,14 +188,13 @@ void GPUDrivenRenderer::UpdateObjects(ID3D11DeviceContext* context, const std::v
         return;
     }
     
-    LOG("GPUDrivenRenderer::UpdateObjects - Updating " + std::to_string(objects.size()) + " objects");
+    // Remove frequent logging - was causing FPS drops
     m_indirectBuffer.UpdateObjectData(context, objects);
-    LOG("GPUDrivenRenderer::UpdateObjects - Object data updated successfully");
 }
 
 void GPUDrivenRenderer::UpdateCamera(ID3D11DeviceContext* context, const XMFLOAT3& cameraPos, const XMMATRIX& viewMatrix, const XMMATRIX& projectionMatrix)
 {
-    LOG("GPUDrivenRenderer::UpdateCamera - Updating camera data");
+    // Remove frequent logging - was causing FPS drops
     m_cameraPosition = cameraPos;
     m_viewMatrix = viewMatrix;
     m_projectionMatrix = projectionMatrix;
@@ -201,11 +202,6 @@ void GPUDrivenRenderer::UpdateCamera(ID3D11DeviceContext* context, const XMFLOAT
     // Extract frustum planes for GPU frustum culling
     XMMATRIX viewProjectionMatrix = XMMatrixMultiply(viewMatrix, projectionMatrix);
     ExtractFrustumPlanes(viewProjectionMatrix);
-    
-    LOG("GPUDrivenRenderer::UpdateCamera - Camera position: (" + 
-        std::to_string(cameraPos.x) + ", " + 
-        std::to_string(cameraPos.y) + ", " + 
-        std::to_string(cameraPos.z) + ")");
 }
 
 void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* vertexBuffer, ID3D11Buffer* indexBuffer,
@@ -213,7 +209,6 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
 {
     if (!m_enableGPUDriven)
     {
-        LOG_WARNING("GPUDrivenRenderer::Render - GPU-driven rendering is disabled");
         return;
     }
     
@@ -228,7 +223,6 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
     UINT objectCount = m_indirectBuffer.GetObjectCount();
     if (objectCount == 0)
     {
-        LOG_WARNING("GPUDrivenRenderer::Render - No objects to render");
         return;
     }
     
@@ -338,11 +332,105 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
     context->VSSetShader(m_gpuDrivenVertexShader, nullptr, 0);
     context->PSSetShader(m_gpuDrivenPixelShader, nullptr, 0);
     
-    // Bind world matrix buffer to vertex shader
+    // FIXED: Using indirection buffer to map instanceID to actual visible object indices
+    // This ensures we only render visible objects and access the correct world matrices
+    
+    // TEMP DEBUG: Read back visibility buffer to get actual visible count
+    // This is expensive but will prove the concept works
+    static bool enableActualFrustumCulling = true; // Toggle for testing
+    static std::vector<UINT> visibleObjectIndices; // Store indices of visible objects
+    UINT actualVisibleCount = objectCount; // Default to all objects
+    
+    // Bind world matrix buffer to vertex shader (register t1)
     ID3D11ShaderResourceView* worldMatrixSRV = m_indirectBuffer.GetWorldMatrixSRV();
     if (worldMatrixSRV)
     {
         context->VSSetShaderResources(1, 1, &worldMatrixSRV);
+    }
+    
+    if (enableActualFrustumCulling)
+    {
+        // Copy visibility buffer to CPU-readable buffer
+        context->CopyResource(m_visibilityReadbackBuffer, m_visibilityBuffer);
+        
+        // Map the readback buffer to count visible objects
+        D3D11_MAPPED_SUBRESOURCE mappedResource;
+        HRESULT hr = context->Map(m_visibilityReadbackBuffer, 0, D3D11_MAP_READ, 0, &mappedResource);
+        if (SUCCEEDED(hr))
+        {
+            UINT* visibilityData = static_cast<UINT*>(mappedResource.pData);
+            actualVisibleCount = 0;
+            visibleObjectIndices.clear();
+            
+            // Count visible objects AND store their indices
+            for (UINT i = 0; i < objectCount; ++i)
+            {
+                if (visibilityData[i] == 1)
+                {
+                    visibleObjectIndices.push_back(i); // Store the actual object index
+                    actualVisibleCount++;
+                }
+            }
+            
+            context->Unmap(m_visibilityReadbackBuffer, 0);
+            
+            // Log actual frustum culling results
+            static int logCounter = 0;
+            if (++logCounter == 60) // Log every 60 frames
+            {
+                LOG("=== ACTUAL GPU FRUSTUM CULLING RESULTS ===");
+                LOG("Total objects: " + std::to_string(objectCount));
+                LOG("Visible objects: " + std::to_string(actualVisibleCount));
+                LOG("Culled objects: " + std::to_string(objectCount - actualVisibleCount));
+                LOG("Culling ratio: " + std::to_string((float)(objectCount - actualVisibleCount) / objectCount * 100.0f) + "%");
+                if (actualVisibleCount > 0)
+                {
+                    LOG("First few visible object indices: ");
+                    std::string indices = "";
+                    for (int i = 0; i < std::min(10, (int)actualVisibleCount); ++i)
+                    {
+                        indices += std::to_string(visibleObjectIndices[i]) + " ";
+                    }
+                    LOG("  " + indices);
+                }
+                LOG("==========================================");
+                logCounter = 0;
+            }
+            
+            // Update indirection buffer with visible object indices
+            if (actualVisibleCount > 0 && !visibleObjectIndices.empty())
+            {
+                D3D11_MAPPED_SUBRESOURCE indirectionMappedResource;
+                HRESULT indirectionResult = context->Map(m_indirectionBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &indirectionMappedResource);
+                if (SUCCEEDED(indirectionResult))
+                {
+                    UINT* indirectionData = static_cast<UINT*>(indirectionMappedResource.pData);
+                    
+                    // Copy visible object indices to indirection buffer
+                    for (UINT i = 0; i < actualVisibleCount; ++i)
+                    {
+                        indirectionData[i] = visibleObjectIndices[i];
+                    }
+                    
+                                         context->Unmap(m_indirectionBuffer, 0);
+                }
+                else
+                {
+                    LOG_ERROR("Failed to map indirection buffer");
+                }
+            }
+        }
+        else
+        {
+            LOG_ERROR("Failed to map visibility readback buffer");
+            enableActualFrustumCulling = false; // Disable if it fails
+        }
+    }
+    
+    // Bind indirection buffer to vertex shader (register t2) for instanceID mapping
+    if (m_indirectionSRV && actualVisibleCount > 0)
+    {
+        context->VSSetShaderResources(2, 1, &m_indirectionSRV);
     }
     
     // Update view/projection constant buffer (reuse existing buffer)
@@ -445,23 +533,22 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
         context->PSSetShaderResources(0, 6, textures);
     }
     
-    // Perform instanced rendering - render all objects in one call
+    // FIXED: Use actual visible count instead of all objects!
+    // This is the key fix - only render visible objects, not all objects
     int indexCount = model->GetIndexCount();
-    context->DrawIndexedInstanced(indexCount, objectCount, 0, 0, 0);
+    context->DrawIndexedInstanced(indexCount, actualVisibleCount, 0, 0, 0);
     
-    // Track performance metrics
+    // Track performance metrics with actual visible count
     PerformanceProfiler::GetInstance().IncrementDrawCalls();
-    PerformanceProfiler::GetInstance().AddTriangles((indexCount / 3) * objectCount);
-    PerformanceProfiler::GetInstance().AddInstances(objectCount);
+    PerformanceProfiler::GetInstance().AddTriangles((indexCount / 3) * actualVisibleCount); // Use actual count!
+    PerformanceProfiler::GetInstance().AddInstances(actualVisibleCount); // Use actual count!
     
-    // PERFORMANCE: Estimate visible objects instead of GPU-CPU readback
-    // Use approximate 70% visibility ratio (typical for most scenes)
-    UINT estimatedVisibleCount = static_cast<UINT>(objectCount * 0.7f);
-    m_renderCount = static_cast<int>(estimatedVisibleCount);
+    // Store actual visible count for UI display
+    m_renderCount = static_cast<int>(actualVisibleCount);
     
     // Update PerformanceProfiler with GPU frustum culling data
     PerformanceProfiler::GetInstance().SetGPUFrustumCullingTime(static_cast<double>(gpuCullingDuration.count()));
-    PerformanceProfiler::GetInstance().SetFrustumCullingObjects(objectCount, estimatedVisibleCount);
+    PerformanceProfiler::GetInstance().SetFrustumCullingObjects(objectCount, actualVisibleCount);
 }
 
 bool GPUDrivenRenderer::InitializeGPUDrivenShaders(ID3D11Device* device, HWND hwnd)
@@ -677,6 +764,38 @@ bool GPUDrivenRenderer::InitializeVisibilityBuffer(ID3D11Device* device, UINT ma
     }
     LOG("GPUDrivenRenderer: Visibility readback buffer created successfully");
     
+    // Create indirection buffer for mapping instanceID to actual object index
+    D3D11_BUFFER_DESC indirectionBufferDesc = {};
+    indirectionBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+    indirectionBufferDesc.ByteWidth = sizeof(UINT) * maxObjects; // Same size as visibility buffer
+    indirectionBufferDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    indirectionBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    indirectionBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    indirectionBufferDesc.StructureByteStride = sizeof(UINT);
+    
+    result = device->CreateBuffer(&indirectionBufferDesc, nullptr, &m_indirectionBuffer);
+    if (FAILED(result))
+    {
+        LOG_ERROR("GPUDrivenRenderer: Failed to create indirection buffer - HRESULT: " + std::to_string(result));
+        return false;
+    }
+    LOG("GPUDrivenRenderer: Indirection buffer created successfully");
+    
+    // Create indirection buffer SRV
+    D3D11_SHADER_RESOURCE_VIEW_DESC indirectionSrvDesc = {};
+    indirectionSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+    indirectionSrvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+    indirectionSrvDesc.Buffer.FirstElement = 0;
+    indirectionSrvDesc.Buffer.NumElements = maxObjects;
+    
+    result = device->CreateShaderResourceView(m_indirectionBuffer, &indirectionSrvDesc, &m_indirectionSRV);
+    if (FAILED(result))
+    {
+        LOG_ERROR("GPUDrivenRenderer: Failed to create indirection SRV - HRESULT: " + std::to_string(result));
+        return false;
+    }
+    LOG("GPUDrivenRenderer: Indirection SRV created successfully");
+    
     return true;
 }
 
@@ -686,6 +805,10 @@ void GPUDrivenRenderer::ReleaseVisibilityBuffer()
     if (m_visibilitySRV) { m_visibilitySRV->Release(); m_visibilitySRV = nullptr; }
     if (m_visibilityBuffer) { m_visibilityBuffer->Release(); m_visibilityBuffer = nullptr; }
     if (m_visibilityReadbackBuffer) { m_visibilityReadbackBuffer->Release(); m_visibilityReadbackBuffer = nullptr; }
+    
+    // Release indirection buffer
+    if (m_indirectionSRV) { m_indirectionSRV->Release(); m_indirectionSRV = nullptr; }
+    if (m_indirectionBuffer) { m_indirectionBuffer->Release(); m_indirectionBuffer = nullptr; }
 }
 
 bool GPUDrivenRenderer::InitializeConstantBuffers(ID3D11Device* device)
@@ -810,5 +933,5 @@ void GPUDrivenRenderer::ExtractFrustumPlanes(const XMMATRIX& viewProjectionMatri
         XMStoreFloat4(&m_frustumPlanes[i], plane);
     }
     
-    LOG("GPUDrivenRenderer: Frustum planes extracted and normalized");
+    // Removed frequent logging - was causing FPS drops
 } 

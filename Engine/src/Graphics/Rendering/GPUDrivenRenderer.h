@@ -103,6 +103,10 @@ private:
     ID3D11UnorderedAccessView* m_visibilityUAV;
     ID3D11Buffer* m_visibilityReadbackBuffer; // CPU-readable copy for conditional rendering
     
+    // Indirection buffer for mapping instanceID to actual object index
+    ID3D11Buffer* m_indirectionBuffer;
+    ID3D11ShaderResourceView* m_indirectionSRV;
+    
     // PERFORMANCE: Reusable constant buffers (created once, reused every frame)
     ID3D11Buffer* m_frustumConstantBuffer;
     ID3D11Buffer* m_objectCountBuffer;

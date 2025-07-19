@@ -546,10 +546,25 @@ bool Application::Frame(InputManager* Input)
 		// Check if GPU-driven renderer is properly initialized before toggling
 		if (m_GPUDrivenRenderer && m_GPUDrivenRenderer->AreComputeShadersInitialized())
 		{
-			// Toggle GPU-driven rendering
-			m_enableGPUDrivenRendering = !m_enableGPUDrivenRendering;
-			m_GPUDrivenRenderer->SetRenderingMode(m_enableGPUDrivenRendering);
-			LOG("GPU-driven rendering " + std::string(m_enableGPUDrivenRendering ? "ENABLED" : "DISABLED"));
+					// Toggle GPU-driven rendering
+		m_enableGPUDrivenRendering = !m_enableGPUDrivenRendering;
+		m_GPUDrivenRenderer->SetRenderingMode(m_enableGPUDrivenRendering);
+		LOG("=== RENDERING MODE SWITCHED ===");
+		LOG("GPU-driven rendering " + std::string(m_enableGPUDrivenRendering ? "ENABLED" : "DISABLED"));
+		LOG("Previous frame FPS: " + std::to_string(m_Fps));
+		if (m_enableGPUDrivenRendering)
+		{
+			LOG("GPU MODE: Now using GPU frustum culling + instanced rendering");
+			LOG("Expected: 100-150+ FPS (much faster than CPU mode)");
+			LOG("GPU renders all objects in 1 draw call with vertex shader culling");
+		}
+		else
+		{
+			LOG("CPU MODE: Using individual draw calls with CPU frustum culling");
+			LOG("Expected: ~150 FPS with " + std::to_string(m_ModelList->GetModelCount()) + " draw calls");
+		}
+		LOG("Monitor FPS to compare actual performance...");
+		LOG("===============================");
 		}
 		else if (!m_GPUDrivenRenderer)
 		{
@@ -804,17 +819,25 @@ bool Application::Frame(InputManager* Input)
 	int renderCount = m_enableGPUDrivenRendering && m_GPUDrivenRenderer ? 
 		m_GPUDrivenRenderer->GetRenderCount() : m_RenderCount;
 	
-	// Performance comparison logging (when debug logging is enabled)
-	if (m_debugLogging && m_enableGPUDrivenRendering && m_GPUDrivenRenderer)
+	// Performance monitoring - only log if FPS drops below 30 in GPU mode
+	static int lowFpsFrameCount = 0;
+	if (m_enableGPUDrivenRendering && m_Fps < 30)
 	{
-		long long gpuTime = m_GPUDrivenRenderer->GetLastFrustumCullingTimeMicroseconds();
-		if (gpuTime > 0)
+		lowFpsFrameCount++;
+		if (lowFpsFrameCount == 60) // Log once per 60 low-FPS frames to avoid spam
 		{
-			LOG("=== PERFORMANCE COMPARISON ===");
-			LOG("GPU Frustum Culling: " + std::to_string(gpuTime) + " μs for " + std::to_string(renderCount) + " visible objects");
-			LOG("Note: Compare with CPU frustum culling time when switching modes (F12)");
-			LOG("===============================");
+			LOG("=== GPU MODE PERFORMANCE WARNING ===");
+			LOG("GPU mode FPS has been below 30 for 60 frames");
+			LOG("Current FPS: " + std::to_string(m_Fps));
+			LOG("Render count: " + std::to_string(renderCount));
+			LOG("This may indicate a performance bottleneck in GPU-driven rendering");
+			LOG("=====================================");
+			lowFpsFrameCount = 0; // Reset counter
 		}
+	}
+	else
+	{
+		lowFpsFrameCount = 0; // Reset if FPS is good or in CPU mode
 	}
 	
 	result = m_UserInterface->Frame(m_Direct3D->GetDeviceContext(), m_Fps, renderCount, m_enableGPUDrivenRendering);
@@ -866,12 +889,7 @@ bool Application::Render()
 	// Construct the frustum.
 	m_Frustum->ConstructFrustum(viewMatrix, projectionMatrix, AppConfig::SCREEN_DEPTH);
 	
-	// Debug: Log CPU frustum planes for comparison with GPU mode
-	if (m_debugLogging)
-	{
-		LOG("CPU-Driven Frustum Construction:");
-		LOG("  Screen Depth: " + std::to_string(AppConfig::SCREEN_DEPTH));
-	}
+	// Removed CPU debug logging to reduce frame-by-frame logging overhead
 
 	// Set render states for skybox
 	m_Direct3D->TurnOffCulling();
@@ -912,12 +930,7 @@ bool Application::Render()
 			std::vector<ObjectData> objectData;
 			objectData.reserve(modelCount);
 			
-			if (m_debugLogging)
-			{
-				LOG("=== GPU-DRIVEN RENDERING DEBUG ===");
-				LOG("Preparing object data for GPU-driven rendering with " + std::to_string(modelCount) + " models");
-				LOG("Camera position: (" + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
-			}
+			// Removed excessive debug logging that was causing FPS drops in GPU mode
 			
 			for (int i = 0; i < modelCount; i++)
 			{
@@ -940,34 +953,11 @@ bool Application::Render()
 				
 				objectData.push_back(objData);
 				
-				// Debug logging for first few objects when debug mode is enabled
-				if (m_debugLogging && i < 10)
-				{
-					LOG("  Object " + std::to_string(i) + ":");
-					LOG("    Position: (" + std::to_string(posX) + ", " + std::to_string(posY) + ", " + std::to_string(posZ) + ")");
-					LOG("    Scale: (" + std::to_string(scaleX) + ", " + std::to_string(scaleY) + ", " + std::to_string(scaleZ) + ")");
-					LOG("    Rotation: (" + std::to_string(rotX) + ", " + std::to_string(rotY) + ", " + std::to_string(rotZ) + ")");
-					LOG("    BoundingBox Min: (" + std::to_string(bbox.min.x) + ", " + std::to_string(bbox.min.y) + ", " + std::to_string(bbox.min.z) + ")");
-					LOG("    BoundingBox Max: (" + std::to_string(bbox.max.x) + ", " + std::to_string(bbox.max.y) + ", " + std::to_string(bbox.max.z) + ")");
-					
-					// Calculate world space bounding box for debugging
-					XMFLOAT3 worldMin, worldMax;
-					worldMin.x = bbox.min.x * scaleX + posX;
-					worldMin.y = bbox.min.y * scaleY + posY;
-					worldMin.z = bbox.min.z * scaleZ + posZ;
-					worldMax.x = bbox.max.x * scaleX + posX;
-					worldMax.y = bbox.max.y * scaleY + posY;
-					worldMax.z = bbox.max.z * scaleZ + posZ;
-					LOG("    World BoundingBox Min: (" + std::to_string(worldMin.x) + ", " + std::to_string(worldMin.y) + ", " + std::to_string(worldMin.z) + ")");
-					LOG("    World BoundingBox Max: (" + std::to_string(worldMax.x) + ", " + std::to_string(worldMax.y) + ", " + std::to_string(worldMax.z) + ")");
-				}
+				// Removed excessive debug logging that was causing FPS drops in GPU mode
 			}
 			
 			// Update GPU-driven renderer with object data
-			if (m_debugLogging)
-			{
-				LOG("Updating GPU-driven renderer with " + std::to_string(objectData.size()) + " objects");
-			}
+			// Removed excessive debug logging that was causing FPS drops in GPU mode
 			m_GPUDrivenRenderer->UpdateObjects(m_Direct3D->GetDeviceContext(), objectData);
 			
 			// Update camera data for GPU-driven rendering (simplified)
@@ -976,11 +966,7 @@ bool Application::Render()
 			m_Camera->GetViewMatrix(viewMatrix);
 			m_Direct3D->GetProjectionMatrix(projectionMatrix);
 			
-			if (m_debugLogging)
-			{
-				LOG("Camera data for GPU-driven rendering:");
-				LOG("  Camera position: (" + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
-			}
+			// Removed excessive debug logging that was causing FPS drops in GPU mode
 			
 			m_GPUDrivenRenderer->UpdateCamera(m_Direct3D->GetDeviceContext(), cameraPos, viewMatrix, projectionMatrix);
 			
@@ -1051,15 +1037,7 @@ bool Application::Render()
 			ID3D11InputLayout* inputLayout = m_ShaderManager->GetInputLayout();
 			
 			// Comprehensive validation of all resources
-			if (m_debugLogging)
-			{
-				LOG("Validating GPU-driven rendering resources:");
-				LOG("  VertexBuffer: " + std::string(vertexBuffer ? "valid" : "NULL"));
-				LOG("  IndexBuffer: " + std::string(indexBuffer ? "valid" : "NULL"));
-				LOG("  VertexShader: " + std::string(vertexShader ? "valid" : "NULL"));
-				LOG("  PixelShader: " + std::string(pixelShader ? "valid" : "NULL"));
-				LOG("  InputLayout: " + std::string(inputLayout ? "valid" : "NULL"));
-			}
+			// Removed excessive debug logging that was causing FPS drops in GPU mode
 			
 			// Check if any resource is null
 			if (!vertexBuffer)
@@ -1106,54 +1084,14 @@ bool Application::Render()
 			}
 			
 			// All resources are valid, proceed with GPU-driven rendering
-			if (m_debugLogging)
-			{
-				LOG("All GPU-driven rendering resources are valid, proceeding with render");
-				LOG("Debug information:");
-				LOG("  Model pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_Model)));
-				LOG("  ShaderManager pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_ShaderManager)));
-				LOG("  GPUDrivenRenderer pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_GPUDrivenRenderer)));
-				LOG("  Direct3D pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_Direct3D)));
-				LOG("  DeviceContext pointer: " + std::to_string(reinterpret_cast<uintptr_t>(m_Direct3D->GetDeviceContext())));
-				
-				// Test if we can access the buffers safely
-				try
-				{
-					LOG("Testing buffer access:");
-					LOG("  VertexBuffer pointer: " + std::to_string(reinterpret_cast<uintptr_t>(vertexBuffer)));
-					LOG("  IndexBuffer pointer: " + std::to_string(reinterpret_cast<uintptr_t>(indexBuffer)));
-					LOG("  VertexShader pointer: " + std::to_string(reinterpret_cast<uintptr_t>(vertexShader)));
-					LOG("  PixelShader pointer: " + std::to_string(reinterpret_cast<uintptr_t>(pixelShader)));
-					LOG("  InputLayout pointer: " + std::to_string(reinterpret_cast<uintptr_t>(inputLayout)));
-				}
-				catch (...)
-				{
-					LOG_ERROR("Exception occurred while accessing buffer pointers");
-					m_enableGPUDrivenRendering = false;
-					return true; // Continue with CPU-driven rendering
-				}
-			}
+			// Removed excessive debug logging that was causing FPS drops in GPU mode
 			
 			// Call simplified GPU-driven renderer
 			try
 			{
-				if (m_debugLogging)
-				{
-					LOG("=== CALLING SIMPLIFIED GPU-DRIVEN RENDERER ===");
-					LOG("Object data size: " + std::to_string(objectData.size()));
-					LOG("Model count: " + std::to_string(modelCount));
-					LOG("Index count: " + std::to_string(m_Model->GetIndexCount()));
-					LOG("About to call simplified GPUDrivenRenderer::Render...");
-				}
-				
+				// Removed excessive debug logging that was causing FPS drops in GPU mode
 				m_GPUDrivenRenderer->Render(m_Direct3D->GetDeviceContext(), vertexBuffer, indexBuffer,
 										   m_Model, m_ShaderManager->GetPBRShader(), m_Light, m_Camera, m_Direct3D);
-				
-				if (m_debugLogging)
-				{
-					LOG("Simplified GPU-driven renderer call completed successfully");
-					LOG("Render count from GPU renderer: " + std::to_string(m_GPUDrivenRenderer->GetRenderCount()));
-				}
 				
 				// Check if GPU-driven rendering was disabled by the renderer
 				if (!m_GPUDrivenRenderer->IsGPUDrivenEnabled())
@@ -1230,26 +1168,12 @@ bool Application::Render()
 			worldMax.y = bbox.max.y * scaleY + posY;
 			worldMax.z = bbox.max.z * scaleZ + posZ;
 
-			// Debug: Log bounding box transformation for first few objects
-			if (m_debugLogging && i < 3)
-			{
-				LOG("CPU Object " + std::to_string(i) + " Bounding Box:");
-				LOG("  Position: (" + std::to_string(posX) + ", " + std::to_string(posY) + ", " + std::to_string(posZ) + ")");
-				LOG("  Scale: (" + std::to_string(scaleX) + ", " + std::to_string(scaleY) + ", " + std::to_string(scaleZ) + ")");
-				LOG("  Model BBox Min: (" + std::to_string(bbox.min.x) + ", " + std::to_string(bbox.min.y) + ", " + std::to_string(bbox.min.z) + ")");
-				LOG("  Model BBox Max: (" + std::to_string(bbox.max.x) + ", " + std::to_string(bbox.max.y) + ", " + std::to_string(bbox.max.z) + ")");
-				LOG("  World BBox Min: (" + std::to_string(worldMin.x) + ", " + std::to_string(worldMin.y) + ", " + std::to_string(worldMin.z) + ")");
-				LOG("  World BBox Max: (" + std::to_string(worldMax.x) + ", " + std::to_string(worldMax.y) + ", " + std::to_string(worldMax.z) + ")");
-			}
+			// Removed CPU debug logging to reduce frame-by-frame logging overhead
 
 			// Check if the model's AABB is in the view frustum
 			renderModel = m_Frustum->CheckAABB(worldMin, worldMax);
 			
-			// Debug: Log frustum culling results for first few objects
-			if (m_debugLogging && i < 5)
-			{
-				LOG("CPU Object " + std::to_string(i) + " frustum culling: " + std::string(renderModel ? "VISIBLE" : "CULLED"));
-			}
+			// Removed CPU debug logging to reduce frame-by-frame logging overhead
 
 			// If it can be seen then render it, if not skip this model and check the next one
 			if (renderModel)
@@ -1361,11 +1285,7 @@ bool Application::Render()
 		PerformanceProfiler::GetInstance().SetCPUFrustumCullingTime(static_cast<double>(cpuCullingDuration.count()));
 		PerformanceProfiler::GetInstance().SetFrustumCullingObjects(static_cast<uint32_t>(modelCount), static_cast<uint32_t>(cpuVisibleCount));
 		
-		if (m_debugLogging)
-		{
-			LOG("CPU Frustum Culling Performance: " + std::to_string(cpuCullingDuration.count()) + " microseconds (" + 
-			    std::to_string(cpuVisibleCount) + "/" + std::to_string(modelCount) + " objects visible)");
-		}
+		// Removed CPU debug logging to reduce frame-by-frame logging overhead
 
 		// Render gizmos for selected model
 		if (m_SelectionManager)
