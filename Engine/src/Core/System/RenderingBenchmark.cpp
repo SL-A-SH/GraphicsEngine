@@ -1,6 +1,14 @@
 #include "RenderingBenchmark.h"
 #include "Logger.h"
 #include "PerformanceProfiler.h"
+#include "../Application/Application.h"
+#include "../../Graphics/Rendering/Camera.h"
+#include "../../Graphics/Math/Frustum.h"
+#include "../../Graphics/Resource/Model.h"
+#include "../../Graphics/Scene/Management/ModelList.h"
+#include "../../Graphics/Shaders/Management/ShaderManager.h"
+#include "../../Graphics/D3D11/D3D11Device.h"
+#include "../../Graphics/Rendering/Light.h"
 #include <algorithm>
 #include <numeric>
 #include <iomanip>
@@ -16,8 +24,11 @@ RenderingBenchmark::RenderingBenchmark()
     : m_Device(nullptr)
     , m_Context(nullptr)
     , m_Hwnd(nullptr)
+    , m_Application(nullptr)
     , m_Progress(0.0)
     , m_Status("Not initialized")
+    , m_FrameByFrameBenchmarkRunning(false)
+    , m_CurrentFrameIndex(0)
     , m_CameraPosition(0.0f, 0.0f, -300.0f)
     , m_CameraTarget(0.0f, 0.0f, 0.0f)
     , m_CameraRotation(0.0f)
@@ -34,11 +45,12 @@ RenderingBenchmark::~RenderingBenchmark()
     ReleaseDummyBuffers();
 }
 
-bool RenderingBenchmark::Initialize(ID3D11Device* device, ID3D11DeviceContext* context, HWND hwnd)
+bool RenderingBenchmark::Initialize(ID3D11Device* device, ID3D11DeviceContext* context, HWND hwnd, Application* application)
 {
     m_Device = device;
     m_Context = context;
     m_Hwnd = hwnd;
+    m_Application = application;
 
     // Initialize compute shaders
     m_FrustumCullingShader = std::make_unique<ComputeShader>();
@@ -135,63 +147,148 @@ BenchmarkResult RenderingBenchmark::RunCPUDrivenBenchmark(const BenchmarkConfig&
     for (int frame = 0; frame < config.benchmarkDuration; frame++)
     {
         BeginFrame();
+        
+        // REAL FRAME RENDERING: Begin scene like real viewport
+        if (m_Application && m_Application->GetDirect3D()) {
+            m_Application->GetDirect3D()->BeginScene(0.0f, 0.0f, 0.0f, 1.0f); // Clear to black
+        }
 
         // Update camera
         UpdateCamera(16.67f); // 60 FPS
 
-        // CPU-driven frustum culling
+        // Real CPU-driven frustum culling using Application's Frustum
         visibleObjects.clear(); // Clear for each frame
         XMMATRIX viewMatrix, projectionMatrix;
-        // Get view and projection matrices (simplified for benchmark)
-        viewMatrix = XMMatrixLookAtLH(
-            XMLoadFloat3(&m_CameraPosition),
-            XMLoadFloat3(&m_CameraTarget),
-            XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)
-        );
-        projectionMatrix = XMMatrixPerspectiveFovLH(XM_PIDIV4, 16.0f / 9.0f, 0.1f, 1000.0f);
-
-        // Perform CPU frustum culling
-        for (int i = 0; i < m_TestObjects.size(); i++)
-        {
-            const auto& obj = m_TestObjects[i];
-            // Simplified frustum culling check
-            XMFLOAT3 worldMin = {
-                obj.boundingBoxMin.x * obj.scale.x + obj.position.x,
-                obj.boundingBoxMin.y * obj.scale.y + obj.position.y,
-                obj.boundingBoxMin.z * obj.scale.z + obj.position.z
-            };
-            XMFLOAT3 worldMax = {
-                obj.boundingBoxMax.x * obj.scale.x + obj.position.x,
-                obj.boundingBoxMax.y * obj.scale.y + obj.position.y,
-                obj.boundingBoxMax.z * obj.scale.z + obj.position.z
-            };
-
-            // Simple distance-based culling
-            XMFLOAT3 objCenter = {
-                (worldMin.x + worldMax.x) * 0.5f,
-                (worldMin.y + worldMax.y) * 0.5f,
-                (worldMin.z + worldMax.z) * 0.5f
-            };
-            XMFLOAT3 toCamera = {
-                m_CameraPosition.x - objCenter.x,
-                m_CameraPosition.y - objCenter.y,
-                m_CameraPosition.z - objCenter.z
-            };
-            float distance = sqrt(toCamera.x * toCamera.x + toCamera.y * toCamera.y + toCamera.z * toCamera.z);
-
-            if (distance < 500.0f) // Simple distance culling
+        
+        if (m_Application && m_Application->GetCamera() && m_Application->GetFrustum()) {
+            // Use real Application matrices and frustum
+            auto camera = m_Application->GetCamera();
+            camera->GetViewMatrix(viewMatrix);
+            // Assume we can get projection matrix from Application's Direct3D
+            projectionMatrix = XMMatrixPerspectiveFovLH(XM_PIDIV4, 16.0f / 9.0f, 0.1f, 1000.0f);
+            
+            auto frustum = m_Application->GetFrustum();
+            frustum->ConstructFrustum(viewMatrix, projectionMatrix, 1000.0f);
+            
+            // Perform real frustum culling like the Application does
+            for (int i = 0; i < m_TestObjects.size(); i++)
             {
-                visibleObjects.push_back(i);
+                const auto& obj = m_TestObjects[i];
+                
+                // Transform bounding box to world space (same as Application)
+                XMFLOAT3 worldMin = {
+                    obj.boundingBoxMin.x * obj.scale.x + obj.position.x,
+                    obj.boundingBoxMin.y * obj.scale.y + obj.position.y,
+                    obj.boundingBoxMin.z * obj.scale.z + obj.position.z
+                };
+                XMFLOAT3 worldMax = {
+                    obj.boundingBoxMax.x * obj.scale.x + obj.position.x,
+                    obj.boundingBoxMax.y * obj.scale.y + obj.position.y,
+                    obj.boundingBoxMax.z * obj.scale.z + obj.position.z
+                };
+
+                // Use real frustum culling (same as Application)
+                bool renderModel = frustum->CheckAABB(worldMin, worldMax);
+                
+                if (renderModel) {
+                    visibleObjects.push_back(i);
+                }
+            }
+        } else {
+            // Fallback to simplified culling if no Application access
+            LOG_WARNING("No Application access - using fallback distance culling");
+            viewMatrix = XMMatrixLookAtLH(
+                XMLoadFloat3(&m_CameraPosition),
+                XMLoadFloat3(&m_CameraTarget),
+                XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)
+            );
+            projectionMatrix = XMMatrixPerspectiveFovLH(XM_PIDIV4, 16.0f / 9.0f, 0.1f, 1000.0f);
+
+            for (int i = 0; i < m_TestObjects.size(); i++)
+            {
+                const auto& obj = m_TestObjects[i];
+                XMFLOAT3 objCenter = {
+                    (obj.boundingBoxMin.x + obj.boundingBoxMax.x) * 0.5f * obj.scale.x + obj.position.x,
+                    (obj.boundingBoxMin.y + obj.boundingBoxMax.y) * 0.5f * obj.scale.y + obj.position.y,
+                    (obj.boundingBoxMin.z + obj.boundingBoxMax.z) * 0.5f * obj.scale.z + obj.position.z
+                };
+                XMFLOAT3 toCamera = {
+                    m_CameraPosition.x - objCenter.x,
+                    m_CameraPosition.y - objCenter.y,
+                    m_CameraPosition.z - objCenter.z
+                };
+                float distance = sqrt(toCamera.x * toCamera.x + toCamera.y * toCamera.y + toCamera.z * toCamera.z);
+
+                if (distance < 500.0f) {
+                    visibleObjects.push_back(i);
+                }
             }
         }
 
-        // Simulate rendering visible objects
-        for (int objIndex : visibleObjects)
-        {
-            // Simulate draw call
-            PerformanceProfiler::GetInstance().IncrementDrawCalls();
-            PerformanceProfiler::GetInstance().AddTriangles(12); // Assume 12 triangles per object
-            PerformanceProfiler::GetInstance().AddInstances(1);
+        // REAL rendering of visible objects instead of simulation
+        if (m_Application && m_Application->GetModel()) {
+            auto model = m_Application->GetModel();
+            auto shaderManager = m_Application->GetShaderManager();
+            auto direct3D = m_Application->GetDirect3D();
+            
+            if (model && shaderManager && direct3D) {
+                for (int objIndex : visibleObjects)
+                {
+                    const auto& obj = m_TestObjects[objIndex];
+                    
+                    // Create real world matrix
+                    XMMATRIX translationMatrix = XMMatrixTranslation(obj.position.x, obj.position.y, obj.position.z);
+                    XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(obj.rotation.x, obj.rotation.y, obj.rotation.z);
+                    XMMATRIX scaleMatrix = XMMatrixScaling(obj.scale.x, obj.scale.y, obj.scale.z);
+                    XMMATRIX worldMatrix = XMMatrixMultiply(XMMatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix);
+
+                    // Render the actual model buffers
+                    model->Render(direct3D->GetDeviceContext());
+                    
+                    // Use real shader rendering
+                    if (model->HasFBXMaterial()) {
+                        auto light = m_Application->GetLight();
+                        auto camera = m_Application->GetCamera();
+                        if (light && camera) {
+                            shaderManager->RenderPBRShader(direct3D->GetDeviceContext(), model->GetIndexCount(), 
+                                worldMatrix, viewMatrix, projectionMatrix,
+                                model->GetDiffuseTexture(), model->GetNormalTexture(), model->GetMetallicTexture(),
+                                model->GetRoughnessTexture(), model->GetEmissionTexture(), model->GetAOTexture(),
+                                light->GetDirection(), light->GetAmbientColor(), light->GetDiffuseColor(), 
+                                model->GetBaseColor(), model->GetMetallic(), model->GetRoughness(), 
+                                model->GetAO(), model->GetEmissionStrength(), camera->GetPosition(), false);
+                        }
+                    }
+                    
+                    // Track real rendering stats
+                    PerformanceProfiler::GetInstance().IncrementDrawCalls();
+                    PerformanceProfiler::GetInstance().AddTriangles(model->GetIndexCount() / 3); // Real triangle count
+                    PerformanceProfiler::GetInstance().AddInstances(1);
+                }
+            } else {
+                LOG_WARNING("Cannot access Application rendering components - using simulation");
+                // Fallback to simulation
+                for (int objIndex : visibleObjects)
+                {
+                    PerformanceProfiler::GetInstance().IncrementDrawCalls();
+                    PerformanceProfiler::GetInstance().AddTriangles(12);
+                    PerformanceProfiler::GetInstance().AddInstances(1);
+                }
+            }
+        } else {
+            LOG_WARNING("No Application model access - using simulation");
+            // Fallback to simulation
+            for (int objIndex : visibleObjects)
+            {
+                PerformanceProfiler::GetInstance().IncrementDrawCalls();
+                PerformanceProfiler::GetInstance().AddTriangles(12);
+                PerformanceProfiler::GetInstance().AddInstances(1);
+            }
+        }
+
+        // REAL FRAME RENDERING: End scene and present to screen like real viewport
+        if (m_Application && m_Application->GetDirect3D()) {
+            m_Application->GetDirect3D()->EndScene(); // Present() call - this makes FPS realistic!
         }
 
         EndFrame();
@@ -245,12 +342,17 @@ BenchmarkResult RenderingBenchmark::RunGPUDrivenBenchmark(const BenchmarkConfig&
     for (int frame = 0; frame < config.benchmarkDuration; frame++)
     {
         BeginFrame();
+        
+        // REAL FRAME RENDERING: Begin scene like real viewport
+        if (m_Application && m_Application->GetDirect3D()) {
+            m_Application->GetDirect3D()->BeginScene(0.0f, 0.0f, 0.0f, 1.0f); // Clear to black
+        }
 
         // Update camera
         UpdateCamera(16.67f);
 
-        // GPU-driven rendering using compute shaders
-        if (m_GPUDrivenRenderer)
+        // REAL GPU-driven rendering using the actual system
+        if (m_GPUDrivenRenderer && m_Application)
         {
             // Update object data
             m_GPUDrivenRenderer->UpdateObjects(m_Context, m_TestObjects);
@@ -265,14 +367,60 @@ BenchmarkResult RenderingBenchmark::RunGPUDrivenBenchmark(const BenchmarkConfig&
 
             m_GPUDrivenRenderer->UpdateCamera(m_Context, m_CameraPosition, viewMatrix, projectionMatrix);
 
-            // Perform GPU-driven rendering (simplified)
-            // Note: The actual render call signature may need adjustment based on your GPUDrivenRenderer implementation
-            // m_GPUDrivenRenderer->Render(m_Context, m_DummyVertexBuffer, m_DummyIndexBuffer, etc.);
+            // Get real rendering components from Application
+            auto model = m_Application->GetModel();
+            auto pbrShader = m_Application->GetShaderManager() ? m_Application->GetShaderManager()->GetPBRShader() : nullptr;
+            auto light = m_Application->GetLight();
+            auto camera = m_Application->GetCamera();
+            auto direct3D = m_Application->GetDirect3D();
 
-            // Record metrics
-            PerformanceProfiler::GetInstance().IncrementDrawCalls();
-            PerformanceProfiler::GetInstance().AddTriangles(static_cast<uint32_t>(m_TestObjects.size()) * 12);
-            PerformanceProfiler::GetInstance().AddInstances(static_cast<uint32_t>(m_TestObjects.size()));
+            if (model && direct3D)
+            {
+                // Use REAL model buffers instead of dummy buffers for actual rendering
+                ID3D11Buffer* realVertexBuffer = model->GetVertexBuffer();
+                ID3D11Buffer* realIndexBuffer = model->GetIndexBuffer();
+                
+                if (realVertexBuffer && realIndexBuffer)
+                {
+                    // ACTUALLY CALL THE GPU-DRIVEN RENDER METHOD with real buffers
+                    // This performs real GPU frustum culling and rendering
+                    m_GPUDrivenRenderer->Render(m_Context, realVertexBuffer, realIndexBuffer,
+                                              model, pbrShader, light, camera, direct3D);
+
+                    // Record REAL metrics from GPU-driven renderer
+                    int actualRenderCount = m_GPUDrivenRenderer->GetRenderCount();
+                    PerformanceProfiler::GetInstance().IncrementDrawCalls();
+                    PerformanceProfiler::GetInstance().AddTriangles(actualRenderCount * (model->GetIndexCount() / 3));
+                    PerformanceProfiler::GetInstance().AddInstances(actualRenderCount);
+                    
+                    LOG("GPU-driven benchmark: rendered " + std::to_string(actualRenderCount) + " objects using real model buffers");
+                }
+                else
+                {
+                    LOG_WARNING("GPU-driven benchmark: model has no vertex/index buffers, using dummy buffers");
+                    // Fallback to dummy buffers
+                    m_GPUDrivenRenderer->Render(m_Context, m_DummyVertexBuffer, m_DummyIndexBuffer,
+                                              model, pbrShader, light, camera, direct3D);
+                    
+                    int actualRenderCount = m_GPUDrivenRenderer->GetRenderCount();
+                    PerformanceProfiler::GetInstance().IncrementDrawCalls();
+                    PerformanceProfiler::GetInstance().AddTriangles(actualRenderCount * (model->GetIndexCount() / 3));
+                    PerformanceProfiler::GetInstance().AddInstances(actualRenderCount);
+                }
+            }
+            else
+            {
+                LOG_WARNING("GPU-driven benchmark: missing rendering components, using fallback");
+                // Fallback metrics
+                PerformanceProfiler::GetInstance().IncrementDrawCalls();
+                PerformanceProfiler::GetInstance().AddTriangles(static_cast<uint32_t>(m_TestObjects.size()) * 12);
+                PerformanceProfiler::GetInstance().AddInstances(static_cast<uint32_t>(m_TestObjects.size()));
+            }
+        }
+
+        // REAL FRAME RENDERING: End scene and present to screen like real viewport
+        if (m_Application && m_Application->GetDirect3D()) {
+            m_Application->GetDirect3D()->EndScene(); // Present() call - this makes FPS realistic!
         }
 
         EndFrame();
@@ -329,6 +477,11 @@ BenchmarkResult RenderingBenchmark::RunHybridBenchmark(const BenchmarkConfig& co
     for (int frame = 0; frame < config.benchmarkDuration; frame++)
     {
         BeginFrame();
+        
+        // REAL FRAME RENDERING: Begin scene like real viewport
+        if (m_Application && m_Application->GetDirect3D()) {
+            m_Application->GetDirect3D()->BeginScene(0.0f, 0.0f, 0.0f, 1.0f); // Clear to black
+        }
 
         // Update camera
         UpdateCamera(16.67f);
@@ -370,8 +523,8 @@ BenchmarkResult RenderingBenchmark::RunHybridBenchmark(const BenchmarkConfig& co
             PerformanceProfiler::GetInstance().AddInstances(1);
         }
 
-        // Process GPU objects
-        if (m_GPUDrivenRenderer && !gpuObjects.empty())
+        // Process GPU objects with REAL GPU-driven rendering
+        if (m_GPUDrivenRenderer && m_Application && !gpuObjects.empty())
         {
             std::vector<ObjectData> gpuObjectData;
             for (int index : gpuObjects)
@@ -390,9 +543,57 @@ BenchmarkResult RenderingBenchmark::RunHybridBenchmark(const BenchmarkConfig& co
 
             m_GPUDrivenRenderer->UpdateCamera(m_Context, m_CameraPosition, viewMatrix, projectionMatrix);
 
-            PerformanceProfiler::GetInstance().IncrementDrawCalls();
-            PerformanceProfiler::GetInstance().AddTriangles(static_cast<uint32_t>(gpuObjects.size()) * 12);
-            PerformanceProfiler::GetInstance().AddInstances(static_cast<uint32_t>(gpuObjects.size()));
+            // Get real rendering components and call actual GPU render
+            auto model = m_Application->GetModel();
+            auto pbrShader = m_Application->GetShaderManager() ? m_Application->GetShaderManager()->GetPBRShader() : nullptr;
+            auto light = m_Application->GetLight();
+            auto camera = m_Application->GetCamera();
+            auto direct3D = m_Application->GetDirect3D();
+
+            if (model && direct3D)
+            {
+                // Use real model buffers for hybrid rendering too
+                ID3D11Buffer* realVertexBuffer = model->GetVertexBuffer();
+                ID3D11Buffer* realIndexBuffer = model->GetIndexBuffer();
+                
+                if (realVertexBuffer && realIndexBuffer)
+                {
+                    // REAL GPU-driven rendering call with real buffers
+                    m_GPUDrivenRenderer->Render(m_Context, realVertexBuffer, realIndexBuffer,
+                                              model, pbrShader, light, camera, direct3D);
+                    
+                    int actualGPURenderCount = m_GPUDrivenRenderer->GetRenderCount();
+                    PerformanceProfiler::GetInstance().IncrementDrawCalls();
+                    PerformanceProfiler::GetInstance().AddTriangles(actualGPURenderCount * (model->GetIndexCount() / 3));
+                    PerformanceProfiler::GetInstance().AddInstances(actualGPURenderCount);
+                    
+                    LOG("Hybrid GPU-driven benchmark: rendered " + std::to_string(actualGPURenderCount) + " GPU objects using real buffers");
+                }
+                else
+                {
+                    LOG_WARNING("Hybrid GPU-driven benchmark: model has no vertex/index buffers, using dummy buffers");
+                    // Fallback to dummy buffers
+                    m_GPUDrivenRenderer->Render(m_Context, m_DummyVertexBuffer, m_DummyIndexBuffer,
+                                              model, pbrShader, light, camera, direct3D);
+                    
+                    int actualGPURenderCount = m_GPUDrivenRenderer->GetRenderCount();
+                    PerformanceProfiler::GetInstance().IncrementDrawCalls();
+                    PerformanceProfiler::GetInstance().AddTriangles(actualGPURenderCount * (model->GetIndexCount() / 3));
+                    PerformanceProfiler::GetInstance().AddInstances(actualGPURenderCount);
+                }
+            }
+            else
+            {
+                // Fallback
+                PerformanceProfiler::GetInstance().IncrementDrawCalls();
+                PerformanceProfiler::GetInstance().AddTriangles(static_cast<uint32_t>(gpuObjects.size()) * 12);
+                PerformanceProfiler::GetInstance().AddInstances(static_cast<uint32_t>(gpuObjects.size()));
+            }
+        }
+
+        // REAL FRAME RENDERING: End scene and present to screen like real viewport
+        if (m_Application && m_Application->GetDirect3D()) {
+            m_Application->GetDirect3D()->EndScene(); // Present() call - this makes FPS realistic!
         }
 
         EndFrame();
@@ -572,18 +773,20 @@ void RenderingBenchmark::GenerateTestScene(int objectCount, std::vector<ObjectDa
     objects.clear();
     objects.reserve(objectCount);
 
-    if (objectCount <= 1000)
-    {
-        GenerateGridScene(objectCount, objects);
+    if (!m_Application) {
+        LOG_ERROR("No Application reference - using fallback fake scene generation");
+        // Fallback to old behavior if no Application
+        if (objectCount <= 1000) {
+            GenerateGridScene(objectCount, objects);
+        } else {
+            GenerateRandomScene(objectCount, objects);
+        }
+        return;
     }
-    else if (objectCount <= 10000)
-    {
-        GenerateRandomScene(objectCount, objects);
-    }
-    else
-    {
-        GenerateStressTestScene(objectCount, objects);
-    }
+
+    // Use real model data from the Application
+    LOG("Generating benchmark scene using real Application model data");
+    GenerateRealScene(objectCount, objects);
 }
 
 void RenderingBenchmark::GenerateGridScene(int objectCount, std::vector<ObjectData>& objects)
@@ -650,14 +853,118 @@ void RenderingBenchmark::GenerateStressTestScene(int objectCount, std::vector<Ob
     }
 }
 
+void RenderingBenchmark::GenerateRealScene(int objectCount, std::vector<ObjectData>& objects)
+{
+    // Access the real ModelList from the Application
+    auto modelList = m_Application->GetModelList();
+    if (!modelList) {
+        LOG_ERROR("No ModelList available - falling back to random scene");
+        GenerateRandomScene(objectCount, objects);
+        return;
+    }
+
+    int realModelCount = modelList->GetModelCount();
+    LOG("Real model count in Application: " + std::to_string(realModelCount));
+    
+    if (realModelCount == 0) {
+        LOG_ERROR("No models in ModelList - falling back to random scene");
+        GenerateRandomScene(objectCount, objects);
+        return;
+    }
+
+    // Get the real model to use its bounding box
+    auto model = m_Application->GetModel();
+    if (!model) {
+        LOG_ERROR("No Model available - falling back to random scene");
+        GenerateRandomScene(objectCount, objects);
+        return;
+    }
+
+    const Model::AABB realBoundingBox = model->GetBoundingBox();
+    LOG("Using real model bounding box: min(" + 
+        std::to_string(realBoundingBox.min.x) + ", " + 
+        std::to_string(realBoundingBox.min.y) + ", " + 
+        std::to_string(realBoundingBox.min.z) + "), max(" +
+        std::to_string(realBoundingBox.max.x) + ", " + 
+        std::to_string(realBoundingBox.max.y) + ", " + 
+        std::to_string(realBoundingBox.max.z) + ")");
+
+    // Use existing real model positions if we have fewer than requested
+    if (objectCount <= realModelCount) {
+        LOG("Using real model positions (requested: " + std::to_string(objectCount) + ")");
+        for (int i = 0; i < objectCount; i++) {
+            float posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ;
+            modelList->GetTransformData(i, posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ);
+            
+            ObjectData obj;
+            obj.position = { posX, posY, posZ };
+            obj.scale = { scaleX, scaleY, scaleZ };
+            obj.rotation = { rotX, rotY, rotZ };
+            obj.boundingBoxMin = realBoundingBox.min;
+            obj.boundingBoxMax = realBoundingBox.max;
+            obj.objectIndex = static_cast<uint32_t>(i);
+            
+            objects.push_back(obj);
+        }
+    } else {
+        LOG("Generating additional models to reach " + std::to_string(objectCount) + " objects");
+        
+        // First, add all real models
+        for (int i = 0; i < realModelCount; i++) {
+            float posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ;
+            modelList->GetTransformData(i, posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ);
+            
+            ObjectData obj;
+            obj.position = { posX, posY, posZ };
+            obj.scale = { scaleX, scaleY, scaleZ };
+            obj.rotation = { rotX, rotY, rotZ };
+            obj.boundingBoxMin = realBoundingBox.min;
+            obj.boundingBoxMax = realBoundingBox.max;
+            obj.objectIndex = static_cast<uint32_t>(i);
+            
+            objects.push_back(obj);
+        }
+        
+        // Then generate additional models with random positions but real bounding box
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<float> posDist(-500.0f, 500.0f);
+        std::uniform_real_distribution<float> scaleDist(0.8f, 1.2f);
+        
+        for (int i = realModelCount; i < objectCount; i++) {
+            ObjectData obj;
+            obj.position = { posDist(gen), 0.0f, posDist(gen) };
+            obj.scale = { scaleDist(gen), scaleDist(gen), scaleDist(gen) };
+            obj.rotation = { 0.0f, 0.0f, 0.0f };
+            obj.boundingBoxMin = realBoundingBox.min;
+            obj.boundingBoxMax = realBoundingBox.max;
+            obj.objectIndex = static_cast<uint32_t>(i);
+            
+            objects.push_back(obj);
+        }
+    }
+    
+    LOG("Generated " + std::to_string(objects.size()) + " objects for benchmark using real model data");
+}
+
 void RenderingBenchmark::UpdateCamera(float deltaTime)
 {
-    m_CameraRotation += deltaTime * 0.001f; // Slow rotation
+    // Use real Application camera instead of fake rotating camera
+    if (m_Application && m_Application->GetCamera()) {
+        auto realCamera = m_Application->GetCamera();
+        m_CameraPosition = realCamera->GetPosition();
+        m_CameraTarget = XMFLOAT3(0.0f, 0.0f, 0.0f); // Look at origin
+        LOG("Using real camera position: (" + std::to_string(m_CameraPosition.x) + ", " + 
+            std::to_string(m_CameraPosition.y) + ", " + std::to_string(m_CameraPosition.z) + ")");
+    } else {
+        // Fallback to old rotating camera if no Application camera
+        m_CameraRotation += deltaTime * 0.001f; // Slow rotation
 
-    float radius = 300.0f;
-    m_CameraPosition.x = cos(m_CameraRotation) * radius;
-    m_CameraPosition.z = sin(m_CameraRotation) * radius;
-    m_CameraPosition.y = 50.0f + sin(m_CameraRotation * 2.0f) * 20.0f;
+        float radius = 300.0f;
+        m_CameraPosition.x = cos(m_CameraRotation) * radius;
+        m_CameraPosition.z = sin(m_CameraRotation) * radius;
+        m_CameraPosition.y = 50.0f + sin(m_CameraRotation * 2.0f) * 20.0f;
+    }
 }
 
 void RenderingBenchmark::BeginFrame()
@@ -1104,4 +1411,104 @@ void RenderingBenchmark::ReleaseDummyBuffers()
     if (m_DummyVertexShader) { m_DummyVertexShader->Release(); m_DummyVertexShader = nullptr; }
     if (m_DummyPixelShader) { m_DummyPixelShader->Release(); m_DummyPixelShader = nullptr; }
     if (m_DummyInputLayout) { m_DummyInputLayout->Release(); m_DummyInputLayout = nullptr; }
-} 
+}
+
+// Frame-by-frame benchmark execution for smooth UI progress updates
+bool RenderingBenchmark::StartFrameByFrameBenchmark(const BenchmarkConfig& config)
+{
+    if (m_FrameByFrameBenchmarkRunning) {
+        LOG_WARNING("Frame-by-frame benchmark already running");
+        return false;
+    }
+    
+    m_CurrentFrameByFrameConfig = config;
+    m_CurrentFrameIndex = 0;
+    m_FrameByFrameBenchmarkRunning = true;
+    
+    // Initialize the result
+    m_CurrentFrameByFrameResult.approach = (config.approach == BenchmarkConfig::RenderingApproach::CPU_DRIVEN) ? "CPU-Driven" :
+                                          (config.approach == BenchmarkConfig::RenderingApproach::GPU_DRIVEN) ? "GPU-Driven" : "Hybrid";
+    m_CurrentFrameByFrameResult.objectCount = config.objectCount;
+    m_CurrentFrameByFrameResult.visibleObjects = 0;
+    m_CurrentFrameByFrameResult.frameTimes.clear();
+    m_CurrentFrameByFrameResult.gpuTimes.clear();
+    m_CurrentFrameByFrameResult.cpuTimes.clear();
+    m_CurrentFrameByFrameResult.drawCalls.clear();
+    m_CurrentFrameByFrameResult.triangles.clear();
+    m_CurrentFrameByFrameResult.instances.clear();
+    
+    // Generate test scene
+    GenerateTestScene(config.objectCount, m_TestObjects);
+    LOG("Started frame-by-frame benchmark: " + config.sceneName);
+    
+    // Reset profiler
+    PerformanceProfiler::GetInstance().BeginFrame();
+    
+    return true;
+}
+
+bool RenderingBenchmark::RunNextBenchmarkFrame()
+{
+    if (!m_FrameByFrameBenchmarkRunning) {
+        return true; // Benchmark is complete/not running
+    }
+    
+    if (m_CurrentFrameIndex >= m_CurrentFrameByFrameConfig.benchmarkDuration) {
+        // Benchmark is complete
+        StopFrameByFrameBenchmark();
+        return true;
+    }
+    
+    // Run a single frame of the appropriate benchmark type
+    RunBenchmarkFrame(m_CurrentFrameByFrameConfig, m_CurrentFrameByFrameResult, m_CurrentFrameIndex);
+    
+    m_CurrentFrameIndex++;
+    
+    // Update progress
+    m_Progress = static_cast<double>(m_CurrentFrameIndex) / static_cast<double>(m_CurrentFrameByFrameConfig.benchmarkDuration);
+    m_Status = m_CurrentFrameByFrameResult.approach + " Benchmark: Frame " + 
+               std::to_string(m_CurrentFrameIndex) + "/" + 
+               std::to_string(m_CurrentFrameByFrameConfig.benchmarkDuration);
+    
+    LOG("Frame-by-frame benchmark: completed frame " + std::to_string(m_CurrentFrameIndex) + "/" + std::to_string(m_CurrentFrameByFrameConfig.benchmarkDuration));
+    
+    return false; // Benchmark is still running
+}
+
+BenchmarkResult RenderingBenchmark::GetCurrentBenchmarkResult()
+{
+    if (!m_FrameByFrameBenchmarkRunning && m_CurrentFrameIndex > 0) {
+        // Calculate final averages
+        if (!m_CurrentFrameByFrameResult.frameTimes.empty()) {
+            m_CurrentFrameByFrameResult.averageFrameTime = std::accumulate(m_CurrentFrameByFrameResult.frameTimes.begin(), m_CurrentFrameByFrameResult.frameTimes.end(), 0.0) / m_CurrentFrameByFrameResult.frameTimes.size();
+            m_CurrentFrameByFrameResult.averageFPS = 1000.0 / m_CurrentFrameByFrameResult.averageFrameTime;
+        }
+        if (!m_CurrentFrameByFrameResult.gpuTimes.empty()) {
+            m_CurrentFrameByFrameResult.averageGPUTime = std::accumulate(m_CurrentFrameByFrameResult.gpuTimes.begin(), m_CurrentFrameByFrameResult.gpuTimes.end(), 0.0) / m_CurrentFrameByFrameResult.gpuTimes.size();
+        }
+        if (!m_CurrentFrameByFrameResult.cpuTimes.empty()) {
+            m_CurrentFrameByFrameResult.averageCPUTime = std::accumulate(m_CurrentFrameByFrameResult.cpuTimes.begin(), m_CurrentFrameByFrameResult.cpuTimes.end(), 0.0) / m_CurrentFrameByFrameResult.cpuTimes.size();
+        }
+        if (!m_CurrentFrameByFrameResult.drawCalls.empty()) {
+            m_CurrentFrameByFrameResult.averageDrawCalls = static_cast<int>(std::accumulate(m_CurrentFrameByFrameResult.drawCalls.begin(), m_CurrentFrameByFrameResult.drawCalls.end(), 0) / m_CurrentFrameByFrameResult.drawCalls.size());
+        }
+        if (!m_CurrentFrameByFrameResult.triangles.empty()) {
+            m_CurrentFrameByFrameResult.averageTriangles = static_cast<int>(std::accumulate(m_CurrentFrameByFrameResult.triangles.begin(), m_CurrentFrameByFrameResult.triangles.end(), 0) / m_CurrentFrameByFrameResult.triangles.size());
+        }
+        if (!m_CurrentFrameByFrameResult.instances.empty()) {
+            m_CurrentFrameByFrameResult.averageInstances = static_cast<int>(std::accumulate(m_CurrentFrameByFrameResult.instances.begin(), m_CurrentFrameByFrameResult.instances.end(), 0) / m_CurrentFrameByFrameResult.instances.size());
+        }
+    }
+    
+    return m_CurrentFrameByFrameResult;
+}
+
+void RenderingBenchmark::StopFrameByFrameBenchmark()
+{
+    if (m_FrameByFrameBenchmarkRunning) {
+        m_FrameByFrameBenchmarkRunning = false;
+        m_Progress = 1.0;
+        m_Status = "Benchmark completed";
+        LOG("Frame-by-frame benchmark completed with " + std::to_string(m_CurrentFrameIndex) + " frames");
+    }
+}

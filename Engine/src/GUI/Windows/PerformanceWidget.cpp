@@ -531,22 +531,16 @@ void PerformanceWidget::OnStartBenchmark()
     m_BenchmarkProgressBar->setValue(0);
     m_BenchmarkStatusLabel->setText("Starting real benchmark...");
     
-    // Start monitoring timer first
-    m_BenchmarkTimer->start(100); // Check progress every 100ms
-    
-    // Use QTimer::singleShot to start the benchmark in the next event loop iteration
-    // This prevents blocking the UI thread
-    QTimer::singleShot(50, [this, benchmarkSystem]() {
-        LOG("Starting real benchmark execution...");
-        
-        // Run the actual benchmark - this may take some time
-        BenchmarkResult result = benchmarkSystem->RunBenchmark(m_CurrentBenchmarkConfig);
-        
-        // Store the real result
-        m_BenchmarkHistory.push_back(result);
-        
-        LOG("Real benchmark execution completed");
-    });
+    // Start the frame-by-frame benchmark for smooth progress updates
+    if (benchmarkSystem->StartFrameByFrameBenchmark(m_CurrentBenchmarkConfig)) {
+        // Start monitoring timer to run frames one by one
+        m_BenchmarkTimer->start(16); // Run at ~60 FPS for smooth progress
+        LOG("Started frame-by-frame benchmark execution");
+    } else {
+        LOG_ERROR("Failed to start frame-by-frame benchmark");
+        OnStopBenchmark();
+        return;
+    }
     
     LOG("Real benchmark started with configuration: " + m_CurrentBenchmarkConfig.sceneName);
 }
@@ -557,6 +551,12 @@ void PerformanceWidget::OnStopBenchmark()
     
     m_BenchmarkRunning = false;
     m_BenchmarkTimer->stop();
+    
+    // Stop the frame-by-frame benchmark
+    auto benchmarkSystem = GetBenchmarkSystem();
+    if (benchmarkSystem) {
+        benchmarkSystem->StopFrameByFrameBenchmark();
+    }
     
     m_StartBenchmarkButton->setEnabled(true);
     m_StopBenchmarkButton->setEnabled(false);
@@ -569,9 +569,13 @@ void PerformanceWidget::OnBenchmarkFrame()
 {
     if (!m_BenchmarkRunning) return;
     
-    // Update progress based on benchmark system
+    // Run one frame of the benchmark and update progress
     auto benchmarkSystem = GetBenchmarkSystem();
     if (benchmarkSystem) {
+        // Run the next frame
+        bool benchmarkComplete = benchmarkSystem->RunNextBenchmarkFrame();
+        
+        // Update progress
         double progress = benchmarkSystem->GetProgress();
         std::string status = benchmarkSystem->GetStatus();
         
@@ -579,11 +583,14 @@ void PerformanceWidget::OnBenchmarkFrame()
         m_BenchmarkStatusLabel->setText(QString::fromStdString(status));
         
         // Check if benchmark is complete
-        if (progress >= 1.0) {
+        if (benchmarkComplete) {
             OnStopBenchmark();
             
-            // The benchmark result is already stored in the benchmark system
-            LOG("Benchmark completed successfully");
+            // Get the final benchmark result
+            BenchmarkResult result = benchmarkSystem->GetCurrentBenchmarkResult();
+            m_BenchmarkHistory.push_back(result);
+            
+            LOG("Frame-by-frame benchmark completed successfully");
             LoadBenchmarkResults();
             DisplayComparisonResults();
         }

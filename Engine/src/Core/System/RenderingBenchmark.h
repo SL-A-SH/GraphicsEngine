@@ -14,6 +14,9 @@
 
 using namespace DirectX;
 
+// Forward declarations
+class Application;
+
 // Benchmark configuration structure
 struct BenchmarkConfig
 {
@@ -86,12 +89,18 @@ public:
     ~RenderingBenchmark();
 
     // Initialization
-    bool Initialize(ID3D11Device* device, ID3D11DeviceContext* context, HWND hwnd);
+    bool Initialize(ID3D11Device* device, ID3D11DeviceContext* context, HWND hwnd, Application* application);
 
     // Benchmark execution
     BenchmarkResult RunBenchmark(const BenchmarkConfig& config);
     std::vector<BenchmarkResult> RunBenchmarkSuite();
     void RunBenchmarkFrame(const BenchmarkConfig& config, BenchmarkResult& result, int currentFrame);
+    
+    // Frame-by-frame benchmark execution for UI progress updates
+    bool StartFrameByFrameBenchmark(const BenchmarkConfig& config);
+    bool RunNextBenchmarkFrame(); // Returns true if benchmark is complete
+    BenchmarkResult GetCurrentBenchmarkResult();
+    void StopFrameByFrameBenchmark();
 
     // Progress tracking
     double GetProgress() const { return m_Progress; }
@@ -112,6 +121,7 @@ private:
     void GenerateGridScene(int objectCount, std::vector<ObjectData>& objects);
     void GenerateRandomScene(int objectCount, std::vector<ObjectData>& objects);
     void GenerateStressTestScene(int objectCount, std::vector<ObjectData>& objects);
+    void GenerateRealScene(int objectCount, std::vector<ObjectData>& objects);
 
     // Camera and timing
     void UpdateCamera(float deltaTime);
@@ -133,6 +143,9 @@ private:
     ID3D11Device* m_Device;
     ID3D11DeviceContext* m_Context;
     HWND m_Hwnd;
+    
+    // Application reference for real rendering
+    Application* m_Application;
 
     // Compute shaders
     std::unique_ptr<ComputeShader> m_FrustumCullingShader;
@@ -145,6 +158,12 @@ private:
     // Progress tracking
     double m_Progress;
     std::string m_Status;
+    
+    // Frame-by-frame benchmark state
+    bool m_FrameByFrameBenchmarkRunning;
+    BenchmarkConfig m_CurrentFrameByFrameConfig;
+    BenchmarkResult m_CurrentFrameByFrameResult;
+    int m_CurrentFrameIndex;
 
     // Test data
     std::vector<ObjectData> m_TestObjects;

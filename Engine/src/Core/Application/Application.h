@@ -72,6 +72,15 @@ public:
 	
 	// Get benchmark system
 	class RenderingBenchmark* GetBenchmarkSystem() { return m_BenchmarkSystem; }
+	
+	// Getters for benchmark system to access real rendering components
+	class Camera* GetCamera() { return m_Camera; }
+	class Frustum* GetFrustum() { return m_Frustum; }
+	class Model* GetModel() { return m_Model; }
+	class ModelList* GetModelList() { return m_ModelList; }
+	class ShaderManager* GetShaderManager() { return m_ShaderManager; }
+	class D3D11Device* GetDirect3D() { return m_Direct3D; }
+	class Light* GetLight() { return m_Light; }
 
 private:
 	bool Render();

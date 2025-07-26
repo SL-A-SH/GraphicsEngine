@@ -298,7 +298,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 
 	// Initialize benchmark system
 	m_BenchmarkSystem = new RenderingBenchmark;
-	result = m_BenchmarkSystem->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), hwnd);
+	result = m_BenchmarkSystem->Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), hwnd, this);
 	if (!result)
 	{
 		LOG_ERROR("Could not initialize benchmark system - benchmarking features will be disabled");
