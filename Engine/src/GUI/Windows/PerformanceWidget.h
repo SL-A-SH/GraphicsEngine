@@ -49,6 +49,9 @@ public:
     
     // Run benchmark with configuration
     void RunBenchmark(const BenchmarkConfig& config);
+    
+    // Initialize with access to the main window (to get Application)
+    void InitializeBenchmarkSystem(class MainWindow* mainWindow);
 
 private slots:
     void OnUpdateTimer();
@@ -78,6 +81,9 @@ private:
     void SetupBenchmarkConfig();
     void LoadBenchmarkResults();
     void DisplayComparisonResults();
+    
+    // Get access to the real benchmark system from Application
+    class RenderingBenchmark* GetBenchmarkSystem();
 
     // UI Components
     QTabWidget* m_TabWidget;
@@ -130,8 +136,10 @@ private:
     // Internal tab widget index
     int m_InternalTabIndex;
     
-    // Benchmark system
-    std::unique_ptr<RenderingBenchmark> m_BenchmarkSystem;
+    // Reference to main window for accessing Application
+    class MainWindow* m_MainWindow;
+    
+    // Benchmark system - use Application's system
     bool m_BenchmarkRunning;
     std::vector<BenchmarkResult> m_CurrentBenchmarkResults;
     QTimer* m_BenchmarkTimer;

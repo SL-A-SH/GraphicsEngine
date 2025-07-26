@@ -61,6 +61,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     // Create performance widget
     m_PerformanceWidget = new PerformanceWidget(centralWidget);
+    m_PerformanceWidget->InitializeBenchmarkSystem(this); // Initialize with access to this MainWindow
     m_TabWidget->addTab(m_PerformanceWidget, "Performance");
 
     // Connect signals

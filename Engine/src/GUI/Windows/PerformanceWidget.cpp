@@ -2,6 +2,8 @@
 #include "../../Core/System/PerformanceProfiler.h"
 #include "../../Core/System/RenderingBenchmark.h"
 #include "../../Core/System/Logger.h"
+#include "DirectXViewport.h"
+#include "MainWindow.h"
 #include <QApplication>
 #include <QTabWidget>
 #include <QTableWidget>
@@ -50,15 +52,12 @@ PerformanceWidget::PerformanceWidget(QWidget* parent)
     , m_UpdateTimer(nullptr)
     , m_MainWindowTabIndex(0)
     , m_InternalTabIndex(0)
-    , m_BenchmarkSystem(nullptr)
+    , m_MainWindow(nullptr)
     , m_BenchmarkRunning(false)
     , m_BenchmarkTimer(nullptr)
     , m_BenchmarkCurrentFrame(0)
 {
     CreateUI();
-    
-    // Initialize benchmark system
-    m_BenchmarkSystem = std::make_unique<RenderingBenchmark>();
     
     // Set up update timer
     m_UpdateTimer = new QTimer(this);
@@ -80,6 +79,48 @@ PerformanceWidget::~PerformanceWidget()
     if (m_BenchmarkTimer) {
         m_BenchmarkTimer->stop();
     }
+}
+
+void PerformanceWidget::InitializeBenchmarkSystem(MainWindow* mainWindow)
+{
+    m_MainWindow = mainWindow;
+    LOG("PerformanceWidget: Initialized with MainWindow reference for benchmark system access");
+}
+
+RenderingBenchmark* PerformanceWidget::GetBenchmarkSystem()
+{
+    if (!m_MainWindow) {
+        LOG_ERROR("PerformanceWidget: No MainWindow reference - cannot access benchmark system");
+        return nullptr;
+    }
+    
+    // Access the Application's benchmark system through: MainWindow -> DirectXViewport -> SystemManager -> Application
+    auto viewport = m_MainWindow->findChild<DirectXViewport*>();
+    if (!viewport) {
+        LOG_ERROR("PerformanceWidget: Cannot find DirectXViewport");
+        return nullptr;
+    }
+    
+    auto systemManager = viewport->GetSystemManager();
+    if (!systemManager) {
+        LOG_ERROR("PerformanceWidget: Cannot get SystemManager");
+        return nullptr;
+    }
+    
+    auto application = systemManager->GetApplication();
+    if (!application) {
+        LOG_ERROR("PerformanceWidget: Cannot get Application");
+        return nullptr;
+    }
+    
+    // Get the benchmark system from the Application
+    auto benchmarkSystem = application->GetBenchmarkSystem();
+    if (!benchmarkSystem) {
+        LOG_ERROR("PerformanceWidget: Application benchmark system is null");
+        return nullptr;
+    }
+    
+    return benchmarkSystem;
 }
 
 void PerformanceWidget::CreateUI()
@@ -169,7 +210,7 @@ void PerformanceWidget::CreateBenchmarkTab()
     // Rendering mode
     configLayout->addWidget(new QLabel("Rendering Mode:"), 0, 0);
     m_RenderingModeCombo = new QComboBox();
-    m_RenderingModeCombo->addItems(QStringList() << "CPU-Driven" << "GPU-Driven" << "Hybrid");
+    m_RenderingModeCombo->addItems(QStringList() << "CPU-Driven" << "GPU-Driven");
     configLayout->addWidget(m_RenderingModeCombo, 0, 1);
     connect(m_RenderingModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &PerformanceWidget::OnRenderingModeChanged);
@@ -201,12 +242,14 @@ void PerformanceWidget::CreateBenchmarkTab()
     connect(m_FrustumCullingCheckBox, &QCheckBox::toggled,
             this, &PerformanceWidget::OnFrustumCullingToggled);
     
-    m_LODCheckBox = new QCheckBox("Enable LOD");
+    m_LODCheckBox = new QCheckBox("Enable LOD (coming soon)");
+    m_LODCheckBox->setEnabled(false);
     configLayout->addWidget(m_LODCheckBox, 4, 0, 1, 2);
     connect(m_LODCheckBox, &QCheckBox::toggled,
             this, &PerformanceWidget::OnLODToggled);
     
-    m_OcclusionCullingCheckBox = new QCheckBox("Enable Occlusion Culling");
+    m_OcclusionCullingCheckBox = new QCheckBox("Enable Occlusion Culling (coming soon)");
+    m_OcclusionCullingCheckBox->setEnabled(false);
     configLayout->addWidget(m_OcclusionCullingCheckBox, 5, 0, 1, 2);
     connect(m_OcclusionCullingCheckBox, &QCheckBox::toggled,
             this, &PerformanceWidget::OnOcclusionCullingToggled);
@@ -429,9 +472,10 @@ void PerformanceWidget::UpdateBenchmarkProgress()
     if (!m_BenchmarkRunning) return;
     
     // Update progress bar and status based on benchmark system
-    if (m_BenchmarkSystem) {
-        double progress = m_BenchmarkSystem->GetProgress();
-        std::string status = m_BenchmarkSystem->GetStatus();
+    auto benchmarkSystem = GetBenchmarkSystem();
+    if (benchmarkSystem) {
+        double progress = benchmarkSystem->GetProgress();
+        std::string status = benchmarkSystem->GetStatus();
         
         m_BenchmarkProgressBar->setValue(static_cast<int>(progress * 100));
         m_BenchmarkStatusLabel->setText(QString::fromStdString(status));
@@ -471,6 +515,13 @@ void PerformanceWidget::OnStartBenchmark()
     
     SetupBenchmarkConfig();
     
+    auto benchmarkSystem = GetBenchmarkSystem();
+    if (!benchmarkSystem) {
+        LOG_ERROR("Cannot start benchmark - benchmark system not available");
+        m_BenchmarkStatusLabel->setText("Error: Benchmark system not available");
+        return;
+    }
+    
     m_BenchmarkRunning = true;
     m_BenchmarkCurrentFrame = 0;
     m_CurrentBenchmarkResults.clear();
@@ -478,12 +529,26 @@ void PerformanceWidget::OnStartBenchmark()
     m_StartBenchmarkButton->setEnabled(false);
     m_StopBenchmarkButton->setEnabled(true);
     m_BenchmarkProgressBar->setValue(0);
-    m_BenchmarkStatusLabel->setText("Running benchmark...");
+    m_BenchmarkStatusLabel->setText("Starting real benchmark...");
     
-    // Start benchmark timer (simulate benchmark frames)
-    m_BenchmarkTimer->start(16); // 60 FPS
+    // Start monitoring timer first
+    m_BenchmarkTimer->start(100); // Check progress every 100ms
     
-    LOG("Benchmark started with Qt interface");
+    // Use QTimer::singleShot to start the benchmark in the next event loop iteration
+    // This prevents blocking the UI thread
+    QTimer::singleShot(50, [this, benchmarkSystem]() {
+        LOG("Starting real benchmark execution...");
+        
+        // Run the actual benchmark - this may take some time
+        BenchmarkResult result = benchmarkSystem->RunBenchmark(m_CurrentBenchmarkConfig);
+        
+        // Store the real result
+        m_BenchmarkHistory.push_back(result);
+        
+        LOG("Real benchmark execution completed");
+    });
+    
+    LOG("Real benchmark started with configuration: " + m_CurrentBenchmarkConfig.sceneName);
 }
 
 void PerformanceWidget::OnStopBenchmark()
@@ -504,46 +569,63 @@ void PerformanceWidget::OnBenchmarkFrame()
 {
     if (!m_BenchmarkRunning) return;
     
-    m_BenchmarkCurrentFrame++;
-    
-    // Update progress
-    int progress = (m_BenchmarkCurrentFrame * 100) / m_CurrentBenchmarkConfig.benchmarkDuration;
-    m_BenchmarkProgressBar->setValue(progress);
-    
-    m_BenchmarkStatusLabel->setText(QString("Frame %1/%2")
-        .arg(m_BenchmarkCurrentFrame)
-        .arg(m_CurrentBenchmarkConfig.benchmarkDuration));
-    
-    // Check if benchmark is complete
-    if (m_BenchmarkCurrentFrame >= m_CurrentBenchmarkConfig.benchmarkDuration) {
-        OnStopBenchmark();
+    // Update progress based on benchmark system
+    auto benchmarkSystem = GetBenchmarkSystem();
+    if (benchmarkSystem) {
+        double progress = benchmarkSystem->GetProgress();
+        std::string status = benchmarkSystem->GetStatus();
         
-        // Create and display result
-        BenchmarkResult result;
-        result.approach = "Qt-Benchmark";
-        result.objectCount = m_CurrentBenchmarkConfig.objectCount;
-        result.visibleObjects = m_CurrentBenchmarkConfig.objectCount / 2; // Simulate
-        result.averageFPS = 60.0;
-        result.averageFrameTime = 16.67;
-        result.averageGPUTime = 5.0;
-        result.averageCPUTime = 10.0;
-        result.averageDrawCalls = 10;
+        m_BenchmarkProgressBar->setValue(static_cast<int>(progress * 100));
+        m_BenchmarkStatusLabel->setText(QString::fromStdString(status));
         
-        m_BenchmarkHistory.push_back(result);
-        LoadBenchmarkResults();
-        DisplayComparisonResults();
+        // Check if benchmark is complete
+        if (progress >= 1.0) {
+            OnStopBenchmark();
+            
+            // The benchmark result is already stored in the benchmark system
+            LOG("Benchmark completed successfully");
+            LoadBenchmarkResults();
+            DisplayComparisonResults();
+        }
+    } else {
+        // Fallback if benchmark system is not available
+        m_BenchmarkCurrentFrame++;
+        
+        int progress = (m_BenchmarkCurrentFrame * 100) / m_CurrentBenchmarkConfig.benchmarkDuration;
+        m_BenchmarkProgressBar->setValue(progress);
+        
+        m_BenchmarkStatusLabel->setText(QString("Frame %1/%2 (Fallback mode)")
+            .arg(m_BenchmarkCurrentFrame)
+            .arg(m_CurrentBenchmarkConfig.benchmarkDuration));
+        
+        if (m_BenchmarkCurrentFrame >= m_CurrentBenchmarkConfig.benchmarkDuration) {
+            OnStopBenchmark();
+            LOG_WARNING("Benchmark completed in fallback mode - no real results available");
+        }
     }
 }
 
 void PerformanceWidget::SetupBenchmarkConfig()
 {
-    m_CurrentBenchmarkConfig.approach = static_cast<BenchmarkConfig::RenderingApproach>(m_RenderingModeCombo->currentIndex());
+    // Map dropdown index to approach (0=CPU-Driven, 1=GPU-Driven, Hybrid removed)
+    int selectedIndex = m_RenderingModeCombo->currentIndex();
+    if (selectedIndex == 0) {
+        m_CurrentBenchmarkConfig.approach = BenchmarkConfig::RenderingApproach::CPU_DRIVEN;
+    } else if (selectedIndex == 1) {
+        m_CurrentBenchmarkConfig.approach = BenchmarkConfig::RenderingApproach::GPU_DRIVEN;
+    } else {
+        LOG_WARNING("Invalid rendering mode selected, defaulting to CPU-Driven");
+        m_CurrentBenchmarkConfig.approach = BenchmarkConfig::RenderingApproach::CPU_DRIVEN;
+    }
+    
     m_CurrentBenchmarkConfig.objectCount = m_ObjectCountSpinBox->value();
     m_CurrentBenchmarkConfig.benchmarkDuration = m_BenchmarkDurationSpinBox->value();
     m_CurrentBenchmarkConfig.enableFrustumCulling = m_FrustumCullingCheckBox->isChecked();
-    m_CurrentBenchmarkConfig.enableLOD = m_LODCheckBox->isChecked();
-    m_CurrentBenchmarkConfig.enableOcclusionCulling = m_OcclusionCullingCheckBox->isChecked();
-    m_CurrentBenchmarkConfig.sceneName = "Qt Benchmark Scene";
+    m_CurrentBenchmarkConfig.enableLOD = m_LODCheckBox->isChecked(); // Will be false since disabled
+    m_CurrentBenchmarkConfig.enableOcclusionCulling = m_OcclusionCullingCheckBox->isChecked(); // Will be false since disabled
+    m_CurrentBenchmarkConfig.sceneName = std::string("Performance Widget Benchmark - ") + 
+        (m_CurrentBenchmarkConfig.approach == BenchmarkConfig::RenderingApproach::CPU_DRIVEN ? "CPU" : "GPU") + 
+        " - " + std::to_string(m_CurrentBenchmarkConfig.objectCount) + " objects";
 }
 
 void PerformanceWidget::LoadBenchmarkResults()

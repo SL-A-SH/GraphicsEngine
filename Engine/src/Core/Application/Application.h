@@ -26,7 +26,6 @@ class DisplayPlane;
 class GPUDrivenRenderer;
 class PerformanceProfiler;
 class RenderingBenchmark;
-// class PerformanceWidget; // Now handled by MainWindow
 
 using namespace DirectX;
 
@@ -70,6 +69,9 @@ public:
 	// Debug logging control
 	void SetDebugLogging(bool enable) { m_debugLogging = enable; }
 	bool IsDebugLoggingEnabled() const { return m_debugLogging; }
+	
+	// Get benchmark system
+	class RenderingBenchmark* GetBenchmarkSystem() { return m_BenchmarkSystem; }
 
 private:
 	bool Render();
@@ -119,7 +121,6 @@ private:
 	GPUDrivenRenderer* m_GPUDrivenRenderer;
 	bool m_enableGPUDrivenRendering;
 	RenderingBenchmark* m_BenchmarkSystem;
-	// PerformanceWidget* m_PerformanceWidget; // Now handled by MainWindow
 	
 	// Debug logging
 	bool m_debugLogging;
