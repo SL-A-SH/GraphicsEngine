@@ -375,27 +375,27 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
             context->Unmap(m_visibilityReadbackBuffer, 0);
             
             // Log actual frustum culling results
-            static int logCounter = 0;
-            if (++logCounter == 60) // Log every 60 frames
-            {
-                LOG("=== ACTUAL GPU FRUSTUM CULLING RESULTS ===");
-                LOG("Total objects: " + std::to_string(objectCount));
-                LOG("Visible objects: " + std::to_string(actualVisibleCount));
-                LOG("Culled objects: " + std::to_string(objectCount - actualVisibleCount));
-                LOG("Culling ratio: " + std::to_string((float)(objectCount - actualVisibleCount) / objectCount * 100.0f) + "%");
-                if (actualVisibleCount > 0)
-                {
-                    LOG("First few visible object indices: ");
-                    std::string indices = "";
-                    for (int i = 0; i < std::min(10, (int)actualVisibleCount); ++i)
-                    {
-                        indices += std::to_string(visibleObjectIndices[i]) + " ";
-                    }
-                    LOG("  " + indices);
-                }
-                LOG("==========================================");
-                logCounter = 0;
-            }
+            //static int logCounter = 0;
+            //if (++logCounter == 60) // Log every 60 frames
+            //{
+            //    LOG("=== ACTUAL GPU FRUSTUM CULLING RESULTS ===");
+            //    LOG("Total objects: " + std::to_string(objectCount));
+            //    LOG("Visible objects: " + std::to_string(actualVisibleCount));
+            //    LOG("Culled objects: " + std::to_string(objectCount - actualVisibleCount));
+            //    LOG("Culling ratio: " + std::to_string((float)(objectCount - actualVisibleCount) / objectCount * 100.0f) + "%");
+            //    if (actualVisibleCount > 0)
+            //    {
+            //        LOG("First few visible object indices: ");
+            //        std::string indices = "";
+            //        for (int i = 0; i < std::min(10, (int)actualVisibleCount); ++i)
+            //        {
+            //            indices += std::to_string(visibleObjectIndices[i]) + " ";
+            //        }
+            //        LOG("  " + indices);
+            //    }
+            //    LOG("==========================================");
+            //    logCounter = 0;
+            //}
             
             // Update indirection buffer with visible object indices
             if (actualVisibleCount > 0 && !visibleObjectIndices.empty())
@@ -412,7 +412,7 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
                         indirectionData[i] = visibleObjectIndices[i];
                     }
                     
-                                         context->Unmap(m_indirectionBuffer, 0);
+                    context->Unmap(m_indirectionBuffer, 0);
                 }
                 else
                 {

@@ -159,17 +159,8 @@ void PerformanceWidget::CreateRealTimeTab()
     horizontalHeader->setSectionResizeMode(0, QHeaderView::Stretch);
     horizontalHeader->setSectionResizeMode(1, QHeaderView::Stretch);
     
-    // Remove alternating row colors - keep all rows gray
+    // Remove alternating row colors - keep all rows consistent
     m_StatsTable->setAlternatingRowColors(false);
-    m_StatsTable->setStyleSheet(
-        "QTableWidget { "
-        "   background-color: #2d2d2d; "
-        "} "
-        "QTableWidget::item { "
-        "   padding: 5px; "
-        "   background-color: #2d2d2d; "
-        "}"
-    );
     m_StatsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     
     // Populate initial metrics
@@ -291,7 +282,7 @@ void PerformanceWidget::CreateBenchmarkTab()
         << "Approach" << "Objects" << "Visible" << "FPS" << "Frame Time (ms)" 
         << "GPU Time (ms)" << "CPU Time (ms)" << "Draw Calls");
     m_BenchmarkResultsTable->horizontalHeader()->setStretchLastSection(true);
-    m_BenchmarkResultsTable->setAlternatingRowColors(true);
+    m_BenchmarkResultsTable->setAlternatingRowColors(false);
     m_BenchmarkResultsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     
     layout->addWidget(new QLabel("Benchmark Results"));

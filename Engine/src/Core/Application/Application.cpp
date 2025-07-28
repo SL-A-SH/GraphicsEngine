@@ -302,7 +302,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	if (!result)
 	{
 		LOG_ERROR("Could not initialize benchmark system - benchmarking features will be disabled");
-		// Don't return false - continue without benchmark system
+		// Continue without benchmark system
 		delete m_BenchmarkSystem;
 		m_BenchmarkSystem = nullptr;
 	}

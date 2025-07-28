@@ -35,9 +35,9 @@ void ModelList::Initialize(int numModels)
     srand((unsigned int)time(NULL));
 
     // Define battle formation parameters for thousands of ships
-    float baseFormationRadius = 600.0f;  // Much larger radius for more spacing between ships
-    float maxFormationRadius = 2000.0f;  // Increased maximum radius for outer ships
-    float layerSpacing = 200.0f;         // Increased spacing between layers
+    float baseFormationRadius = 400.0f;  // Spacing between ships
+    float maxFormationRadius = 2000.0f;  // Radius for outer ships
+    float layerSpacing = 200.0f;         // Spacing between layers
     XMFLOAT3 targetPosition = XMFLOAT3(0.0f, 0.0f, 100.0f); // Common target point
     
     // Go through all the models and position them in a multi-layered battle formation

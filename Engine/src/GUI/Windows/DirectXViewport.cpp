@@ -288,8 +288,6 @@ void DirectXViewport::keyPressEvent(QKeyEvent* event)
         return;
     }
     
-    LOG("DirectXViewport::keyPressEvent called - Key: " + QString::number(event->key()).toStdString());
-    
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleKeyEvent(event, true);
@@ -307,7 +305,6 @@ void DirectXViewport::keyReleaseEvent(QKeyEvent* event)
         return;
     }
     
-    LOG("DirectXViewport::keyReleaseEvent called - Key: " + QString::number(event->key()).toStdString());
     if (m_SystemManager && m_SystemManager->GetInputManager())
     {
         m_SystemManager->GetInputManager()->HandleKeyEvent(event, false);

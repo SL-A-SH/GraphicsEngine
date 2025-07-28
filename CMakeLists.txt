@@ -294,6 +294,8 @@ source_group("src\\Math" FILES
 source_group("src\\GUI\\Windows" FILES
     ${SRC_DIR}/GUI/Windows/MainWindow.cpp
     ${SRC_DIR}/GUI/Windows/MainWindow.h
+    ${SRC_DIR}/GUI/Windows/ThemeManager.cpp
+    ${SRC_DIR}/GUI/Windows/ThemeManager.h
     ${SRC_DIR}/GUI/Windows/DirectXViewport.cpp
     ${SRC_DIR}/GUI/Windows/DirectXViewport.h
     ${SRC_DIR}/GUI/Windows/PerformanceWidget.cpp
