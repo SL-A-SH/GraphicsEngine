@@ -34,6 +34,14 @@ public:
         uint32_t totalObjects;         // Total objects processed
         uint32_t visibleObjects;       // Objects that passed frustum culling
         
+        // GPU Utilization and Efficiency Metrics
+        double gpuUtilization;         // GPU utilization percentage (0-100)
+        double memoryThroughput;       // Memory throughput in GB/s
+        double cullingEfficiency;      // Visible/Total objects ratio (0-1)
+        double frustumCullingSpeedup;  // GPU vs CPU culling speedup factor
+        double renderingEfficiency;    // Triangles per millisecond
+        double drawCallEfficiency;     // Objects per draw call ratio
+        
         std::unordered_map<std::string, TimingData> sections;
     };
 
@@ -153,6 +161,21 @@ public:
     // Get persistent frustum culling times for speedup calculation
     double GetLastCPUFrustumCullingTime() const { return m_LastCPUFrustumCullingTime; }
     double GetLastGPUFrustumCullingTime() const { return m_LastGPUFrustumCullingTime; }
+    
+    // GPU Utilization and Efficiency Tracking
+    void SetGPUUtilization(double utilization) { m_LastFrameTiming.gpuUtilization = utilization; }
+    void SetMemoryThroughput(double throughputGBs) { m_LastFrameTiming.memoryThroughput = throughputGBs; }
+    
+    // Calculate and set efficiency metrics (called at end of frame)
+    void CalculateEfficiencyMetrics();
+    
+    // Get specific efficiency metrics
+    double GetCullingEfficiency() const { return m_LastFrameTiming.cullingEfficiency; }
+    double GetFrustumCullingSpeedup() const { return m_LastFrameTiming.frustumCullingSpeedup; }
+    double GetRenderingEfficiency() const { return m_LastFrameTiming.renderingEfficiency; }
+    double GetDrawCallEfficiency() const { return m_LastFrameTiming.drawCallEfficiency; }
+    double GetGPUUtilization() const { return m_LastFrameTiming.gpuUtilization; }
+    double GetMemoryThroughput() const { return m_LastFrameTiming.memoryThroughput; }
 
     // Rendering mode management
     void SetRenderingMode(RenderingMode mode) { m_CurrentMode = mode; }

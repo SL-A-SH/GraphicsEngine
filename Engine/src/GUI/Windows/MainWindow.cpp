@@ -136,12 +136,12 @@ void MainWindow::CreateToolbars()
     // Create a toolbar
     QToolBar* mainToolBar = addToolBar("Main Toolbar");
     
-    // Add some actions to the toolbar
-    QAction* newAction = new QAction("New", this);
+    // Add actions to the toolbar
+    /*QAction* newAction = new QAction("New", this);
     mainToolBar->addAction(newAction);
     
     QAction* openAction = new QAction("Open", this);
-    mainToolBar->addAction(openAction);
+    mainToolBar->addAction(openAction);*/
 }
 
 void MainWindow::CreateDockWidgets()

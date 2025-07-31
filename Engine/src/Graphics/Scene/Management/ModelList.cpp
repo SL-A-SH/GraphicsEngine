@@ -26,7 +26,8 @@ void ModelList::Initialize(int numModels)
     // Store the number of models.
     m_modelCount = numModels;
     
-    LOG("ModelList::Initialize - Creating " + std::to_string(numModels) + " models");
+    LOG("ModelList::Initialize - Creating " + std::to_string(numModels) + " models in ultra-dense multi-plane battle formation");
+    LOG("ModelList::Initialize - Formation: 5 battle groups, 5 layers per group, ultra-dense spiral distribution");
 
     // Resize the vector to hold the model information.
     m_ModelInfoList.resize(m_modelCount);
@@ -34,30 +35,45 @@ void ModelList::Initialize(int numModels)
     // Seed the random generator with the current time.
     srand((unsigned int)time(NULL));
 
-    // Define battle formation parameters for thousands of ships
-    float baseFormationRadius = 400.0f;  // Spacing between ships
-    float maxFormationRadius = 2000.0f;  // Radius for outer ships
-    float layerSpacing = 200.0f;         // Spacing between layers
+    // Define ultra-dense multi-plane battle formation parameters for 10,000 ships
+    float baseFormationRadius = 50.0f;    // Much closer base radius for dense formation
+    float maxFormationRadius = 800.0f;    // Reduced max radius for closer ships
+    float layerSpacing = 30.0f;           // Much tighter layer spacing
+    float heightVariation = 400.0f;       // Reduced height variation for denser formation
     XMFLOAT3 targetPosition = XMFLOAT3(0.0f, 0.0f, 100.0f); // Common target point
     
-    // Go through all the models and position them in a multi-layered battle formation
+    // Create a complex multi-plane formation with multiple battle groups
     for (i = 0; i < m_modelCount; i++)
     {
-        // Create multiple layers of formations with better distribution
-        int layer = i / 1000;  // Each layer has ~1000 ships
-        int shipInLayer = i % 1000;
+        // Create multiple battle groups and layers for better distribution
+        int battleGroup = i / 5000;        // 5 battle groups of 5000 ships each
+        int shipInGroup = i % 5000;
+        int layer = shipInGroup / 1000;    // 5 layers per battle group
+        int shipInLayer = shipInGroup % 1000;
         
-        // Calculate radius based on layer with increased spacing
+        // Calculate base position for this battle group
+        float groupAngle = (2.0f * 3.14159f * battleGroup) / 5.0f; // 5 groups in a circle
+        float groupRadius = 100.0f + (battleGroup * 50.0f); // Much closer group distances
+        
+        // Calculate radius within the layer with more variation
         float layerRadius = baseFormationRadius + (layer * layerSpacing);
         if (layerRadius > maxFormationRadius) layerRadius = maxFormationRadius;
         
-        // Calculate position in a circular formation within the layer with more spacing
+        // Calculate position in a dense spiral formation within the layer
         float angle = (2.0f * 3.14159f * shipInLayer) / 1000.0f;
-        float radius = layerRadius + (rand() % 200 - 100); // More variation for natural look
+        float radius = layerRadius + (rand() % 100 - 50); // Reduced variation for tighter formation
         
-        m_ModelInfoList[i].positionX = cos(angle) * radius;
-        m_ModelInfoList[i].positionY = (rand() % 400 - 200) * 0.1f;  // More height variation
-        m_ModelInfoList[i].positionZ = sin(angle) * radius;
+        // Add dense spiral variation to pack ships closer
+        float spiralOffset = (shipInLayer * 0.05f) * (layer + 1); // Reduced spiral offset
+        radius += spiralOffset;
+        
+        // Calculate final position with group offset
+        float shipAngle = angle + groupAngle;
+        float shipRadius = radius + groupRadius;
+        
+        m_ModelInfoList[i].positionX = cos(shipAngle) * shipRadius;
+        m_ModelInfoList[i].positionY = (rand() % (int)heightVariation - heightVariation/2) * 0.1f + (layer * 20.0f);  // Tighter height planes
+        m_ModelInfoList[i].positionZ = sin(shipAngle) * shipRadius;
         
         // Calculate direction to target for proper orientation
         XMFLOAT3 shipPos = XMFLOAT3(m_ModelInfoList[i].positionX, m_ModelInfoList[i].positionY, m_ModelInfoList[i].positionZ);
@@ -88,6 +104,10 @@ void ModelList::Initialize(int numModels)
         m_ModelInfoList[i].scaleY = 1.0f;
         m_ModelInfoList[i].scaleZ = 1.0f;
     }
+
+    LOG("ModelList::Initialize - Ultra-dense multi-plane formation created successfully");
+    LOG("ModelList::Initialize - Ships packed tightly across multiple height planes and battle groups");
+    LOG("ModelList::Initialize - This dense formation will create massive FPS drops in CPU mode vs GPU mode");
 
     return;
 }

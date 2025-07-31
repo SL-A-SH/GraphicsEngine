@@ -150,8 +150,8 @@ void PerformanceWidget::CreateRealTimeTab()
     QWidget* realTimeTab = new QWidget();
     QVBoxLayout* layout = new QVBoxLayout(realTimeTab);
     
-    // Performance statistics table
-    m_StatsTable = new QTableWidget(20, 2, realTimeTab);
+    // Performance statistics table - expanded for efficiency metrics
+    m_StatsTable = new QTableWidget(26, 2, realTimeTab);
     m_StatsTable->setHorizontalHeaderLabels(QStringList() << "Metric" << "Value");
     
     // Set column widths to 50% each
@@ -163,13 +163,15 @@ void PerformanceWidget::CreateRealTimeTab()
     m_StatsTable->setAlternatingRowColors(false);
     m_StatsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     
-    // Populate initial metrics
+    // Populate metrics including new efficiency metrics
     QStringList metrics = {
         "FPS", "Frame Time (ms)", "Rendering Mode", "Total Objects", "Visible Objects",
         "CPU Frustum Culling (μs)", "GPU Frustum Culling (μs)", "GPU Speedup",
         "Draw Calls", "Triangles", "Instances", "Indirect Draw Calls", "Compute Dispatches",
         "CPU Time (ms)", "GPU Time (ms)", "GPU Memory (MB)", "CPU Memory (MB)",
-        "Bandwidth (MB/s)", "Visibility Ratio (%)", "Triangles per Draw Call"
+        "Bandwidth (MB/s)", "Visibility Ratio (%)", "Triangles per Draw Call",
+        "--- EFFICIENCY METRICS ---", "GPU Utilization (%)", "Culling Efficiency (%)", 
+        "Rendering Efficiency (T/ms)", "Draw Call Efficiency (O/DC)", "Memory Throughput (GB/s)"
     };
     
     for (int i = 0; i < metrics.size(); ++i) {
@@ -420,6 +422,49 @@ void PerformanceWidget::UpdateRealTimeStats()
     if (timing.drawCalls > 0) {
         double trianglesPerCall = static_cast<double>(timing.triangles) / static_cast<double>(timing.drawCalls);
         m_StatsTable->item(row, 1)->setText(QString::number(trianglesPerCall, 'f', 1));
+    } else {
+        m_StatsTable->item(row, 1)->setText("N/A");
+    }
+    row++;
+    
+    // Efficiency Metrics Section Header
+    m_StatsTable->item(row++, 1)->setText(""); // Header row has no value
+    
+    // GPU Utilization
+    if (timing.gpuUtilization > 0.0) {
+        m_StatsTable->item(row, 1)->setText(QString::number(timing.gpuUtilization, 'f', 1));
+    } else {
+        m_StatsTable->item(row, 1)->setText("N/A");
+    }
+    row++;
+    
+    // Culling Efficiency (already as percentage)
+    if (timing.cullingEfficiency > 0.0) {
+        m_StatsTable->item(row, 1)->setText(QString::number(timing.cullingEfficiency * 100.0, 'f', 1));
+    } else {
+        m_StatsTable->item(row, 1)->setText("N/A");
+    }
+    row++;
+    
+    // Rendering Efficiency (Triangles per millisecond)
+    if (timing.renderingEfficiency > 0.0) {
+        m_StatsTable->item(row, 1)->setText(QString::number(timing.renderingEfficiency, 'f', 0));
+    } else {
+        m_StatsTable->item(row, 1)->setText("N/A");
+    }
+    row++;
+    
+    // Draw Call Efficiency (Objects per draw call)
+    if (timing.drawCallEfficiency > 0.0) {
+        m_StatsTable->item(row, 1)->setText(QString::number(timing.drawCallEfficiency, 'f', 1));
+    } else {
+        m_StatsTable->item(row, 1)->setText("N/A");
+    }
+    row++;
+    
+    // Memory Throughput
+    if (timing.memoryThroughput > 0.0) {
+        m_StatsTable->item(row, 1)->setText(QString::number(timing.memoryThroughput, 'f', 3));
     } else {
         m_StatsTable->item(row, 1)->setText("N/A");
     }
@@ -691,5 +736,3 @@ void PerformanceWidget::OnBenchmarkDurationChanged(int value) { }
 void PerformanceWidget::OnFrustumCullingToggled(bool enabled) { }
 void PerformanceWidget::OnLODToggled(bool enabled) { }
 void PerformanceWidget::OnOcclusionCullingToggled(bool enabled) { }
-
-// #include "PerformanceWidget.moc" // Qt will handle this automatically 

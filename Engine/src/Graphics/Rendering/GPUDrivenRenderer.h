@@ -77,6 +77,10 @@ private:
     bool InitializeVisibilityBuffer(ID3D11Device* device, UINT maxObjects);
     void ReleaseVisibilityBuffer();
     
+    // TRUE GPU-DRIVEN: Initialize indirect draw and stream compaction buffers
+    bool InitializeIndirectDrawBuffers(ID3D11Device* device, UINT maxObjects);
+    void ReleaseIndirectDrawBuffers();
+    
     // Initialize reusable constant buffers for performance
     bool InitializeConstantBuffers(ID3D11Device* device);
     void ReleaseConstantBuffers();
@@ -88,6 +92,8 @@ private:
     // Compute shaders for GPU-driven rendering
     ComputeShader* m_worldMatrixGenerationCS;
     ComputeShader* m_frustumCullingCS;
+    ComputeShader* m_streamCompactionCS;           // TRUE GPU-DRIVEN: Compact visible objects
+    ComputeShader* m_updateDrawArgsCS;             // TRUE GPU-DRIVEN: Update draw arguments
     
     // GPU-driven rendering shaders
     ID3D11VertexShader* m_gpuDrivenVertexShader;
@@ -103,9 +109,19 @@ private:
     ID3D11UnorderedAccessView* m_visibilityUAV;
     ID3D11Buffer* m_visibilityReadbackBuffer; // CPU-readable copy for conditional rendering
     
-    // Indirection buffer for mapping instanceID to actual object index
-    ID3D11Buffer* m_indirectionBuffer;
-    ID3D11ShaderResourceView* m_indirectionSRV;
+    // TRUE GPU-DRIVEN RENDERING: Indirect draw buffers
+    ID3D11Buffer* m_drawArgumentsBuffer;           // DrawIndexedInstancedIndirect arguments
+    ID3D11UnorderedAccessView* m_drawArgumentsUAV; // For compute shader to update
+    
+    // Stream compaction buffers for visible objects
+    ID3D11Buffer* m_visibleObjectsBuffer;          // Compacted array of visible object indices
+    ID3D11ShaderResourceView* m_visibleObjectsSRV;
+    ID3D11UnorderedAccessView* m_visibleObjectsUAV;
+    
+    // Counter buffer for visible object count
+    ID3D11Buffer* m_visibleCountBuffer;
+    ID3D11UnorderedAccessView* m_visibleCountUAV;
+    ID3D11Buffer* m_visibleCountStagingBuffer;     // For reading back count if needed
     
     // PERFORMANCE: Reusable constant buffers (created once, reused every frame)
     ID3D11Buffer* m_frustumConstantBuffer;
@@ -127,6 +143,17 @@ private:
     
     // Frustum data
     XMFLOAT4 m_frustumPlanes[6]; // Left, Right, Top, Bottom, Near, Far
+    
+    // PERFORMANCE OPTIMIZATION: Cached previous frame data to avoid unnecessary updates
+    XMMATRIX m_prevViewMatrix;
+    XMMATRIX m_prevProjectionMatrix;
+    XMFLOAT3 m_prevCameraPosition;
+    XMFLOAT4 m_prevAmbientColor;
+    XMFLOAT4 m_prevDiffuseColor;
+    XMFLOAT3 m_prevLightDirection;
+    XMFLOAT4 m_prevBaseColor;
+    XMFLOAT4 m_prevMaterialProperties;
+    bool m_constantBuffersInitialized;
 };
 
 #endif // GPU_DRIVEN_RENDERER_H 

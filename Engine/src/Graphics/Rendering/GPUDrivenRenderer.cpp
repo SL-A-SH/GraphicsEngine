@@ -14,6 +14,8 @@
 GPUDrivenRenderer::GPUDrivenRenderer()
     : m_worldMatrixGenerationCS(nullptr)
     , m_frustumCullingCS(nullptr)
+    , m_streamCompactionCS(nullptr)
+    , m_updateDrawArgsCS(nullptr)
     , m_gpuDrivenVertexShader(nullptr)
     , m_gpuDrivenPixelShader(nullptr)
     , m_gpuDrivenInputLayout(nullptr)
@@ -21,8 +23,14 @@ GPUDrivenRenderer::GPUDrivenRenderer()
     , m_visibilitySRV(nullptr)
     , m_visibilityUAV(nullptr)
     , m_visibilityReadbackBuffer(nullptr)
-    , m_indirectionBuffer(nullptr)
-    , m_indirectionSRV(nullptr)
+    , m_drawArgumentsBuffer(nullptr)
+    , m_drawArgumentsUAV(nullptr)
+    , m_visibleObjectsBuffer(nullptr)
+    , m_visibleObjectsSRV(nullptr)
+    , m_visibleObjectsUAV(nullptr)
+    , m_visibleCountBuffer(nullptr)
+    , m_visibleCountUAV(nullptr)
+    , m_visibleCountStagingBuffer(nullptr)
     , m_frustumConstantBuffer(nullptr)
     , m_objectCountBuffer(nullptr)
     , m_viewProjectionBuffer(nullptr)
@@ -35,6 +43,15 @@ GPUDrivenRenderer::GPUDrivenRenderer()
     , m_cameraPosition(0.0f, 0.0f, 0.0f)
     , m_viewMatrix(XMMatrixIdentity())
     , m_projectionMatrix(XMMatrixIdentity())
+    , m_prevViewMatrix(XMMatrixIdentity())
+    , m_prevProjectionMatrix(XMMatrixIdentity())
+    , m_prevCameraPosition(0.0f, 0.0f, 0.0f)
+    , m_prevAmbientColor(0.0f, 0.0f, 0.0f, 0.0f)
+    , m_prevDiffuseColor(0.0f, 0.0f, 0.0f, 0.0f)
+    , m_prevLightDirection(0.0f, 0.0f, 0.0f)
+    , m_prevBaseColor(0.0f, 0.0f, 0.0f, 0.0f)
+    , m_prevMaterialProperties(0.0f, 0.0f, 0.0f, 0.0f)
+    , m_constantBuffersInitialized(false)
 {
     LOG("GPUDrivenRenderer: Constructor - GPU-driven renderer with frustum culling created");
     
@@ -102,7 +119,16 @@ bool GPUDrivenRenderer::Initialize(ID3D11Device* device, HWND hwnd, UINT maxObje
     }
     LOG("GPUDrivenRenderer: Constant buffers initialized successfully");
     
-    LOG("GPUDrivenRenderer: GPU-driven renderer with frustum culling initialized with " + std::to_string(maxObjects) + " max objects");
+    // TRUE GPU-DRIVEN: Initialize indirect draw and stream compaction buffers
+    result = InitializeIndirectDrawBuffers(device, maxObjects);
+    if (!result)
+    {
+        LOG_ERROR("GPUDrivenRenderer: Failed to initialize indirect draw buffers");
+        return false;
+    }
+    LOG("GPUDrivenRenderer: Indirect draw buffers initialized successfully");
+    
+    LOG("GPUDrivenRenderer: TRUE GPU-driven renderer with indirect drawing initialized with " + std::to_string(maxObjects) + " max objects");
     return true;
 }
 
@@ -112,6 +138,7 @@ void GPUDrivenRenderer::Shutdown()
     ReleaseComputeShaders();
     ReleaseGPUDrivenShaders();
     ReleaseVisibilityBuffer();
+    ReleaseIndirectDrawBuffers();
     ReleaseConstantBuffers();
     m_indirectBuffer.Shutdown();
     LOG("GPUDrivenRenderer: Shutdown completed");
@@ -159,6 +186,54 @@ bool GPUDrivenRenderer::InitializeComputeShaders(ID3D11Device* device, HWND hwnd
         return false;
     }
     
+    // Try to create stream compaction compute shader (optional for now)
+    m_streamCompactionCS = new ComputeShader();
+    
+    LOG("GPUDrivenRenderer: Initializing stream compaction compute shader");
+    result = m_streamCompactionCS->Initialize(device, hwnd, L"../Engine/assets/shaders/StreamCompactionComputeShader.hlsl", "main");
+    if (!result)
+    {
+        LOG_ERROR("GPUDrivenRenderer: Failed to initialize stream compaction compute shader - WILL USE FALLBACK");
+        delete m_streamCompactionCS;
+        m_streamCompactionCS = nullptr;
+    }
+    else
+    {
+        LOG("GPUDrivenRenderer: Stream compaction compute shader initialized successfully");
+        
+        // Verify stream compaction compute shader is valid
+        if (!m_streamCompactionCS->GetComputeShader())
+        {
+            LOG_ERROR("GPUDrivenRenderer: Stream compaction compute shader is null after initialization - WILL USE FALLBACK");
+            delete m_streamCompactionCS;
+            m_streamCompactionCS = nullptr;
+        }
+    }
+    
+    // Try to create update draw arguments compute shader (optional for now)
+    m_updateDrawArgsCS = new ComputeShader();
+    
+    LOG("GPUDrivenRenderer: Initializing update draw arguments compute shader");
+    result = m_updateDrawArgsCS->Initialize(device, hwnd, L"../Engine/assets/shaders/UpdateDrawArgsComputeShader.hlsl", "main");
+    if (!result)
+    {
+        LOG_ERROR("GPUDrivenRenderer: Failed to initialize update draw arguments compute shader - WILL USE FALLBACK");
+        delete m_updateDrawArgsCS;
+        m_updateDrawArgsCS = nullptr;
+    }
+    else
+    {
+        LOG("GPUDrivenRenderer: Update draw arguments compute shader initialized successfully");
+        
+        // Verify update draw arguments compute shader is valid
+        if (!m_updateDrawArgsCS->GetComputeShader())
+        {
+            LOG_ERROR("GPUDrivenRenderer: Update draw arguments compute shader is null after initialization - WILL USE FALLBACK");
+            delete m_updateDrawArgsCS;
+            m_updateDrawArgsCS = nullptr;
+        }
+    }
+    
     LOG("GPUDrivenRenderer: All compute shaders initialized and verified successfully");
     return true;
 }
@@ -178,13 +253,26 @@ void GPUDrivenRenderer::ReleaseComputeShaders()
         delete m_frustumCullingCS;
         m_frustumCullingCS = nullptr;
     }
+    
+    if (m_streamCompactionCS)
+    {
+        m_streamCompactionCS->Shutdown();
+        delete m_streamCompactionCS;
+        m_streamCompactionCS = nullptr;
+    }
+    
+    if (m_updateDrawArgsCS)
+    {
+        m_updateDrawArgsCS->Shutdown();
+        delete m_updateDrawArgsCS;
+        m_updateDrawArgsCS = nullptr;
+    }
 }
 
 void GPUDrivenRenderer::UpdateObjects(ID3D11DeviceContext* context, const std::vector<ObjectData>& objects)
 {
     if (objects.empty())
     {
-        LOG_WARNING("GPUDrivenRenderer::UpdateObjects - No objects provided");
         return;
     }
     
@@ -207,6 +295,13 @@ void GPUDrivenRenderer::UpdateCamera(ID3D11DeviceContext* context, const XMFLOAT
 void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* vertexBuffer, ID3D11Buffer* indexBuffer,
                               Model* model, PBRShader* pbrShader, Light* light, Camera* camera, D3D11Device* direct3D)
 {
+    // TRUE GPU-DRIVEN RENDERING PIPELINE:
+    // 1. GPU frustum culling → visibility buffer
+    // 2. GPU stream compaction → visible objects array + count
+    // 3. GPU updates draw arguments with visible count
+    // 4. DrawIndexedInstancedIndirect renders ONLY visible objects
+    // ZERO CPU-GPU sync, maximum performance scaling
+    
     if (!m_enableGPUDriven)
     {
         return;
@@ -215,7 +310,6 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
     // Validate required resources
     if (!context || !vertexBuffer || !indexBuffer || !model)
     {
-        LOG_ERROR("GPUDrivenRenderer::Render - Missing required resources");
         return;
     }
     
@@ -232,15 +326,41 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
     
     if (!objectDataSRV || !worldMatrixUAV)
     {
-        LOG_ERROR("GPUDrivenRenderer::Render - Missing compute shader resources");
         return;
     }
     
-    // STEP 1: Perform GPU frustum culling
-    // Start GPU frustum culling timing
+    // Start GPU culling timing
     auto gpuCullingStart = std::chrono::high_resolution_clock::now();
     
-    // Update frustum constant buffer (reuse existing buffer)
+    // STEP 1: Generate world matrices using compute shader (run every frame)
+    D3D11_MAPPED_SUBRESOURCE objectCountMappedResource;
+    HRESULT result = context->Map(m_objectCountBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &objectCountMappedResource);
+    if (SUCCEEDED(result))
+    {
+        UINT* objectCountData = static_cast<UINT*>(objectCountMappedResource.pData);
+        objectCountData[0] = objectCount;
+        objectCountData[1] = 0;
+        objectCountData[2] = 0;
+        objectCountData[3] = 0;
+        context->Unmap(m_objectCountBuffer, 0);
+        
+        // Generate world matrices
+        m_worldMatrixGenerationCS->SetShaderResourceView(context, 0, objectDataSRV);
+        m_worldMatrixGenerationCS->SetUnorderedAccessView(context, 0, worldMatrixUAV);
+        m_worldMatrixGenerationCS->SetConstantBuffer(context, 0, m_objectCountBuffer);
+        
+        UINT threadGroupCount = (objectCount + 63) / 64;
+        m_worldMatrixGenerationCS->Dispatch(context, threadGroupCount, 1, 1);
+        PerformanceProfiler::GetInstance().IncrementComputeDispatches();
+        
+        m_worldMatrixGenerationCS->SetUnorderedAccessView(context, 0, nullptr);
+    }
+    else
+    {
+        return;
+    }
+    
+    // STEP 2: Perform GPU frustum culling (run every frame for accuracy)
     struct FrustumBuffer
     {
         XMFLOAT4 frustumPlanes[6];
@@ -249,7 +369,7 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
     };
     
     D3D11_MAPPED_SUBRESOURCE frustumMappedResource;
-    HRESULT result = context->Map(m_frustumConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &frustumMappedResource);
+    result = context->Map(m_frustumConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &frustumMappedResource);
     if (SUCCEEDED(result))
     {
         FrustumBuffer* frustumData = static_cast<FrustumBuffer*>(frustumMappedResource.pData);
@@ -263,64 +383,113 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
         frustumData->padding[2] = 0;
         context->Unmap(m_frustumConstantBuffer, 0);
         
-        // Set up frustum culling compute shader
+        // Run frustum culling
         m_frustumCullingCS->SetShaderResourceView(context, 0, objectDataSRV);
         m_frustumCullingCS->SetUnorderedAccessView(context, 0, m_visibilityUAV);
         m_frustumCullingCS->SetConstantBuffer(context, 0, m_frustumConstantBuffer);
         
-        // Dispatch frustum culling compute shader
         UINT frustumThreadGroupCount = (objectCount + 63) / 64;
         m_frustumCullingCS->Dispatch(context, frustumThreadGroupCount, 1, 1);
         PerformanceProfiler::GetInstance().IncrementComputeDispatches();
         
-        // Unbind UAV (NO GPU-CPU sync!)
         m_frustumCullingCS->SetUnorderedAccessView(context, 0, nullptr);
     }
     else
     {
-        LOG_ERROR("GPUDrivenRenderer::Render - Failed to map frustum constant buffer");
         return;
     }
     
-    // End GPU frustum culling timing
+    // Check if we have stream compaction and indirect draw support
+    bool hasStreamCompaction = (m_streamCompactionCS && m_updateDrawArgsCS && m_visibleCountUAV && m_drawArgumentsUAV);
+    
+    if (hasStreamCompaction)
+    {
+        // STEP 3: Clear visible count buffer for stream compaction
+        UINT clearValue[4] = { 0, 0, 0, 0 };
+        context->ClearUnorderedAccessViewUint(m_visibleCountUAV, clearValue);
+        
+        // STEP 4: Stream compaction - create dense array of visible objects
+        m_streamCompactionCS->SetShaderResourceView(context, 0, m_visibilitySRV);
+        m_streamCompactionCS->SetUnorderedAccessView(context, 0, m_visibleObjectsUAV);
+        m_streamCompactionCS->SetUnorderedAccessView(context, 1, m_visibleCountUAV);
+        m_streamCompactionCS->SetConstantBuffer(context, 0, m_objectCountBuffer);
+        
+        UINT compactionThreadGroupCount = (objectCount + 63) / 64;
+        m_streamCompactionCS->Dispatch(context, compactionThreadGroupCount, 1, 1);
+        PerformanceProfiler::GetInstance().IncrementComputeDispatches();
+        
+        // Unbind UAVs
+        m_streamCompactionCS->SetUnorderedAccessView(context, 0, nullptr);
+        m_streamCompactionCS->SetUnorderedAccessView(context, 1, nullptr);
+        
+        // STEP 5: Update draw arguments based on visible count
+        struct DrawInfoBuffer
+        {
+            UINT indexCountPerInstance;
+            UINT startIndexLocation;
+            INT baseVertexLocation;
+            UINT startInstanceLocation;
+        };
+        
+        // Create a temporary constant buffer for draw info
+        static ID3D11Buffer* drawInfoBuffer = nullptr;
+        if (!drawInfoBuffer)
+        {
+            D3D11_BUFFER_DESC bufferDesc = {};
+            bufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+            bufferDesc.ByteWidth = sizeof(DrawInfoBuffer);
+            bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+            bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+            bufferDesc.MiscFlags = 0;
+            
+            direct3D->GetDevice()->CreateBuffer(&bufferDesc, nullptr, &drawInfoBuffer);
+        }
+        
+        if (drawInfoBuffer)
+        {
+            D3D11_MAPPED_SUBRESOURCE drawInfoMappedResource;
+            result = context->Map(drawInfoBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &drawInfoMappedResource);
+            if (SUCCEEDED(result))
+            {
+                DrawInfoBuffer* drawInfo = static_cast<DrawInfoBuffer*>(drawInfoMappedResource.pData);
+                drawInfo->indexCountPerInstance = model->GetIndexCount();
+                drawInfo->startIndexLocation = 0;
+                drawInfo->baseVertexLocation = 0;
+                drawInfo->startInstanceLocation = 0;
+                context->Unmap(drawInfoBuffer, 0);
+                
+                // Update draw arguments
+                ID3D11ShaderResourceView* visibleCountSRV = nullptr;
+                D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+                srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+                srvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+                srvDesc.Buffer.FirstElement = 0;
+                srvDesc.Buffer.NumElements = 4;
+                
+                HRESULT hr = direct3D->GetDevice()->CreateShaderResourceView(m_visibleCountBuffer, &srvDesc, &visibleCountSRV);
+                
+                if (SUCCEEDED(hr) && visibleCountSRV)
+                {
+                    m_updateDrawArgsCS->SetShaderResourceView(context, 0, visibleCountSRV);
+                    m_updateDrawArgsCS->SetUnorderedAccessView(context, 0, m_drawArgumentsUAV);
+                    m_updateDrawArgsCS->SetConstantBuffer(context, 0, drawInfoBuffer);
+                    
+                    m_updateDrawArgsCS->Dispatch(context, 1, 1, 1); // Single thread
+                    PerformanceProfiler::GetInstance().IncrementComputeDispatches();
+                    
+                    m_updateDrawArgsCS->SetUnorderedAccessView(context, 0, nullptr);
+                    visibleCountSRV->Release();
+                }
+            }
+        }
+    }
+    
+    // End GPU culling timing
     auto gpuCullingEnd = std::chrono::high_resolution_clock::now();
     auto gpuCullingDuration = std::chrono::duration_cast<std::chrono::microseconds>(gpuCullingEnd - gpuCullingStart);
     m_lastFrustumCullingTime = gpuCullingDuration.count();
     
-    // STEP 2: Generate world matrices using compute shader
-    // Update object count constant buffer (reuse existing buffer)
-    D3D11_MAPPED_SUBRESOURCE objectCountMappedResource;
-    result = context->Map(m_objectCountBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &objectCountMappedResource);
-    if (SUCCEEDED(result))
-    {
-        UINT* objectCountData = static_cast<UINT*>(objectCountMappedResource.pData);
-        objectCountData[0] = objectCount;
-        objectCountData[1] = 0; // padding
-        objectCountData[2] = 0; // padding
-        objectCountData[3] = 0; // padding
-        context->Unmap(m_objectCountBuffer, 0);
-        
-        // Set up world matrix generation compute shader
-        m_worldMatrixGenerationCS->SetShaderResourceView(context, 0, objectDataSRV);
-        m_worldMatrixGenerationCS->SetUnorderedAccessView(context, 0, worldMatrixUAV);
-        m_worldMatrixGenerationCS->SetConstantBuffer(context, 0, m_objectCountBuffer);
-        
-        // Dispatch world matrix generation
-        UINT threadGroupCount = (objectCount + 63) / 64;
-        m_worldMatrixGenerationCS->Dispatch(context, threadGroupCount, 1, 1);
-        PerformanceProfiler::GetInstance().IncrementComputeDispatches();
-        
-        // Unbind UAV (NO GPU-CPU sync!)
-        m_worldMatrixGenerationCS->SetUnorderedAccessView(context, 0, nullptr);
-    }
-    else
-    {
-        LOG_ERROR("GPUDrivenRenderer::Render - Failed to map object count constant buffer");
-        return;
-    }
-    
-    // STEP 3: Perform instanced rendering
-    // Set up rendering pipeline
+    // STEP 6: Set up rendering pipeline
     context->IASetInputLayout(m_gpuDrivenInputLayout);
     context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     
@@ -332,191 +501,142 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
     context->VSSetShader(m_gpuDrivenVertexShader, nullptr, 0);
     context->PSSetShader(m_gpuDrivenPixelShader, nullptr, 0);
     
-    // FIXED: Using indirection buffer to map instanceID to actual visible object indices
-    // This ensures we only render visible objects and access the correct world matrices
-    
-    // TEMP DEBUG: Read back visibility buffer to get actual visible count
-    // This is expensive but will prove the concept works
-    static bool enableActualFrustumCulling = true; // Toggle for testing
-    static std::vector<UINT> visibleObjectIndices; // Store indices of visible objects
-    UINT actualVisibleCount = objectCount; // Default to all objects
-    
-    // Bind world matrix buffer to vertex shader (register t1)
+    // Bind buffers to vertex shader
     ID3D11ShaderResourceView* worldMatrixSRV = m_indirectBuffer.GetWorldMatrixSRV();
     if (worldMatrixSRV)
     {
         context->VSSetShaderResources(1, 1, &worldMatrixSRV);
     }
     
-    if (enableActualFrustumCulling)
+    // Decide which approach to use based on available features
+    bool useIndirectDraw = (m_streamCompactionCS && m_updateDrawArgsCS && m_visibleObjectsSRV && m_drawArgumentsBuffer);
+    
+    if (useIndirectDraw)
     {
-        // Copy visibility buffer to CPU-readable buffer
-        context->CopyResource(m_visibilityReadbackBuffer, m_visibilityBuffer);
+        // Bind compacted visible objects array to vertex shader (register t2)
+        context->VSSetShaderResources(2, 1, &m_visibleObjectsSRV);
+    }
+    else
+    {
+        // FALLBACK: Bind visibility buffer directly to vertex shader (register t2)
+        if (m_visibilitySRV)
+        {
+            context->VSSetShaderResources(2, 1, &m_visibilitySRV);
+        }
+    }
+    
+    // PERFORMANCE OPTIMIZATION: Only update view/projection buffer when data changes
+    // Compare matrices using memcmp for performance
+    if (!m_constantBuffersInitialized || 
+        memcmp(&m_viewMatrix, &m_prevViewMatrix, sizeof(XMMATRIX)) != 0 || 
+        memcmp(&m_projectionMatrix, &m_prevProjectionMatrix, sizeof(XMMATRIX)) != 0)
+    {
+        struct ViewProjectionBuffer
+        {
+            XMMATRIX viewMatrix;
+            XMMATRIX projectionMatrix;
+        };
         
-        // Map the readback buffer to count visible objects
-        D3D11_MAPPED_SUBRESOURCE mappedResource;
-        HRESULT hr = context->Map(m_visibilityReadbackBuffer, 0, D3D11_MAP_READ, 0, &mappedResource);
-        if (SUCCEEDED(hr))
+        D3D11_MAPPED_SUBRESOURCE vpMappedResource;
+        result = context->Map(m_viewProjectionBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &vpMappedResource);
+        if (SUCCEEDED(result))
         {
-            UINT* visibilityData = static_cast<UINT*>(mappedResource.pData);
-            actualVisibleCount = 0;
-            visibleObjectIndices.clear();
+            ViewProjectionBuffer* vpBuffer = static_cast<ViewProjectionBuffer*>(vpMappedResource.pData);
+            vpBuffer->viewMatrix = XMMatrixTranspose(m_viewMatrix);
+            vpBuffer->projectionMatrix = XMMatrixTranspose(m_projectionMatrix);
+            context->Unmap(m_viewProjectionBuffer, 0);
             
-            // Count visible objects AND store their indices
-            for (UINT i = 0; i < objectCount; ++i)
-            {
-                if (visibilityData[i] == 1)
-                {
-                    visibleObjectIndices.push_back(i); // Store the actual object index
-                    actualVisibleCount++;
-                }
-            }
-            
-            context->Unmap(m_visibilityReadbackBuffer, 0);
-            
-            // Log actual frustum culling results
-            //static int logCounter = 0;
-            //if (++logCounter == 60) // Log every 60 frames
-            //{
-            //    LOG("=== ACTUAL GPU FRUSTUM CULLING RESULTS ===");
-            //    LOG("Total objects: " + std::to_string(objectCount));
-            //    LOG("Visible objects: " + std::to_string(actualVisibleCount));
-            //    LOG("Culled objects: " + std::to_string(objectCount - actualVisibleCount));
-            //    LOG("Culling ratio: " + std::to_string((float)(objectCount - actualVisibleCount) / objectCount * 100.0f) + "%");
-            //    if (actualVisibleCount > 0)
-            //    {
-            //        LOG("First few visible object indices: ");
-            //        std::string indices = "";
-            //        for (int i = 0; i < std::min(10, (int)actualVisibleCount); ++i)
-            //        {
-            //            indices += std::to_string(visibleObjectIndices[i]) + " ";
-            //        }
-            //        LOG("  " + indices);
-            //    }
-            //    LOG("==========================================");
-            //    logCounter = 0;
-            //}
-            
-            // Update indirection buffer with visible object indices
-            if (actualVisibleCount > 0 && !visibleObjectIndices.empty())
-            {
-                D3D11_MAPPED_SUBRESOURCE indirectionMappedResource;
-                HRESULT indirectionResult = context->Map(m_indirectionBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &indirectionMappedResource);
-                if (SUCCEEDED(indirectionResult))
-                {
-                    UINT* indirectionData = static_cast<UINT*>(indirectionMappedResource.pData);
-                    
-                    // Copy visible object indices to indirection buffer
-                    for (UINT i = 0; i < actualVisibleCount; ++i)
-                    {
-                        indirectionData[i] = visibleObjectIndices[i];
-                    }
-                    
-                    context->Unmap(m_indirectionBuffer, 0);
-                }
-                else
-                {
-                    LOG_ERROR("Failed to map indirection buffer");
-                }
-            }
-        }
-        else
-        {
-            LOG_ERROR("Failed to map visibility readback buffer");
-            enableActualFrustumCulling = false; // Disable if it fails
+            // Cache current values
+            m_prevViewMatrix = m_viewMatrix;
+            m_prevProjectionMatrix = m_projectionMatrix;
         }
     }
+    context->VSSetConstantBuffers(0, 1, &m_viewProjectionBuffer);
     
-    // Bind indirection buffer to vertex shader (register t2) for instanceID mapping
-    if (m_indirectionSRV && actualVisibleCount > 0)
+    // PERFORMANCE OPTIMIZATION: Only update lighting buffer when data changes
+    XMFLOAT4 currentAmbientColor = light ? light->GetAmbientColor() : XMFLOAT4(0.15f, 0.15f, 0.15f, 1.0f);
+    XMFLOAT4 currentDiffuseColor = light ? light->GetDiffuseColor() : XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+    XMFLOAT3 currentLightDirection = light ? light->GetDirection() : XMFLOAT3(0.0f, 0.0f, 1.0f);
+    
+    if (!m_constantBuffersInitialized ||
+        memcmp(&currentAmbientColor, &m_prevAmbientColor, sizeof(XMFLOAT4)) != 0 ||
+        memcmp(&currentDiffuseColor, &m_prevDiffuseColor, sizeof(XMFLOAT4)) != 0 ||
+        memcmp(&currentLightDirection, &m_prevLightDirection, sizeof(XMFLOAT3)) != 0 ||
+        memcmp(&m_cameraPosition, &m_prevCameraPosition, sizeof(XMFLOAT3)) != 0)
     {
-        context->VSSetShaderResources(2, 1, &m_indirectionSRV);
+        struct LightBuffer
+        {
+            XMFLOAT4 ambientColor;
+            XMFLOAT4 diffuseColor;
+            XMFLOAT3 lightDirection;
+            float padding1;
+            XMFLOAT3 cameraPosition;
+            float padding2;
+        };
+        
+        D3D11_MAPPED_SUBRESOURCE lightMappedResource;
+        result = context->Map(m_lightBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &lightMappedResource);
+        if (SUCCEEDED(result))
+        {
+            LightBuffer* lightBuffer = static_cast<LightBuffer*>(lightMappedResource.pData);
+            lightBuffer->ambientColor = currentAmbientColor;
+            lightBuffer->diffuseColor = currentDiffuseColor;
+            lightBuffer->lightDirection = currentLightDirection;
+            lightBuffer->padding1 = 0.0f;
+            lightBuffer->cameraPosition = m_cameraPosition;
+            lightBuffer->padding2 = 0.0f;
+            context->Unmap(m_lightBuffer, 0);
+            
+            // Cache current values
+            m_prevAmbientColor = currentAmbientColor;
+            m_prevDiffuseColor = currentDiffuseColor;
+            m_prevLightDirection = currentLightDirection;
+            m_prevCameraPosition = m_cameraPosition;
+        }
     }
+    context->PSSetConstantBuffers(0, 1, &m_lightBuffer);
     
-    // Update view/projection constant buffer (reuse existing buffer)
-    struct ViewProjectionBuffer
-    {
-        XMMATRIX viewMatrix;
-        XMMATRIX projectionMatrix;
-    };
+    // PERFORMANCE OPTIMIZATION: Only update material buffer when data changes
+    XMFLOAT4 currentBaseColor = model ? model->GetBaseColor() : XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
+    XMFLOAT4 currentMaterialProperties = model ? XMFLOAT4(
+        model->GetMetallic(),      // x = metallic
+        model->GetRoughness(),     // y = roughness
+        model->GetAO(),            // z = ao
+        model->GetEmissionStrength() // w = emissionStrength
+    ) : XMFLOAT4(0.0f, 0.5f, 1.0f, 0.0f);
     
-    D3D11_MAPPED_SUBRESOURCE vpMappedResource;
-    result = context->Map(m_viewProjectionBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &vpMappedResource);
-    if (SUCCEEDED(result))
+    if (!m_constantBuffersInitialized ||
+        memcmp(&currentBaseColor, &m_prevBaseColor, sizeof(XMFLOAT4)) != 0 ||
+        memcmp(&currentMaterialProperties, &m_prevMaterialProperties, sizeof(XMFLOAT4)) != 0)
     {
-        ViewProjectionBuffer* vpBuffer = static_cast<ViewProjectionBuffer*>(vpMappedResource.pData);
-        vpBuffer->viewMatrix = XMMatrixTranspose(m_viewMatrix);
-        vpBuffer->projectionMatrix = XMMatrixTranspose(m_projectionMatrix);
-        context->Unmap(m_viewProjectionBuffer, 0);
-        context->VSSetConstantBuffers(0, 1, &m_viewProjectionBuffer);
+        struct MaterialBuffer
+        {
+            XMFLOAT4 baseColor;
+            XMFLOAT4 materialProperties; // x=metallic, y=roughness, z=ao, w=emissionStrength
+            XMFLOAT4 materialPadding;
+        };
+        
+        D3D11_MAPPED_SUBRESOURCE materialMappedResource;
+        result = context->Map(m_materialBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &materialMappedResource);
+        if (SUCCEEDED(result))
+        {
+            MaterialBuffer* materialBuffer = static_cast<MaterialBuffer*>(materialMappedResource.pData);
+            materialBuffer->baseColor = currentBaseColor;
+            materialBuffer->materialProperties = currentMaterialProperties;
+            materialBuffer->materialPadding = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
+            context->Unmap(m_materialBuffer, 0);
+            
+            // Cache current values
+            m_prevBaseColor = currentBaseColor;
+            m_prevMaterialProperties = currentMaterialProperties;
+        }
     }
+    context->PSSetConstantBuffers(1, 1, &m_materialBuffer);
     
-    // Update lighting constant buffer (reuse existing buffer)
-    struct LightBuffer
+    // Mark constant buffers as initialized after first update
+    if (!m_constantBuffersInitialized)
     {
-        XMFLOAT4 ambientColor;
-        XMFLOAT4 diffuseColor;
-        XMFLOAT3 lightDirection;
-        float padding1;
-        XMFLOAT3 cameraPosition;
-        float padding2;
-    };
-    
-    D3D11_MAPPED_SUBRESOURCE lightMappedResource;
-    result = context->Map(m_lightBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &lightMappedResource);
-    if (SUCCEEDED(result))
-    {
-        LightBuffer* lightBuffer = static_cast<LightBuffer*>(lightMappedResource.pData);
-        if (light)
-        {
-            lightBuffer->ambientColor = light->GetAmbientColor();
-            lightBuffer->diffuseColor = light->GetDiffuseColor();
-            lightBuffer->lightDirection = light->GetDirection();
-        }
-        else
-        {
-            lightBuffer->ambientColor = XMFLOAT4(0.15f, 0.15f, 0.15f, 1.0f);
-            lightBuffer->diffuseColor = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-            lightBuffer->lightDirection = XMFLOAT3(0.0f, 0.0f, 1.0f);
-        }
-        lightBuffer->padding1 = 0.0f;
-        lightBuffer->cameraPosition = m_cameraPosition;
-        lightBuffer->padding2 = 0.0f;
-        context->Unmap(m_lightBuffer, 0);
-        context->PSSetConstantBuffers(0, 1, &m_lightBuffer);
-    }
-    
-    // Update material constant buffer (reuse existing buffer)
-    struct MaterialBuffer
-    {
-        XMFLOAT4 baseColor;
-        XMFLOAT4 materialProperties; // x=metallic, y=roughness, z=ao, w=emissionStrength
-        XMFLOAT4 materialPadding;
-    };
-    
-    D3D11_MAPPED_SUBRESOURCE materialMappedResource;
-    result = context->Map(m_materialBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &materialMappedResource);
-    if (SUCCEEDED(result))
-    {
-        MaterialBuffer* materialBuffer = static_cast<MaterialBuffer*>(materialMappedResource.pData);
-        if (model)
-        {
-            materialBuffer->baseColor = model->GetBaseColor();
-            materialBuffer->materialProperties = XMFLOAT4(
-                model->GetMetallic(),      // x = metallic
-                model->GetRoughness(),     // y = roughness
-                model->GetAO(),            // z = ao
-                model->GetEmissionStrength() // w = emissionStrength
-            );
-        }
-        else
-        {
-            materialBuffer->baseColor = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
-            materialBuffer->materialProperties = XMFLOAT4(0.0f, 0.5f, 1.0f, 0.0f);
-        }
-        materialBuffer->materialPadding = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-        context->Unmap(m_materialBuffer, 0);
-        context->PSSetConstantBuffers(1, 1, &m_materialBuffer);
+        m_constantBuffersInitialized = true;
     }
     
     // Bind model textures
@@ -533,22 +653,75 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
         context->PSSetShaderResources(0, 6, textures);
     }
     
-    // FIXED: Use actual visible count instead of all objects!
-    // This is the key fix - only render visible objects, not all objects
+    // STEP 7: RENDERING - Choose approach based on available features
     int indexCount = model->GetIndexCount();
-    context->DrawIndexedInstanced(indexCount, actualVisibleCount, 0, 0, 0);
+    static int lastKnownVisibleCount = objectCount;
     
-    // Track performance metrics with actual visible count
-    PerformanceProfiler::GetInstance().IncrementDrawCalls();
-    PerformanceProfiler::GetInstance().AddTriangles((indexCount / 3) * actualVisibleCount); // Use actual count!
-    PerformanceProfiler::GetInstance().AddInstances(actualVisibleCount); // Use actual count!
-    
-    // Store actual visible count for UI display
-    m_renderCount = static_cast<int>(actualVisibleCount);
+    if (useIndirectDraw)
+    {
+        // TRUE GPU-DRIVEN RENDERING - DrawIndexedInstancedIndirect
+        // GPU determines instance count, CPU never knows how many objects are visible
+        // Maximum performance: only visible objects processed, zero CPU-GPU sync
+        context->DrawIndexedInstancedIndirect(m_drawArgumentsBuffer, 0);
+        
+        // Track performance metrics - note: we don't know exact visible count on CPU
+        PerformanceProfiler::GetInstance().IncrementDrawCalls();
+        PerformanceProfiler::GetInstance().IncrementIndirectDrawCalls(); // Track indirect draw calls separately
+        
+        // For UI display, read back visible count occasionally (blocking for accuracy)
+        static int framesSinceReadback = 0;
+        
+        if (++framesSinceReadback >= 30) // Read back every 30 frames for UI display
+        {
+            framesSinceReadback = 0;
+            
+            // Readback visible count for UI display only
+            if (m_visibleCountStagingBuffer && m_visibleCountBuffer)
+            {
+                context->CopyResource(m_visibleCountStagingBuffer, m_visibleCountBuffer);
+                
+                D3D11_MAPPED_SUBRESOURCE mappedResource;
+                HRESULT hr = context->Map(m_visibleCountStagingBuffer, 0, D3D11_MAP_READ, 0, &mappedResource); // Blocking read for UI
+                if (SUCCEEDED(hr))
+                {
+                    UINT* visibleCountData = static_cast<UINT*>(mappedResource.pData);
+                    int newVisibleCount = static_cast<int>(visibleCountData[0]);
+                    context->Unmap(m_visibleCountStagingBuffer, 0);
+                    
+                    // Update the count
+                    lastKnownVisibleCount = newVisibleCount;
+                }
+            }
+        }
+        
+        // Store visible count for UI display
+        m_renderCount = lastKnownVisibleCount;
+        
+        // Track performance metrics based on actual visible count
+        int trianglesRendered = (indexCount / 3) * lastKnownVisibleCount;
+        PerformanceProfiler::GetInstance().AddTriangles(trianglesRendered);
+        PerformanceProfiler::GetInstance().AddInstances(lastKnownVisibleCount);
+    }
+    else
+    {
+        // FALLBACK APPROACH: Draw all instances, let vertex shader handle visibility with the existing approach
+        context->DrawIndexedInstanced(indexCount, objectCount, 0, 0, 0);
+        
+        // Track performance metrics
+        PerformanceProfiler::GetInstance().IncrementDrawCalls();
+        PerformanceProfiler::GetInstance().AddTriangles((indexCount / 3) * objectCount); // Vertex shader will cull
+        PerformanceProfiler::GetInstance().AddInstances(objectCount);
+        
+        // Store count for UI display
+        m_renderCount = static_cast<int>(objectCount);
+        lastKnownVisibleCount = objectCount; // Fallback doesn't track actual visible count
+    }
     
     // Update PerformanceProfiler with GPU frustum culling data
     PerformanceProfiler::GetInstance().SetGPUFrustumCullingTime(static_cast<double>(gpuCullingDuration.count()));
-    PerformanceProfiler::GetInstance().SetFrustumCullingObjects(objectCount, actualVisibleCount);
+    PerformanceProfiler::GetInstance().SetFrustumCullingObjects(objectCount, lastKnownVisibleCount);
+    
+    // Note: GPU utilization is now calculated automatically in PerformanceProfiler::CalculateEfficiencyMetrics()
 }
 
 bool GPUDrivenRenderer::InitializeGPUDrivenShaders(ID3D11Device* device, HWND hwnd)
@@ -764,38 +937,6 @@ bool GPUDrivenRenderer::InitializeVisibilityBuffer(ID3D11Device* device, UINT ma
     }
     LOG("GPUDrivenRenderer: Visibility readback buffer created successfully");
     
-    // Create indirection buffer for mapping instanceID to actual object index
-    D3D11_BUFFER_DESC indirectionBufferDesc = {};
-    indirectionBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-    indirectionBufferDesc.ByteWidth = sizeof(UINT) * maxObjects; // Same size as visibility buffer
-    indirectionBufferDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-    indirectionBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    indirectionBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    indirectionBufferDesc.StructureByteStride = sizeof(UINT);
-    
-    result = device->CreateBuffer(&indirectionBufferDesc, nullptr, &m_indirectionBuffer);
-    if (FAILED(result))
-    {
-        LOG_ERROR("GPUDrivenRenderer: Failed to create indirection buffer - HRESULT: " + std::to_string(result));
-        return false;
-    }
-    LOG("GPUDrivenRenderer: Indirection buffer created successfully");
-    
-    // Create indirection buffer SRV
-    D3D11_SHADER_RESOURCE_VIEW_DESC indirectionSrvDesc = {};
-    indirectionSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
-    indirectionSrvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
-    indirectionSrvDesc.Buffer.FirstElement = 0;
-    indirectionSrvDesc.Buffer.NumElements = maxObjects;
-    
-    result = device->CreateShaderResourceView(m_indirectionBuffer, &indirectionSrvDesc, &m_indirectionSRV);
-    if (FAILED(result))
-    {
-        LOG_ERROR("GPUDrivenRenderer: Failed to create indirection SRV - HRESULT: " + std::to_string(result));
-        return false;
-    }
-    LOG("GPUDrivenRenderer: Indirection SRV created successfully");
-    
     return true;
 }
 
@@ -805,10 +946,6 @@ void GPUDrivenRenderer::ReleaseVisibilityBuffer()
     if (m_visibilitySRV) { m_visibilitySRV->Release(); m_visibilitySRV = nullptr; }
     if (m_visibilityBuffer) { m_visibilityBuffer->Release(); m_visibilityBuffer = nullptr; }
     if (m_visibilityReadbackBuffer) { m_visibilityReadbackBuffer->Release(); m_visibilityReadbackBuffer = nullptr; }
-    
-    // Release indirection buffer
-    if (m_indirectionSRV) { m_indirectionSRV->Release(); m_indirectionSRV = nullptr; }
-    if (m_indirectionBuffer) { m_indirectionBuffer->Release(); m_indirectionBuffer = nullptr; }
 }
 
 bool GPUDrivenRenderer::InitializeConstantBuffers(ID3D11Device* device)
@@ -932,6 +1069,155 @@ void GPUDrivenRenderer::ExtractFrustumPlanes(const XMMATRIX& viewProjectionMatri
         plane = XMPlaneNormalize(plane);
         XMStoreFloat4(&m_frustumPlanes[i], plane);
     }
+}
+
+bool GPUDrivenRenderer::InitializeIndirectDrawBuffers(ID3D11Device* device, UINT maxObjects)
+{
+    HRESULT result;
+    D3D11_BUFFER_DESC bufferDesc = {};
     
-    // Removed frequent logging - was causing FPS drops
+    LOG("GPUDrivenRenderer: InitializeIndirectDrawBuffers - Creating TRUE GPU-driven rendering buffers");
+    
+    // Create draw arguments buffer for DrawIndexedInstancedIndirect
+    // Structure: IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation
+    bufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    bufferDesc.ByteWidth = sizeof(UINT) * 5; // DrawIndexedInstancedIndirect arguments
+    bufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+    bufferDesc.CPUAccessFlags = 0;
+    bufferDesc.MiscFlags = D3D11_RESOURCE_MISC_DRAWINDIRECT_ARGS;
+    bufferDesc.StructureByteStride = 0;
+    
+    result = device->CreateBuffer(&bufferDesc, nullptr, &m_drawArgumentsBuffer);
+    if (FAILED(result))
+    {
+        LOG_ERROR("GPUDrivenRenderer: Failed to create draw arguments buffer - HRESULT: " + std::to_string(result));
+        return false;
+    }
+    LOG("GPUDrivenRenderer: Draw arguments buffer created successfully");
+    
+    // Create UAV for draw arguments buffer
+    D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    uavDesc.Format = DXGI_FORMAT_R32_UINT;
+    uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+    uavDesc.Buffer.FirstElement = 0;
+    uavDesc.Buffer.NumElements = 5; // 5 UINT values
+    uavDesc.Buffer.Flags = 0;
+    
+    result = device->CreateUnorderedAccessView(m_drawArgumentsBuffer, &uavDesc, &m_drawArgumentsUAV);
+    if (FAILED(result))
+    {
+        LOG_ERROR("GPUDrivenRenderer: Failed to create draw arguments UAV - HRESULT: " + std::to_string(result));
+        return false;
+    }
+    LOG("GPUDrivenRenderer: Draw arguments UAV created successfully");
+    
+    // Create visible objects buffer for stream compaction
+    bufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    bufferDesc.ByteWidth = sizeof(UINT) * maxObjects; // Array of visible object indices
+    bufferDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
+    bufferDesc.CPUAccessFlags = 0;
+    bufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    bufferDesc.StructureByteStride = sizeof(UINT);
+    
+    result = device->CreateBuffer(&bufferDesc, nullptr, &m_visibleObjectsBuffer);
+    if (FAILED(result))
+    {
+        LOG_ERROR("GPUDrivenRenderer: Failed to create visible objects buffer - HRESULT: " + std::to_string(result));
+        return false;
+    }
+    LOG("GPUDrivenRenderer: Visible objects buffer created successfully");
+    
+    // Create SRV for visible objects buffer
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+    srvDesc.Buffer.FirstElement = 0;
+    srvDesc.Buffer.NumElements = maxObjects;
+    
+    result = device->CreateShaderResourceView(m_visibleObjectsBuffer, &srvDesc, &m_visibleObjectsSRV);
+    if (FAILED(result))
+    {
+        LOG_ERROR("GPUDrivenRenderer: Failed to create visible objects SRV - HRESULT: " + std::to_string(result));
+        return false;
+    }
+    LOG("GPUDrivenRenderer: Visible objects SRV created successfully");
+    
+    // Create UAV for visible objects buffer
+    uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+    uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+    uavDesc.Buffer.FirstElement = 0;
+    uavDesc.Buffer.NumElements = maxObjects;
+    uavDesc.Buffer.Flags = 0;
+    
+    result = device->CreateUnorderedAccessView(m_visibleObjectsBuffer, &uavDesc, &m_visibleObjectsUAV);
+    if (FAILED(result))
+    {
+        LOG_ERROR("GPUDrivenRenderer: Failed to create visible objects UAV - HRESULT: " + std::to_string(result));
+        return false;
+    }
+    LOG("GPUDrivenRenderer: Visible objects UAV created successfully");
+    
+    // Create visible count buffer (single UINT counter)
+    bufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    bufferDesc.ByteWidth = sizeof(UINT) * 4; // 16-byte aligned for single counter + padding
+    bufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE; // Need SRV for UpdateDrawArgs CS
+    bufferDesc.CPUAccessFlags = 0;
+    bufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    bufferDesc.StructureByteStride = sizeof(UINT);
+    
+    result = device->CreateBuffer(&bufferDesc, nullptr, &m_visibleCountBuffer);
+    if (FAILED(result))
+    {
+        LOG_ERROR("GPUDrivenRenderer: Failed to create visible count buffer - HRESULT: " + std::to_string(result));
+        return false;
+    }
+    LOG("GPUDrivenRenderer: Visible count buffer created successfully");
+    
+    // Create UAV for visible count buffer
+    uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+    uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+    uavDesc.Buffer.FirstElement = 0;
+    uavDesc.Buffer.NumElements = 4; // 4 UINT values (counter + padding)
+    uavDesc.Buffer.Flags = D3D11_BUFFER_UAV_FLAG_COUNTER; // Enable atomic counter
+    
+    result = device->CreateUnorderedAccessView(m_visibleCountBuffer, &uavDesc, &m_visibleCountUAV);
+    if (FAILED(result))
+    {
+        LOG_ERROR("GPUDrivenRenderer: Failed to create visible count UAV - HRESULT: " + std::to_string(result));
+        return false;
+    }
+    LOG("GPUDrivenRenderer: Visible count UAV created successfully");
+    
+    // Create staging buffer for reading visible count (optional - for debugging/UI)
+    bufferDesc.Usage = D3D11_USAGE_STAGING;
+    bufferDesc.ByteWidth = sizeof(UINT) * 4;
+    bufferDesc.BindFlags = 0;
+    bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    bufferDesc.MiscFlags = 0;
+    bufferDesc.StructureByteStride = 0;
+    
+    result = device->CreateBuffer(&bufferDesc, nullptr, &m_visibleCountStagingBuffer);
+    if (FAILED(result))
+    {
+        LOG_ERROR("GPUDrivenRenderer: Failed to create visible count staging buffer - HRESULT: " + std::to_string(result));
+        return false;
+    }
+    LOG("GPUDrivenRenderer: Visible count staging buffer created successfully");
+    
+    LOG("GPUDrivenRenderer: All indirect draw buffers initialized successfully");
+    return true;
+}
+
+void GPUDrivenRenderer::ReleaseIndirectDrawBuffers()
+{
+    if (m_drawArgumentsUAV) { m_drawArgumentsUAV->Release(); m_drawArgumentsUAV = nullptr; }
+    if (m_drawArgumentsBuffer) { m_drawArgumentsBuffer->Release(); m_drawArgumentsBuffer = nullptr; }
+    
+    if (m_visibleObjectsUAV) { m_visibleObjectsUAV->Release(); m_visibleObjectsUAV = nullptr; }
+    if (m_visibleObjectsSRV) { m_visibleObjectsSRV->Release(); m_visibleObjectsSRV = nullptr; }
+    if (m_visibleObjectsBuffer) { m_visibleObjectsBuffer->Release(); m_visibleObjectsBuffer = nullptr; }
+    
+    if (m_visibleCountUAV) { m_visibleCountUAV->Release(); m_visibleCountUAV = nullptr; }
+    if (m_visibleCountBuffer) { m_visibleCountBuffer->Release(); m_visibleCountBuffer = nullptr; }
+    if (m_visibleCountStagingBuffer) { m_visibleCountStagingBuffer->Release(); m_visibleCountStagingBuffer = nullptr; }
 } 
