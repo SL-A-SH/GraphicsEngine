@@ -86,7 +86,7 @@ void ModelListUI::UpdateModelList(ModelList* modelList)
     
     m_modelList = modelList;
     
-    // Debug: Check the model count immediately
+
     int modelCount = m_modelList->GetModelCount();
     LOG("ModelListUI: ModelList passed has " + std::to_string(modelCount) + " models");
     
@@ -172,7 +172,7 @@ void ModelListUI::UpdateModelListItems()
     int modelCount = m_modelList->GetModelCount();
     LOG("ModelListUI: Model count from ModelList: " + std::to_string(modelCount));
     
-    // Debug: Check if ModelList has any data
+
     if (modelCount <= 0)
     {
         LOG_ERROR("ModelListUI: ModelList reports 0 models - this is the problem!");
@@ -207,11 +207,11 @@ void ModelListUI::UpdateModelListItems()
     
     LOG("ModelListUI: Successfully added " + std::to_string(modelCount) + " models to list");
     
-    // Debug: Check if the list widget actually has items
+
     int actualItemCount = m_modelListWidget->count();
     LOG("ModelListUI: List widget now contains " + std::to_string(actualItemCount) + " items");
     
-    // Force a repaint of the widget
+
     m_modelListWidget->update();
     m_modelListWidget->repaint();
 }

@@ -152,7 +152,7 @@ void MainWindow::CreateDockWidgets()
     addDockWidget(Qt::RightDockWidgetArea, m_PropertiesDock);
     
     // Create ModelListUI and TransformUI
-    // Note: These will be initialized later when Direct3D is available
+    
     m_ModelListUI = new ModelListUI(m_PropertiesDock);
     m_TransformUI = new TransformUI(m_PropertiesDock);
     

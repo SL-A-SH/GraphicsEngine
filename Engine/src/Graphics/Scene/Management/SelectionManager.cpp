@@ -75,134 +75,7 @@ bool SelectionManager::IsModelSelected(int modelIndex) const
     return m_selectedModelIndex == modelIndex;
 }
 
-int SelectionManager::PickModel(const XMFLOAT2& screenPos, const XMMATRIX& viewMatrix, 
-                               const XMMATRIX& projectionMatrix, const std::vector<ModelInstance>& models,
-                               const Model* modelTemplate, const Frustum* frustum, const Camera* camera)
-{
-    LOG("PickModel called with screenPos: (" + std::to_string(screenPos.x) + ", " + std::to_string(screenPos.y) + ")");
-    LOG("Number of models to test: " + std::to_string(models.size()));
-    
-    if (models.empty())
-    {
-        LOG("No models to pick from");
-        return -1;
-    }
-    
-    if (!modelTemplate)
-    {
-        LOG_ERROR("Model template is null");
-        return -1;
-    }
-    
-    if (!camera)
-    {
-        LOG_ERROR("Camera is null");
-        return -1;
-    }
-    
-    // Get camera position directly from camera object
-    XMFLOAT3 rayOrigin = camera->GetPosition();
-    
-    LOG("Camera position calculation:");
-    LOG("  Camera position: (" + std::to_string(rayOrigin.x) + ", " + std::to_string(rayOrigin.y) + ", " + std::to_string(rayOrigin.z) + ")");
-    
-    // Debug: Get camera's forward direction from view matrix
-    XMFLOAT3 cameraForward;
-    XMStoreFloat3(&cameraForward, XMVector3Transform(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), XMMatrixInverse(nullptr, viewMatrix)));
-    float forwardLength = sqrt(cameraForward.x * cameraForward.x + cameraForward.y * cameraForward.y + cameraForward.z * cameraForward.z);
-    if (forwardLength > 0.0f)
-    {
-        cameraForward.x /= forwardLength;
-        cameraForward.y /= forwardLength;
-        cameraForward.z /= forwardLength;
-    }
-    LOG("  Camera forward direction: (" + std::to_string(cameraForward.x) + ", " + std::to_string(cameraForward.y) + ", " + std::to_string(cameraForward.z) + ")");
-    
-    // Get ray direction from screen position
-    XMFLOAT3 rayDirection = ScreenToWorldRay(screenPos, viewMatrix, projectionMatrix);
-    
-    LOG("Ray direction: (" + std::to_string(rayDirection.x) + ", " + std::to_string(rayDirection.y) + ", " + std::to_string(rayDirection.z) + ")");
-    
-    // Test: Check if ray direction makes sense
-    // The camera should be looking in the positive Z direction by default
-    // If the ray is pointing in negative Z, we need to flip it
-    if (rayDirection.z < 0.0f)
-    {
-        LOG("WARNING: Ray direction is pointing backward, flipping Z component");
-        rayDirection.z = -rayDirection.z;
-        LOG("Corrected ray direction: (" + std::to_string(rayDirection.x) + ", " + std::to_string(rayDirection.y) + ", " + std::to_string(rayDirection.z) + ")");
-    }
-    
-    // Test ray-AABB intersection with a simple case
-    XMFLOAT3 testMin = XMFLOAT3(-1.0f, -1.0f, -1.0f);
-    XMFLOAT3 testMax = XMFLOAT3(1.0f, 1.0f, 1.0f);
-    XMFLOAT3 testOrigin = XMFLOAT3(0.0f, 0.0f, -5.0f);
-    XMFLOAT3 testDirection = XMFLOAT3(0.0f, 0.0f, 1.0f);
-    float testT;
-    bool testIntersects = RayAABBIntersection(testOrigin, testDirection, testMin, testMax, testT);
-    LOG("Test ray-AABB intersection: " + std::string(testIntersects ? "true" : "false") + ", t = " + std::to_string(testT));
-    
-    // Find closest intersection
-    int closestModel = -1;
-    float closestDistance = FLT_MAX;
-    
-    for (size_t i = 0; i < models.size(); ++i)
-    {
-        const ModelInstance& instance = models[i];
-        
-        // Get model's world position
-        XMFLOAT3 worldPos = instance.transform.position;
-        
-        LOG("Testing model " + std::to_string(i) + " at position: (" + std::to_string(worldPos.x) + ", " + std::to_string(worldPos.y) + ", " + std::to_string(worldPos.z) + ")");
-        
-        // Get model's bounding box
-        const Model::AABB& bbox = modelTemplate->GetBoundingBox();
-        
-        LOG("Model bounding box - min: (" + std::to_string(bbox.min.x) + ", " + std::to_string(bbox.min.y) + ", " + std::to_string(bbox.min.z) + ")");
-        LOG("Model bounding box - max: (" + std::to_string(bbox.max.x) + ", " + std::to_string(bbox.max.y) + ", " + std::to_string(bbox.max.z) + ")");
-        
-        // Transform bounding box to world space
-        XMFLOAT3 worldMin, worldMax;
-        worldMin.x = bbox.min.x * instance.transform.scale.x + worldPos.x;
-        worldMin.y = bbox.min.y * instance.transform.scale.y + worldPos.y;
-        worldMin.z = bbox.min.z * instance.transform.scale.z + worldPos.z;
-        worldMax.x = bbox.max.x * instance.transform.scale.x + worldPos.x;
-        worldMax.y = bbox.max.y * instance.transform.scale.y + worldPos.y;
-        worldMax.z = bbox.max.z * instance.transform.scale.z + worldPos.z;
-        
-        LOG("World bounding box - min: (" + std::to_string(worldMin.x) + ", " + std::to_string(worldMin.y) + ", " + std::to_string(worldMin.z) + ")");
-        LOG("World bounding box - max: (" + std::to_string(worldMax.x) + ", " + std::to_string(worldMax.y) + ", " + std::to_string(worldMax.z) + ")");
-        
-        // Check if model is in frustum
-        if (frustum)
-        {
-            bool inFrustum = frustum->CheckAABB(worldMin, worldMax);
-            LOG("Model " + std::to_string(i) + " in frustum: " + std::string(inFrustum ? "true" : "false"));
-            // Temporarily disable frustum culling for debugging
-            // if (!inFrustum)
-            //     continue;
-        }
-        
-        // Check ray-AABB intersection
-        float t;
-        bool intersects = RayAABBIntersection(rayOrigin, rayDirection, worldMin, worldMax, t);
-        LOG("Model " + std::to_string(i) + " ray intersection: " + std::string(intersects ? "true" : "false") + ", distance: " + std::to_string(t));
-        
-        // Only consider intersections in front of the camera (positive t values)
-        if (intersects && t > 0.0f)
-        {
-            if (t < closestDistance)
-            {
-                closestDistance = t;
-                closestModel = static_cast<int>(i);
-                LOG("New closest model: " + std::to_string(i) + " at distance: " + std::to_string(t));
-            }
-        }
-    }
-    
-    LOG("PickModel result: " + std::to_string(closestModel));
-    return closestModel;
-}
+
 
 void SelectionManager::StartTransform(const XMFLOAT2& screenPos, const XMMATRIX& viewMatrix, 
                                      const XMMATRIX& projectionMatrix, const Camera* camera)
@@ -274,7 +147,7 @@ GizmoAxis SelectionManager::GetGizmoAxis(const XMFLOAT2& screenPos, const XMMATR
     // Simple axis detection based on screen position relative to gizmo center
     // This is a simplified version - in a real implementation you'd do proper ray-gizmo intersection
     
-    // For now, return the axis based on which quadrant of the screen the mouse is in
+    
     if (screenPos.x > 0.5f && screenPos.y < 0.5f)
         return GizmoAxis::X;
     else if (screenPos.x < 0.5f && screenPos.y < 0.5f)
@@ -328,156 +201,9 @@ void SelectionManager::RenderGizmos(D3D11Device* device, const XMMATRIX& viewMat
     device->TurnZBufferOn();
 }
 
-XMFLOAT3 SelectionManager::ScreenToWorldRay(const XMFLOAT2& screenPos, const XMMATRIX& viewMatrix, 
-                                           const XMMATRIX& projectionMatrix) const
-{
-    LOG("ScreenToWorldRay - input screenPos: (" + std::to_string(screenPos.x) + ", " + std::to_string(screenPos.y) + ")");
-    
-    // Convert screen coordinates to normalized device coordinates
-    XMFLOAT2 ndc;
-    ndc.x = (2.0f * screenPos.x) - 1.0f;
-    ndc.y = 1.0f - (2.0f * screenPos.y);
-    
-    LOG("ScreenToWorldRay - NDC coordinates: (" + std::to_string(ndc.x) + ", " + std::to_string(ndc.y) + ")");
-    
-    // Create ray in clip space
-    XMFLOAT4 rayClip = XMFLOAT4(ndc.x, ndc.y, -1.0f, 1.0f);
-    
-    // Transform to eye space
-    XMMATRIX invProj = XMMatrixInverse(nullptr, projectionMatrix);
-    XMFLOAT4 rayEye;
-    XMStoreFloat4(&rayEye, XMVector4Transform(XMLoadFloat4(&rayClip), invProj));
-    rayEye.z = -1.0f;
-    rayEye.w = 0.0f;
-    
-    LOG("ScreenToWorldRay - eye space ray: (" + std::to_string(rayEye.x) + ", " + std::to_string(rayEye.y) + ", " + std::to_string(rayEye.z) + ", " + std::to_string(rayEye.w) + ")");
-    
-    // Transform to world space
-    XMMATRIX invView = XMMatrixInverse(nullptr, viewMatrix);
-    XMFLOAT4 rayWorld;
-    XMStoreFloat4(&rayWorld, XMVector4Transform(XMLoadFloat4(&rayEye), invView));
-    
-    LOG("ScreenToWorldRay - world space ray: (" + std::to_string(rayWorld.x) + ", " + std::to_string(rayWorld.y) + ", " + std::to_string(rayWorld.z) + ", " + std::to_string(rayWorld.w) + ")");
-    
-    // Normalize the ray direction
-    XMFLOAT3 rayDir = XMFLOAT3(rayWorld.x, rayWorld.y, rayWorld.z);
-    float length = sqrt(rayDir.x * rayDir.x + rayDir.y * rayDir.y + rayDir.z * rayDir.z);
-    
-    if (length > 0.0f)
-    {
-        rayDir.x /= length;
-        rayDir.y /= length;
-        rayDir.z /= length;
-    }
-    else
-    {
-        LOG_ERROR("ScreenToWorldRay - ray direction length is zero");
-        rayDir = XMFLOAT3(0.0f, 0.0f, 1.0f); // Default direction (forward)
-    }
-    
-    LOG("ScreenToWorldRay - normalized ray direction: (" + std::to_string(rayDir.x) + ", " + std::to_string(rayDir.y) + ", " + std::to_string(rayDir.z) + ")");
-    
-    return rayDir;
-}
 
-bool SelectionManager::RayAABBIntersection(const XMFLOAT3& rayOrigin, const XMFLOAT3& rayDirection,
-                                          const XMFLOAT3& min, const XMFLOAT3& max, float& t) const
-{
-    LOG("RayAABBIntersection - rayOrigin: (" + std::to_string(rayOrigin.x) + ", " + std::to_string(rayOrigin.y) + ", " + std::to_string(rayOrigin.z) + ")");
-    LOG("RayAABBIntersection - rayDirection: (" + std::to_string(rayDirection.x) + ", " + std::to_string(rayDirection.y) + ", " + std::to_string(rayDirection.z) + ")");
-    LOG("RayAABBIntersection - AABB min: (" + std::to_string(min.x) + ", " + std::to_string(min.y) + ", " + std::to_string(min.z) + ")");
-    LOG("RayAABBIntersection - AABB max: (" + std::to_string(max.x) + ", " + std::to_string(max.y) + ", " + std::to_string(max.z) + ")");
-    
-    // Check for division by zero
-    if (rayDirection.x == 0.0f && rayDirection.y == 0.0f && rayDirection.z == 0.0f)
-    {
-        LOG_ERROR("Ray direction is zero vector");
-        return false;
-    }
-    
-    float tMin, tMax;
-    
-    // X-axis
-    if (rayDirection.x != 0.0f)
-    {
-        tMin = (min.x - rayOrigin.x) / rayDirection.x;
-        tMax = (max.x - rayOrigin.x) / rayDirection.x;
-        if (tMin > tMax) std::swap(tMin, tMax);
-    }
-    else
-    {
-        // Ray is parallel to X-axis
-        if (rayOrigin.x < min.x || rayOrigin.x > max.x)
-        {
-            LOG("RayAABBIntersection - no intersection (ray parallel to X-axis, outside bounds)");
-            return false;
-        }
-        tMin = -FLT_MAX;
-        tMax = FLT_MAX;
-    }
-    
-    // Y-axis
-    float tyMin, tyMax;
-    if (rayDirection.y != 0.0f)
-    {
-        tyMin = (min.y - rayOrigin.y) / rayDirection.y;
-        tyMax = (max.y - rayOrigin.y) / rayDirection.y;
-        if (tyMin > tyMax) std::swap(tyMin, tyMax);
-    }
-    else
-    {
-        // Ray is parallel to Y-axis
-        if (rayOrigin.y < min.y || rayOrigin.y > max.y)
-        {
-            LOG("RayAABBIntersection - no intersection (ray parallel to Y-axis, outside bounds)");
-            return false;
-        }
-        tyMin = -FLT_MAX;
-        tyMax = FLT_MAX;
-    }
-    
-    if (tMin > tyMax || tyMin > tMax)
-    {
-        LOG("RayAABBIntersection - no intersection (X/Y planes)");
-        return false;
-    }
-    
-    if (tyMin > tMin) tMin = tyMin;
-    if (tyMax < tMax) tMax = tyMax;
-    
-    // Z-axis
-    float tzMin, tzMax;
-    if (rayDirection.z != 0.0f)
-    {
-        tzMin = (min.z - rayOrigin.z) / rayDirection.z;
-        tzMax = (max.z - rayOrigin.z) / rayDirection.z;
-        if (tzMin > tzMax) std::swap(tzMin, tzMax);
-    }
-    else
-    {
-        // Ray is parallel to Z-axis
-        if (rayOrigin.z < min.z || rayOrigin.z > max.z)
-        {
-            LOG("RayAABBIntersection - no intersection (ray parallel to Z-axis, outside bounds)");
-            return false;
-        }
-        tzMin = -FLT_MAX;
-        tzMax = FLT_MAX;
-    }
-    
-    if (tMin > tzMax || tzMin > tMax)
-    {
-        LOG("RayAABBIntersection - no intersection (Z plane)");
-        return false;
-    }
-    
-    if (tzMin > tMin) tMin = tzMin;
-    if (tzMax < tMax) tMax = tzMax;
-    
-    t = tMin;
-    LOG("RayAABBIntersection - intersection found at t = " + std::to_string(t));
-    return true;
-}
+
+
 
 XMFLOAT3 SelectionManager::TransformPoint(const XMFLOAT3& point, const XMMATRIX& matrix) const
 {
@@ -531,7 +257,7 @@ void SelectionManager::CreateGizmoGeometry(D3D11Device* device)
         XMFLOAT4 color;
     };
     
-    // For now, we'll create simple line geometry
+
     std::vector<GizmoVertex> vertices;
     std::vector<unsigned int> indices;
     
@@ -604,7 +330,7 @@ void SelectionManager::RenderPositionGizmo(D3D11Device* device, const XMMATRIX& 
 {
     // Render position gizmo (arrows)
     // This would use a line shader to render the arrows
-    // For now, we'll just set up the buffers
+
     UINT stride = sizeof(XMFLOAT3) + sizeof(XMFLOAT4); // position + color
     UINT offset = 0;
     

@@ -155,7 +155,7 @@ void IndirectDrawBuffer::UpdateObjectData(ID3D11DeviceContext* context, const st
     
     // Store the actual number of objects
     m_objectCount = static_cast<UINT>(objects.size());
-    // Removed frequent logging - was causing FPS drops in GPU mode
+    
     
     D3D11_MAPPED_SUBRESOURCE mappedResource;
     HRESULT result = context->Map(m_objectDataBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
@@ -164,7 +164,7 @@ void IndirectDrawBuffer::UpdateObjectData(ID3D11DeviceContext* context, const st
         ObjectData* dataPtr = static_cast<ObjectData*>(mappedResource.pData);
         memcpy(dataPtr, objects.data(), sizeof(ObjectData) * objects.size());
         context->Unmap(m_objectDataBuffer, 0);
-        // Removed frequent logging - was causing FPS drops in GPU mode
+        
     }
     else
     {

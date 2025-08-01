@@ -200,7 +200,7 @@ void DirectXViewport::hideEvent(QHideEvent* event)
     {
         LOG("Viewport hidden and stopping background rendering");
         // Could stop the update timer here if needed
-        // For now, we'll keep the timer running to maintain consistent timing
+        
     }
 }
 

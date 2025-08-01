@@ -143,7 +143,7 @@ QString ThemeManager::GetDarkStyleSheet()
         }
         
         QTabBar::tab:selected {
-            background-color: #2d2d2d;
+            background-color: #2596be;
         }
         
         QTabBar::tab:hover {

@@ -382,7 +382,7 @@ bool PBRShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, XMMATRIX
 	LightBufferType* dataPtr2;
 	MaterialBufferType* dataPtr3;
 
-	// Debug logging
+
 	/*LOG("PBR Shader SetShaderParameters called");
 	LOG("Diffuse texture: " + std::string(diffuseTexture != nullptr ? "VALID" : "NULL"));
 	LOG("Normal texture: " + std::string(normalTexture != nullptr ? "VALID" : "NULL"));

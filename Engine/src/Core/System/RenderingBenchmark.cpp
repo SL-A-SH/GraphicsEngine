@@ -18,7 +18,7 @@
 #include <cmath>
 #include <cstdint>
 #include <d3dcompiler.h>
-#include <fstream> // Added for file I/O
+#include <fstream>
 
 RenderingBenchmark::RenderingBenchmark()
     : m_Device(nullptr)

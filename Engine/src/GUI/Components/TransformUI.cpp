@@ -314,7 +314,7 @@ void TransformUI::CreateGizmoIcons(D3D11Device* Direct3D)
 {
     LOG("TransformUI: Creating gizmo icons");
     
-    // For now, we'll skip creating sprites since the texture files don't exist
+    
     // In a real implementation, you would create proper icon textures
     LOG("TransformUI: Skipping sprite creation (texture files not available)");
     
@@ -373,25 +373,25 @@ void TransformUI::RenderGizmoIcons(D3D11Device* Direct3D, ShaderManager* ShaderM
     int startX = m_screenWidth - m_iconMargin - m_iconSize;
     int startY = m_screenHeight - m_iconMargin - m_iconSize * 3 - m_iconSpacing * 2;
     
-    // Render position icon (if available)
+    
     if (m_positionIcon)
     {
         m_positionIcon->Render(Direct3D->GetDeviceContext());
     }
     
-    // Render rotation icon (if available)
+    
     if (m_rotationIcon)
     {
         m_rotationIcon->Render(Direct3D->GetDeviceContext());
     }
     
-    // Render scale icon (if available)
+    
     if (m_scaleIcon)
     {
         m_scaleIcon->Render(Direct3D->GetDeviceContext());
     }
     
-    // Render icon text (if available)
+    
     if (m_positionIconText)
     {
         m_positionIconText->Render(Direct3D->GetDeviceContext());

@@ -66,10 +66,7 @@ public:
     void SetTransformMode(TransformMode mode) { m_transformMode = mode; }
     TransformMode GetTransformMode() const { return m_transformMode; }
     
-    // Raycasting
-    int PickModel(const XMFLOAT2& screenPos, const XMMATRIX& viewMatrix, 
-                  const XMMATRIX& projectionMatrix, const std::vector<ModelInstance>& models,
-                  const Model* modelTemplate, const Frustum* frustum, const Camera* camera);
+
     
     // Transform operations
     void StartTransform(const XMFLOAT2& screenPos, const XMMATRIX& viewMatrix, 
@@ -92,11 +89,7 @@ public:
                      const XMMATRIX& projectionMatrix, const XMMATRIX& worldMatrix);
 
 private:
-    // Raycasting helpers
-    XMFLOAT3 ScreenToWorldRay(const XMFLOAT2& screenPos, const XMMATRIX& viewMatrix, 
-                              const XMMATRIX& projectionMatrix) const;
-    bool RayAABBIntersection(const XMFLOAT3& rayOrigin, const XMFLOAT3& rayDirection,
-                             const XMFLOAT3& min, const XMFLOAT3& max, float& t) const;
+
     XMFLOAT3 TransformPoint(const XMFLOAT3& point, const XMMATRIX& matrix) const;
     
     // Transform helpers

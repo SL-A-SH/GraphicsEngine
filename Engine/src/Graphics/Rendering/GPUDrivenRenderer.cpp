@@ -110,7 +110,7 @@ bool GPUDrivenRenderer::Initialize(ID3D11Device* device, HWND hwnd, UINT maxObje
     }
     LOG("GPUDrivenRenderer: Visibility buffer initialized successfully");
     
-    // Initialize reusable constant buffers for performance
+
     result = InitializeConstantBuffers(device);
     if (!result)
     {
@@ -186,7 +186,7 @@ bool GPUDrivenRenderer::InitializeComputeShaders(ID3D11Device* device, HWND hwnd
         return false;
     }
     
-    // Try to create stream compaction compute shader (optional for now)
+
     m_streamCompactionCS = new ComputeShader();
     
     LOG("GPUDrivenRenderer: Initializing stream compaction compute shader");
@@ -210,7 +210,7 @@ bool GPUDrivenRenderer::InitializeComputeShaders(ID3D11Device* device, HWND hwnd
         }
     }
     
-    // Try to create update draw arguments compute shader (optional for now)
+
     m_updateDrawArgsCS = new ComputeShader();
     
     LOG("GPUDrivenRenderer: Initializing update draw arguments compute shader");
@@ -300,7 +300,7 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
     // 2. GPU stream compaction → visible objects array + count
     // 3. GPU updates draw arguments with visible count
     // 4. DrawIndexedInstancedIndirect renders ONLY visible objects
-    // ZERO CPU-GPU sync, maximum performance scaling
+    
     
     if (!m_enableGPUDriven)
     {
@@ -431,7 +431,7 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
             UINT startInstanceLocation;
         };
         
-        // Create a temporary constant buffer for draw info
+    
         static ID3D11Buffer* drawInfoBuffer = nullptr;
         if (!drawInfoBuffer)
         {
@@ -508,7 +508,6 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
         context->VSSetShaderResources(1, 1, &worldMatrixSRV);
     }
     
-    // Decide which approach to use based on available features
     bool useIndirectDraw = (m_streamCompactionCS && m_updateDrawArgsCS && m_visibleObjectsSRV && m_drawArgumentsBuffer);
     
     if (useIndirectDraw)
@@ -525,8 +524,6 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
         }
     }
     
-    // PERFORMANCE OPTIMIZATION: Only update view/projection buffer when data changes
-    // Compare matrices using memcmp for performance
     if (!m_constantBuffersInitialized || 
         memcmp(&m_viewMatrix, &m_prevViewMatrix, sizeof(XMMATRIX)) != 0 || 
         memcmp(&m_projectionMatrix, &m_prevProjectionMatrix, sizeof(XMMATRIX)) != 0)
@@ -553,7 +550,7 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
     }
     context->VSSetConstantBuffers(0, 1, &m_viewProjectionBuffer);
     
-    // PERFORMANCE OPTIMIZATION: Only update lighting buffer when data changes
+    
     XMFLOAT4 currentAmbientColor = light ? light->GetAmbientColor() : XMFLOAT4(0.15f, 0.15f, 0.15f, 1.0f);
     XMFLOAT4 currentDiffuseColor = light ? light->GetDiffuseColor() : XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
     XMFLOAT3 currentLightDirection = light ? light->GetDirection() : XMFLOAT3(0.0f, 0.0f, 1.0f);
@@ -596,7 +593,7 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
     }
     context->PSSetConstantBuffers(0, 1, &m_lightBuffer);
     
-    // PERFORMANCE OPTIMIZATION: Only update material buffer when data changes
+    
     XMFLOAT4 currentBaseColor = model ? model->GetBaseColor() : XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
     XMFLOAT4 currentMaterialProperties = model ? XMFLOAT4(
         model->GetMetallic(),      // x = metallic
@@ -661,12 +658,11 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
     {
         // TRUE GPU-DRIVEN RENDERING - DrawIndexedInstancedIndirect
         // GPU determines instance count, CPU never knows how many objects are visible
-        // Maximum performance: only visible objects processed, zero CPU-GPU sync
+        
         context->DrawIndexedInstancedIndirect(m_drawArgumentsBuffer, 0);
         
-        // Track performance metrics - note: we don't know exact visible count on CPU
         PerformanceProfiler::GetInstance().IncrementDrawCalls();
-        PerformanceProfiler::GetInstance().IncrementIndirectDrawCalls(); // Track indirect draw calls separately
+        PerformanceProfiler::GetInstance().IncrementIndirectDrawCalls();
         
         // For UI display, read back visible count occasionally (blocking for accuracy)
         static int framesSinceReadback = 0;
@@ -697,7 +693,6 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
         // Store visible count for UI display
         m_renderCount = lastKnownVisibleCount;
         
-        // Track performance metrics based on actual visible count
         int trianglesRendered = (indexCount / 3) * lastKnownVisibleCount;
         PerformanceProfiler::GetInstance().AddTriangles(trianglesRendered);
         PerformanceProfiler::GetInstance().AddInstances(lastKnownVisibleCount);
@@ -707,21 +702,17 @@ void GPUDrivenRenderer::Render(ID3D11DeviceContext* context, ID3D11Buffer* verte
         // FALLBACK APPROACH: Draw all instances, let vertex shader handle visibility with the existing approach
         context->DrawIndexedInstanced(indexCount, objectCount, 0, 0, 0);
         
-        // Track performance metrics
         PerformanceProfiler::GetInstance().IncrementDrawCalls();
         PerformanceProfiler::GetInstance().AddTriangles((indexCount / 3) * objectCount); // Vertex shader will cull
         PerformanceProfiler::GetInstance().AddInstances(objectCount);
         
         // Store count for UI display
         m_renderCount = static_cast<int>(objectCount);
-        lastKnownVisibleCount = objectCount; // Fallback doesn't track actual visible count
+                    lastKnownVisibleCount = objectCount;
     }
     
-    // Update PerformanceProfiler with GPU frustum culling data
     PerformanceProfiler::GetInstance().SetGPUFrustumCullingTime(static_cast<double>(gpuCullingDuration.count()));
     PerformanceProfiler::GetInstance().SetFrustumCullingObjects(objectCount, lastKnownVisibleCount);
-    
-    // Note: GPU utilization is now calculated automatically in PerformanceProfiler::CalculateEfficiencyMetrics()
 }
 
 bool GPUDrivenRenderer::InitializeGPUDrivenShaders(ID3D11Device* device, HWND hwnd)
@@ -1188,7 +1179,7 @@ bool GPUDrivenRenderer::InitializeIndirectDrawBuffers(ID3D11Device* device, UINT
     }
     LOG("GPUDrivenRenderer: Visible count UAV created successfully");
     
-    // Create staging buffer for reading visible count (optional - for debugging/UI)
+
     bufferDesc.Usage = D3D11_USAGE_STAGING;
     bufferDesc.ByteWidth = sizeof(UINT) * 4;
     bufferDesc.BindFlags = 0;

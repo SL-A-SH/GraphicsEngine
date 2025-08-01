@@ -168,25 +168,25 @@ void ComputeShader::Dispatch(ID3D11DeviceContext* context, UINT threadGroupCount
         return;
     }
     
-    // Removed frequent logging - was causing FPS drops in GPU mode
+    
     context->CSSetShader(m_computeShader, nullptr, 0);
     context->Dispatch(threadGroupCountX, threadGroupCountY, threadGroupCountZ);
 }
 
 void ComputeShader::SetShaderResourceView(ID3D11DeviceContext* context, UINT slot, ID3D11ShaderResourceView* srv)
 {
-    // Removed frequent logging - was causing FPS drops in GPU mode
+    
     context->CSSetShaderResources(slot, 1, &srv);
 }
 
 void ComputeShader::SetUnorderedAccessView(ID3D11DeviceContext* context, UINT slot, ID3D11UnorderedAccessView* uav)
 {
-    // Removed frequent logging - was causing FPS drops in GPU mode
+    
     context->CSSetUnorderedAccessViews(slot, 1, &uav, nullptr);
 }
 
 void ComputeShader::SetConstantBuffer(ID3D11DeviceContext* context, UINT slot, ID3D11Buffer* buffer)
 {
-    // Removed frequent logging - was causing FPS drops in GPU mode
+    
     context->CSSetConstantBuffers(slot, 1, &buffer);
 } 

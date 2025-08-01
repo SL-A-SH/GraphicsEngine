@@ -1145,7 +1145,7 @@ void Model::ExtractMaterialInfo(FbxSurfaceMaterial* material)
 	LOG("Material name: " + std::string(material->GetName()));
 	LOG("Material type: " + std::string(material->GetClassId().GetName()));
 
-	// List all properties first for debugging
+	
 	ListAllMaterialProperties(material);
 
 	// Get the material type
@@ -1311,7 +1311,7 @@ void Model::ProcessMesh(FbxNode* pNode)
 		return;
 	}
 
-	// Temporary storage for all vertices and indices
+
 	static std::vector<ModelType> vertices;
 	static std::vector<unsigned long> indices;
 

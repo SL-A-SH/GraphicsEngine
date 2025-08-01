@@ -22,7 +22,7 @@
 #include "../../GUI/Components/UserInterface.h"
 #include "../../Core/Input/Management/InputManager.h"
 #include "../../Core/System/RenderingBenchmark.h"
-// #include "../../GUI/Windows/PerformanceWidget.h" // Now handled by MainWindow
+#include "../../Core/System/RenderingBenchmark.h"
 
 Application::Application()
 {
@@ -53,7 +53,7 @@ Application::Application()
 	m_GPUDrivenRenderer = 0;
 	m_enableGPUDrivenRendering = false;
 	m_BenchmarkSystem = 0;
-	// m_PerformanceWidget = 0; // Now handled by MainWindow
+	m_BenchmarkSystem = 0;
 }
 
 
@@ -88,7 +88,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	}
 	LOG("Direct3D initialized successfully");
 
-	// Initialize the performance profiler
+
 	PerformanceProfiler::GetInstance().Initialize(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext());
 
 	// Create the camera object.
@@ -114,7 +114,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	}
 	LOG("Zone initialized successfully");
 
-	// Set the file name of the model - using spaceship for GPU-driven rendering
+
 	strcpy_s(modelFilename, "../Engine/assets/models/spaceship/low-poly/nave-modelo.fbx");
 	LOG("Attempting to load spaceship model for GPU-driven rendering: " + std::string(modelFilename));
 
@@ -122,7 +122,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	LOG("Creating model object");
 	m_Model = new Model;
 
-	// Use spaceship FBX model for GPU-driven rendering
+
 	result = m_Model->InitializeFBX(m_Direct3D->GetDevice(), m_Direct3D->GetDeviceContext(), modelFilename);
 	if (!result)
 	{
@@ -217,10 +217,10 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	// Create and initialize the model list object.
 	LOG("Creating model list");
 	m_ModelList = new ModelList;
-	m_ModelList->Initialize(5000); // PERFORMANCE TESTING: 5000 spaceships to test GPU vs CPU performance at scale
+	m_ModelList->Initialize(5000);
 	LOG("Model list initialized successfully");
 	
-	// Debug: Check if ModelList was initialized correctly
+
 	int modelCount = m_ModelList->GetModelCount();
 	LOG("Application: ModelList reports " + std::to_string(modelCount) + " models after initialization");
 	
@@ -284,7 +284,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 
 	// Initialize GPU-driven renderer
 	m_GPUDrivenRenderer = new GPUDrivenRenderer;
-	result = m_GPUDrivenRenderer->Initialize(m_Direct3D->GetDevice(), hwnd, 10000); // PERFORMANCE TESTING: Large buffer for 5000+ objects
+	result = m_GPUDrivenRenderer->Initialize(m_Direct3D->GetDevice(), hwnd, 10000);
 	if (!result)
 	{
 		LOG_ERROR("Could not initialize GPU-driven renderer - will use CPU-driven rendering only");
@@ -376,7 +376,7 @@ bool Application::Initialize(int screenWidth, int screenHeight, HWND hwnd, MainW
 	LOG("Model List UI initialized successfully");
 	LOG("Transform UI initialized successfully");
 	
-	// Initialize debug logging
+
 	m_debugLogging = false;
 
 	LOG("Application initialization completed successfully");
@@ -497,7 +497,7 @@ void Application::Shutdown()
 		m_BenchmarkSystem = 0;
 	}
 
-	// Note: PerformanceWidget cleanup handled by MainWindow
+
 
 	LOG("Application shutdown completed");
 	return;
@@ -521,7 +521,6 @@ bool Application::Frame(InputManager* Input)
 	// Update the system stats.
 	m_Timer->Frame();
 
-	// Get the current FPS from PerformanceProfiler instead of Timer for more accurate display
 	m_Fps = static_cast<int>(PerformanceProfiler::GetInstance().GetCurrentFPS());
 
 	// Check for F11 fullscreen toggle
@@ -580,7 +579,6 @@ bool Application::Frame(InputManager* Input)
 		wasF12Pressed = false;
 	}
 	
-	// Check for L key debug logging toggle
 	static bool wasLPressed = false;
 	if (Input->IsLPressed() && !wasLPressed)
 	{
@@ -590,7 +588,6 @@ bool Application::Frame(InputManager* Input)
 		if (m_debugLogging)
 		{
 			LOG("Press L again to disable debug logging");
-			// Get current camera position for debug info
 			XMFLOAT3 cameraPos = m_Camera->GetPosition();
 			LOG("Current camera position: (" + std::to_string(cameraPos.x) + ", " + std::to_string(cameraPos.y) + ", " + std::to_string(cameraPos.z) + ")");
 			LOG("Current rendering mode: " + std::string(m_enableGPUDrivenRendering ? "GPU-Driven" : "CPU-Driven"));
@@ -610,125 +607,7 @@ bool Application::Frame(InputManager* Input)
 	// Check if the mouse has been pressed.
 	mouseDown = Input->IsMousePressed();
 
-	// Handle model selection with left mouse click
-	static bool wasLeftMousePressed = false;
-	if (Input->IsMousePressed() && !wasLeftMousePressed)
-	{
-		wasLeftMousePressed = true;
-		
-		LOG("=== MODEL SELECTION DEBUG ===");
-		LOG("Mouse click detected at screen coordinates: (" + std::to_string(mouseX) + ", " + std::to_string(mouseY) + ")");
-		LOG("Screen dimensions: " + std::to_string(m_screenWidth) + "x" + std::to_string(m_screenHeight));
-		
-		// Convert mouse coordinates to normalized screen coordinates (0-1)
-		XMFLOAT2 screenPos;
-		screenPos.x = static_cast<float>(mouseX) / static_cast<float>(m_screenWidth);
-		screenPos.y = static_cast<float>(mouseY) / static_cast<float>(m_screenHeight);
-		
-		LOG("Normalized screen position: (" + std::to_string(screenPos.x) + ", " + std::to_string(screenPos.y) + ")");
-		
-		// Get view and projection matrices for raycasting
-		XMMATRIX viewMatrix, projectionMatrix;
-		m_Camera->GetViewMatrix(viewMatrix);
-		m_Direct3D->GetProjectionMatrix(projectionMatrix);
-		
-		LOG("Got view and projection matrices");
-		
-		// Get model instances from ModelList
-		std::vector<ModelInstance> modelInstances;
-		int modelCount = m_ModelList->GetModelCount();
-		LOG("ModelList contains " + std::to_string(modelCount) + " models");
-		
-		for (int i = 0; i < modelCount; i++)
-		{
-			float posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ;
-			m_ModelList->GetTransformData(i, posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ);
-			
-			LOG("Model " + std::to_string(i) + " transform from ModelList:");
-			LOG("  Position: (" + std::to_string(posX) + ", " + std::to_string(posY) + ", " + std::to_string(posZ) + ")");
-			LOG("  Rotation: (" + std::to_string(rotX) + ", " + std::to_string(rotY) + ", " + std::to_string(rotZ) + ")");
-			LOG("  Scale: (" + std::to_string(scaleX) + ", " + std::to_string(scaleY) + ", " + std::to_string(scaleZ) + ")");
-			
-			ModelInstance instance;
-			instance.transform.position = XMFLOAT3(posX, posY, posZ);
-			instance.transform.rotation = XMFLOAT3(rotX, rotY, rotZ);
-			instance.transform.scale = XMFLOAT3(scaleX, scaleY, scaleZ);
-			modelInstances.push_back(instance);
-		}
-		
-		LOG("Created " + std::to_string(modelInstances.size()) + " model instances for picking");
-		
-		// Debug: Print model bounding box information
-		if (m_Model)
-		{
-			const Model::AABB& bbox = m_Model->GetBoundingBox();
-			LOG("Model bounding box:");
-			LOG("  Min: (" + std::to_string(bbox.min.x) + ", " + std::to_string(bbox.min.y) + ", " + std::to_string(bbox.min.z) + ")");
-			LOG("  Max: (" + std::to_string(bbox.max.x) + ", " + std::to_string(bbox.max.y) + ", " + std::to_string(bbox.max.z) + ")");
-			LOG("  Radius: " + std::to_string(bbox.radius));
-		}
-		else
-		{
-			LOG_ERROR("Model template is null!");
-		}
-		
-		// Perform raycasting to pick a model
-		int pickedModel = m_SelectionManager->PickModel(screenPos, viewMatrix, projectionMatrix, 
-		                                               modelInstances, m_Model, m_Frustum, m_Camera);
-		
-		LOG("PickModel returned: " + std::to_string(pickedModel));
-		LOG("=== END MODEL SELECTION DEBUG ===");
-		
-		if (pickedModel >= 0)
-		{
-			// Model was picked, select it
-			LOG("Model " + std::to_string(pickedModel) + " was selected");
-			m_SelectionManager->SelectModel(pickedModel);
-			
-			// Update TransformUI with the selected model's data
-			if (m_mainWindow && m_mainWindow->GetTransformUI())
-			{
-				TransformData transformData = modelInstances[pickedModel].transform;
-				m_mainWindow->GetTransformUI()->SetTransformData(transformData);
-				LOG("Updated TransformUI with selected model data");
-				
-				// Switch UI from model list to transform UI
-				m_mainWindow->SwitchToTransformUI();
-				
-				// Call the UI switching callback
-				if (m_switchToTransformUICallback)
-				{
-					m_switchToTransformUICallback();
-				}
-			}
-		}
-		else
-		{
-			// No model was picked, deselect all
-			LOG("No model was picked, deselecting all");
-			m_SelectionManager->DeselectAll();
-			
-			// Clear TransformUI and switch back to model list
-			if (m_mainWindow && m_mainWindow->GetTransformUI())
-			{
-				m_mainWindow->GetTransformUI()->ClearTransformData();
-				m_mainWindow->GetTransformUI()->HideUI();
-				LOG("Cleared TransformUI data");
-			}
-			
-			m_mainWindow->SwitchToModelList();
-			
-			// Call the UI switching callback
-			if (m_switchToModelListCallback)
-			{
-				m_switchToModelListCallback();
-			}
-		}
-	}
-	else if (!Input->IsMousePressed())
-	{
-		wasLeftMousePressed = false;
-	}
+
 
 	// Set the frame time for calculating the updated position.
 	m_Position->SetFrameTime(frameTime);
@@ -847,11 +726,10 @@ bool Application::Frame(InputManager* Input)
 		return false;
 	}
 
-	// Note: PerformanceWidget rendering handled by MainWindow/Qt
 
-	// Track UI rendering performance
-	PerformanceProfiler::GetInstance().IncrementDrawCalls(); // UI rendering adds draw calls
-	PerformanceProfiler::GetInstance().AddTriangles(100); // Estimate UI triangle count
+
+	PerformanceProfiler::GetInstance().IncrementDrawCalls();
+	PerformanceProfiler::GetInstance().AddTriangles(100);
 
 	// End profiling the frame
 	PerformanceProfiler::GetInstance().EndFrame();
@@ -877,7 +755,6 @@ bool Application::Render()
 	m_Direct3D->GetProjectionMatrix(projectionMatrix);
 	m_Direct3D->GetOrthoMatrix(orthoMatrix);
 	
-	// Debug: Log camera position during rendering
 	XMFLOAT3 cameraPos = m_Camera->GetPosition();
 
 	// Get the number of models that will be rendered.
@@ -889,7 +766,7 @@ bool Application::Render()
 	// Construct the frustum.
 	m_Frustum->ConstructFrustum(viewMatrix, projectionMatrix, AppConfig::SCREEN_DEPTH);
 	
-	// Removed CPU debug logging to reduce frame-by-frame logging overhead
+
 
 	// Set render states for skybox
 	m_Direct3D->TurnOffCulling();
@@ -930,7 +807,7 @@ bool Application::Render()
 			std::vector<ObjectData> objectData;
 			objectData.reserve(modelCount);
 			
-			// Removed excessive debug logging that was causing FPS drops in GPU mode
+
 			
 			for (int i = 0; i < modelCount; i++)
 			{
@@ -953,11 +830,11 @@ bool Application::Render()
 				
 				objectData.push_back(objData);
 				
-				// Removed excessive debug logging that was causing FPS drops in GPU mode
+	
 			}
 			
 			// Update GPU-driven renderer with object data
-			// Removed excessive debug logging that was causing FPS drops in GPU mode
+
 			m_GPUDrivenRenderer->UpdateObjects(m_Direct3D->GetDeviceContext(), objectData);
 			
 			// Update camera data for GPU-driven rendering (simplified)
@@ -966,7 +843,7 @@ bool Application::Render()
 			m_Camera->GetViewMatrix(viewMatrix);
 			m_Direct3D->GetProjectionMatrix(projectionMatrix);
 			
-			// Removed excessive debug logging that was causing FPS drops in GPU mode
+
 			
 			m_GPUDrivenRenderer->UpdateCamera(m_Direct3D->GetDeviceContext(), cameraPos, viewMatrix, projectionMatrix);
 			
@@ -1037,7 +914,7 @@ bool Application::Render()
 			ID3D11InputLayout* inputLayout = m_ShaderManager->GetInputLayout();
 			
 			// Comprehensive validation of all resources
-			// Removed excessive debug logging that was causing FPS drops in GPU mode
+
 			
 			// Check if any resource is null
 			if (!vertexBuffer)
@@ -1084,12 +961,12 @@ bool Application::Render()
 			}
 			
 			// All resources are valid, proceed with GPU-driven rendering
-			// Removed excessive debug logging that was causing FPS drops in GPU mode
+
 			
 			// Call simplified GPU-driven renderer
 			try
 			{
-				// Removed excessive debug logging that was causing FPS drops in GPU mode
+	
 				m_GPUDrivenRenderer->Render(m_Direct3D->GetDeviceContext(), vertexBuffer, indexBuffer,
 										   m_Model, m_ShaderManager->GetPBRShader(), m_Light, m_Camera, m_Direct3D);
 				
@@ -1136,9 +1013,7 @@ bool Application::Render()
 			return false;
 		}
 
-		// Track skybox draw call
 		PerformanceProfiler::GetInstance().IncrementDrawCalls();
-		// Note: Skybox triangle count would need to be added to Zone class
 
 		// Restore render states for the rest of the scene
 		m_Direct3D->TurnOnCulling();
@@ -1168,12 +1043,12 @@ bool Application::Render()
 			worldMax.y = bbox.max.y * scaleY + posY;
 			worldMax.z = bbox.max.z * scaleZ + posZ;
 
-			// Removed CPU debug logging to reduce frame-by-frame logging overhead
+		
 
 			// Check if the model's AABB is in the view frustum
 			renderModel = m_Frustum->CheckAABB(worldMin, worldMax);
 			
-			// Removed CPU debug logging to reduce frame-by-frame logging overhead
+		
 
 			// If it can be seen then render it, if not skip this model and check the next one
 			if (renderModel)
@@ -1194,7 +1069,6 @@ bool Application::Render()
 				// Check if this is an FBX model with PBR materials first
 				if (m_Model->HasFBXMaterial())
 				{
-					// Debug lighting parameters
 					XMFLOAT3 lightDir = m_Light->GetDirection();
 					XMFLOAT4 ambientColor = m_Light->GetAmbientColor();
 					XMFLOAT4 diffuseColor = m_Light->GetDiffuseColor();
@@ -1285,7 +1159,7 @@ bool Application::Render()
 		PerformanceProfiler::GetInstance().SetCPUFrustumCullingTime(static_cast<double>(cpuCullingDuration.count()));
 		PerformanceProfiler::GetInstance().SetFrustumCullingObjects(static_cast<uint32_t>(modelCount), static_cast<uint32_t>(cpuVisibleCount));
 		
-		// Removed CPU debug logging to reduce frame-by-frame logging overhead
+	
 
 		// Render gizmos for selected model
 		if (m_SelectionManager)
