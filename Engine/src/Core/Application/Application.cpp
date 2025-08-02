@@ -22,7 +22,6 @@
 #include "../../GUI/Components/UserInterface.h"
 #include "../../Core/Input/Management/InputManager.h"
 #include "../../Core/System/RenderingBenchmark.h"
-#include "../../Core/System/RenderingBenchmark.h"
 
 Application::Application()
 {
@@ -52,7 +51,6 @@ Application::Application()
 	m_ScaleGizmo = 0;
 	m_GPUDrivenRenderer = 0;
 	m_enableGPUDrivenRendering = false;
-	m_BenchmarkSystem = 0;
 	m_BenchmarkSystem = 0;
 }
 

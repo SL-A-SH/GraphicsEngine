@@ -338,6 +338,17 @@ void PerformanceProfiler::UpdateMemoryUsage()
     m_LastFrameTiming.bandwidthUsage = bandwidthEstimate;
 }
 
+void PerformanceProfiler::ResetFrameCounters()
+{
+    // Reset counters that accumulate during a frame
+    m_LastFrameTiming.drawCalls = 0;
+    m_LastFrameTiming.triangles = 0;
+    m_LastFrameTiming.instances = 0;
+    m_LastFrameTiming.indirectDrawCalls = 0;
+    m_LastFrameTiming.computeDispatches = 0;
+    // Don't reset timing values, visible/total objects, or efficiency metrics
+}
+
 void PerformanceProfiler::CalculateEfficiencyMetrics()
 {
     // 1. Culling Efficiency (Visible/Total objects ratio)

@@ -58,6 +58,14 @@ struct BenchmarkResult
     double averageCPUMemoryUsage = 0.0;
     double averageBandwidthUsage = 0.0;
     
+    // Efficiency metrics
+    double averageGPUUtilization = 0.0;
+    double averageCullingEfficiency = 0.0;
+    double averageRenderingEfficiency = 0.0;
+    double averageDrawCallEfficiency = 0.0;
+    double averageMemoryThroughput = 0.0;
+    double averageFrustumCullingSpeedup = 0.0;
+    
     // Raw data vectors
     std::vector<double> frameTimes;
     std::vector<double> gpuTimes;
@@ -70,6 +78,14 @@ struct BenchmarkResult
     std::vector<double> gpuMemoryUsage;
     std::vector<double> cpuMemoryUsage;
     std::vector<double> bandwidthUsage;
+    
+    // Efficiency metric raw data vectors
+    std::vector<double> gpuUtilization;
+    std::vector<double> cullingEfficiency;
+    std::vector<double> renderingEfficiency;
+    std::vector<double> drawCallEfficiency;
+    std::vector<double> memoryThroughput;
+    std::vector<double> frustumCullingSpeedup;
 };
 
 // LOD level structure
@@ -128,6 +144,7 @@ private:
     void BeginFrame();
     void EndFrame();
     void RecordMetrics(BenchmarkResult& result);
+    void RecordMetricsWithSimulationTiming(BenchmarkResult& result, double simulationTimeMs);
 
     // Dummy resources for benchmarking
     bool CreateDummyBuffers();

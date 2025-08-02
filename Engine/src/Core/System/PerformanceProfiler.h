@@ -176,6 +176,9 @@ public:
     double GetDrawCallEfficiency() const { return m_LastFrameTiming.drawCallEfficiency; }
     double GetGPUUtilization() const { return m_LastFrameTiming.gpuUtilization; }
     double GetMemoryThroughput() const { return m_LastFrameTiming.memoryThroughput; }
+    
+    // Reset frame counters for clean benchmark metrics
+    void ResetFrameCounters();
 
     // Rendering mode management
     void SetRenderingMode(RenderingMode mode) { m_CurrentMode = mode; }
