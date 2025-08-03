@@ -63,6 +63,8 @@ struct BenchmarkResult
     double averageCullingEfficiency = 0.0;
     double averageRenderingEfficiency = 0.0;
     double averageDrawCallEfficiency = 0.0;
+    double averageModelDrawCallEfficiency = 0.0;
+    double averageTotalSystemEfficiency = 0.0;
     double averageMemoryThroughput = 0.0;
     double averageFrustumCullingSpeedup = 0.0;
     
@@ -84,6 +86,8 @@ struct BenchmarkResult
     std::vector<double> cullingEfficiency;
     std::vector<double> renderingEfficiency;
     std::vector<double> drawCallEfficiency;
+    std::vector<double> modelDrawCallEfficiency;
+    std::vector<double> totalSystemEfficiency;
     std::vector<double> memoryThroughput;
     std::vector<double> frustumCullingSpeedup;
 };

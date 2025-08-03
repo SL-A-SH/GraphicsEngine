@@ -1003,6 +1003,8 @@ void RenderingBenchmark::RecordMetrics(BenchmarkResult& result)
     result.cullingEfficiency.push_back(timing.cullingEfficiency);
     result.renderingEfficiency.push_back(timing.renderingEfficiency);
     result.drawCallEfficiency.push_back(timing.drawCallEfficiency);
+    result.modelDrawCallEfficiency.push_back(timing.modelDrawCallEfficiency);
+    result.totalSystemEfficiency.push_back(timing.totalSystemEfficiency);
     result.memoryThroughput.push_back(timing.memoryThroughput);
     result.frustumCullingSpeedup.push_back(timing.frustumCullingSpeedup);
 
@@ -1056,6 +1058,8 @@ void RenderingBenchmark::RecordMetricsWithSimulationTiming(BenchmarkResult& resu
     result.cullingEfficiency.push_back(timing.cullingEfficiency);
     result.renderingEfficiency.push_back(timing.renderingEfficiency);
     result.drawCallEfficiency.push_back(timing.drawCallEfficiency);
+    result.modelDrawCallEfficiency.push_back(timing.modelDrawCallEfficiency);
+    result.totalSystemEfficiency.push_back(timing.totalSystemEfficiency);
     result.memoryThroughput.push_back(timing.memoryThroughput);
     result.frustumCullingSpeedup.push_back(timing.frustumCullingSpeedup);
 
@@ -1665,6 +1669,12 @@ BenchmarkResult RenderingBenchmark::GetCurrentBenchmarkResult()
         }
         if (!m_CurrentFrameByFrameResult.drawCallEfficiency.empty()) {
             m_CurrentFrameByFrameResult.averageDrawCallEfficiency = std::accumulate(m_CurrentFrameByFrameResult.drawCallEfficiency.begin(), m_CurrentFrameByFrameResult.drawCallEfficiency.end(), 0.0) / m_CurrentFrameByFrameResult.drawCallEfficiency.size();
+        }
+        if (!m_CurrentFrameByFrameResult.modelDrawCallEfficiency.empty()) {
+            m_CurrentFrameByFrameResult.averageModelDrawCallEfficiency = std::accumulate(m_CurrentFrameByFrameResult.modelDrawCallEfficiency.begin(), m_CurrentFrameByFrameResult.modelDrawCallEfficiency.end(), 0.0) / m_CurrentFrameByFrameResult.modelDrawCallEfficiency.size();
+        }
+        if (!m_CurrentFrameByFrameResult.totalSystemEfficiency.empty()) {
+            m_CurrentFrameByFrameResult.averageTotalSystemEfficiency = std::accumulate(m_CurrentFrameByFrameResult.totalSystemEfficiency.begin(), m_CurrentFrameByFrameResult.totalSystemEfficiency.end(), 0.0) / m_CurrentFrameByFrameResult.totalSystemEfficiency.size();
         }
         if (!m_CurrentFrameByFrameResult.memoryThroughput.empty()) {
             m_CurrentFrameByFrameResult.averageMemoryThroughput = std::accumulate(m_CurrentFrameByFrameResult.memoryThroughput.begin(), m_CurrentFrameByFrameResult.memoryThroughput.end(), 0.0) / m_CurrentFrameByFrameResult.memoryThroughput.size();

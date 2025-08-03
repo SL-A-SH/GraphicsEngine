@@ -151,7 +151,7 @@ void PerformanceWidget::CreateRealTimeTab()
     QVBoxLayout* layout = new QVBoxLayout(realTimeTab);
     
     // Performance statistics table - expanded for efficiency metrics
-    m_StatsTable = new QTableWidget(26, 2, realTimeTab);
+    m_StatsTable = new QTableWidget(27, 2, realTimeTab);
     m_StatsTable->setHorizontalHeaderLabels(QStringList() << "Metric" << "Value");
     
     // Set column widths to 50% each
@@ -171,7 +171,8 @@ void PerformanceWidget::CreateRealTimeTab()
         "CPU Time (ms)", "GPU Time (ms)", "GPU Memory (MB)", "CPU Memory (MB)",
         "Bandwidth (MB/s)", "Visibility Ratio (%)", "Triangles per Draw Call",
         "--- EFFICIENCY METRICS ---", "GPU Utilization (%)", "Culling Efficiency (%)", 
-        "Rendering Efficiency (T/ms)", "Draw Call Efficiency (O/DC)", "Memory Throughput (GB/s)"
+        "Rendering Efficiency (T/ms)", "Model Draw Call Efficiency (O/IDC)", 
+        "Total System Efficiency (O/DC)", "Memory Throughput (GB/s)"
     };
     
     for (int i = 0; i < metrics.size(); ++i) {
@@ -279,10 +280,11 @@ void PerformanceWidget::CreateBenchmarkTab()
     layout->addWidget(progressGroup);
     
     // Results table with efficiency metrics
-    m_BenchmarkResultsTable = new QTableWidget(0, 9, benchmarkTab);
+    m_BenchmarkResultsTable = new QTableWidget(0, 10, benchmarkTab);
     m_BenchmarkResultsTable->setHorizontalHeaderLabels(QStringList() 
         << "Approach" << "Objects" << "Visible" << "FPS" << "GPU Util (%)" 
-        << "Culling Eff (%)" << "Draw Call Eff" << "Render Eff" << "Mem Throughput");
+        << "Culling Eff (%)" << "Model Draw Call Eff" << "Total System Eff" 
+        << "Render Eff" << "Mem Throughput");
     m_BenchmarkResultsTable->horizontalHeader()->setStretchLastSection(true);
     m_BenchmarkResultsTable->setAlternatingRowColors(false);
     m_BenchmarkResultsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -454,9 +456,19 @@ void PerformanceWidget::UpdateRealTimeStats()
     }
     row++;
     
-    // Draw Call Efficiency (Objects per draw call)
-    if (timing.drawCallEfficiency > 0.0) {
-        m_StatsTable->item(row, 1)->setText(QString::number(timing.drawCallEfficiency, 'f', 1));
+
+    
+    // Model Draw Call Efficiency (Model objects per indirect draw call)
+    if (timing.modelDrawCallEfficiency > 0.0) {
+        m_StatsTable->item(row, 1)->setText(QString::number(timing.modelDrawCallEfficiency, 'f', 1));
+    } else {
+        m_StatsTable->item(row, 1)->setText("N/A");
+    }
+    row++;
+    
+    // Total System Efficiency (Total objects including UI and skybox per total draw calls)
+    if (timing.totalSystemEfficiency > 0.0) {
+        m_StatsTable->item(row, 1)->setText(QString::number(timing.totalSystemEfficiency, 'f', 1));
     } else {
         m_StatsTable->item(row, 1)->setText("N/A");
     }
@@ -643,8 +655,7 @@ void PerformanceWidget::OnBenchmarkFrame()
             ss.str(""); ss << std::fixed << std::setprecision(1) << (result.averageCullingEfficiency * 100.0);
             LOG("Culling Eff: " + ss.str());
             
-            ss.str(""); ss << std::fixed << std::setprecision(1) << result.averageDrawCallEfficiency;
-            LOG("Draw Call Eff: " + ss.str());
+
             
             ss.str(""); ss << std::fixed << std::setprecision(0) << result.averageRenderingEfficiency;
             LOG("Render Eff: " + ss.str());
@@ -710,9 +721,10 @@ void PerformanceWidget::LoadBenchmarkResults()
         m_BenchmarkResultsTable->setItem(i, 3, new QTableWidgetItem(QString::number(result.averageFPS, 'f', 1)));
         m_BenchmarkResultsTable->setItem(i, 4, new QTableWidgetItem(QString::number(result.averageGPUUtilization, 'f', 1)));
         m_BenchmarkResultsTable->setItem(i, 5, new QTableWidgetItem(QString::number(result.averageCullingEfficiency * 100.0, 'f', 1)));
-        m_BenchmarkResultsTable->setItem(i, 6, new QTableWidgetItem(QString::number(result.averageDrawCallEfficiency, 'f', 1)));
-        m_BenchmarkResultsTable->setItem(i, 7, new QTableWidgetItem(QString::number(result.averageRenderingEfficiency, 'f', 0)));
-        m_BenchmarkResultsTable->setItem(i, 8, new QTableWidgetItem(QString::number(result.averageMemoryThroughput, 'f', 1)));
+        m_BenchmarkResultsTable->setItem(i, 6, new QTableWidgetItem(QString::number(result.averageModelDrawCallEfficiency, 'f', 1)));
+        m_BenchmarkResultsTable->setItem(i, 7, new QTableWidgetItem(QString::number(result.averageTotalSystemEfficiency, 'f', 1)));
+        m_BenchmarkResultsTable->setItem(i, 8, new QTableWidgetItem(QString::number(result.averageRenderingEfficiency, 'f', 0)));
+        m_BenchmarkResultsTable->setItem(i, 9, new QTableWidgetItem(QString::number(result.averageMemoryThroughput, 'f', 1)));
     }
 }
 
@@ -727,7 +739,8 @@ void PerformanceWidget::DisplayComparisonResults()
         comparison += QString("Objects: %1, Visible: %2 (Culling Efficiency: %3%)\n")
                         .arg(result.objectCount).arg(result.visibleObjects).arg(result.averageCullingEfficiency * 100.0, 0, 'f', 1);
         comparison += QString("FPS: %1, GPU Utilization: %2%\n").arg(result.averageFPS, 0, 'f', 1).arg(result.averageGPUUtilization, 0, 'f', 1);
-        comparison += QString("Draw Call Efficiency: %1 objects/call\n").arg(result.averageDrawCallEfficiency, 0, 'f', 1);
+        comparison += QString("Model Draw Call Efficiency: %1 objects/indirect call\n").arg(result.averageModelDrawCallEfficiency, 0, 'f', 1);
+        comparison += QString("Total System Efficiency: %1 objects/total call\n").arg(result.averageTotalSystemEfficiency, 0, 'f', 1);
         comparison += QString("Rendering Efficiency: %1 triangles/ms\n").arg(result.averageRenderingEfficiency, 0, 'f', 0);
         comparison += QString("Memory Throughput: %1 GB/s\n").arg(result.averageMemoryThroughput, 0, 'f', 1);
         
@@ -741,7 +754,8 @@ void PerformanceWidget::DisplayComparisonResults()
     if (m_BenchmarkHistory.size() >= 2) {
         comparison += "\n--- Performance Insights ---\n";
         comparison += "GPU-driven rendering shows significant advantages in:\n";
-        comparison += "- Draw Call Efficiency: Much higher objects per call\n";
+        comparison += "- Model Draw Call Efficiency: Much higher objects per indirect call\n";
+        comparison += "- Total System Efficiency: Better overall draw call utilization\n";
         comparison += "- GPU Utilization: Better parallel processing\n";
         comparison += "- Memory Throughput: More efficient data transfer\n";
         comparison += "- Scalability: Performance benefits increase with object count\n";
@@ -781,7 +795,8 @@ void PerformanceWidget::OnExportComparison()
             file << "GPU Utilization (%)," << timing.gpuUtilization << "," << timing.gpuUtilization << ",0%\n";
             file << "Culling Efficiency (%)," << timing.cullingEfficiency << "," << timing.cullingEfficiency << ",0%\n";
             file << "Rendering Efficiency (triangles/ms)," << timing.renderingEfficiency << "," << timing.renderingEfficiency << ",0%\n";
-            file << "Draw Call Efficiency (objects/call)," << timing.drawCallEfficiency << "," << timing.drawCallEfficiency << ",0%\n";
+            file << "Model Draw Call Efficiency (objects/indirect call)," << timing.modelDrawCallEfficiency << "," << timing.modelDrawCallEfficiency << ",0%\n";
+            file << "Total System Efficiency (objects/total call)," << timing.totalSystemEfficiency << "," << timing.totalSystemEfficiency << ",0%\n";
             file << "Memory Throughput (GB/s)," << timing.memoryThroughput << "," << timing.memoryThroughput << ",0%\n";
             
             file << "\nNote: To get meaningful comparison data, run benchmarks with different rendering modes\n";

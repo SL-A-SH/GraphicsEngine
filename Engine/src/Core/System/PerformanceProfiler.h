@@ -41,6 +41,8 @@ public:
         double frustumCullingSpeedup;  // GPU vs CPU culling speedup factor
         double renderingEfficiency;    // Triangles per millisecond
         double drawCallEfficiency;     // Objects per draw call ratio
+        double modelDrawCallEfficiency; // Model objects per indirect draw call ratio
+        double totalSystemEfficiency;  // Total objects (models + UI + skybox) per total draw calls
         
         std::unordered_map<std::string, TimingData> sections;
     };
@@ -174,6 +176,8 @@ public:
     double GetFrustumCullingSpeedup() const { return m_LastFrameTiming.frustumCullingSpeedup; }
     double GetRenderingEfficiency() const { return m_LastFrameTiming.renderingEfficiency; }
     double GetDrawCallEfficiency() const { return m_LastFrameTiming.drawCallEfficiency; }
+    double GetModelDrawCallEfficiency() const { return m_LastFrameTiming.modelDrawCallEfficiency; }
+    double GetTotalSystemEfficiency() const { return m_LastFrameTiming.totalSystemEfficiency; }
     double GetGPUUtilization() const { return m_LastFrameTiming.gpuUtilization; }
     double GetMemoryThroughput() const { return m_LastFrameTiming.memoryThroughput; }
     

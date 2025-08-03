@@ -398,6 +398,35 @@ void PerformanceProfiler::CalculateEfficiencyMetrics()
         m_LastFrameTiming.drawCallEfficiency = 0.0;
     }
     
+    // 4a. Model Draw Call Efficiency (Model objects per indirect draw call ratio)
+    if (m_LastFrameTiming.indirectDrawCalls > 0)
+    {
+        // For GPU-driven rendering, use visible objects; for CPU-driven, use total instances
+        uint32_t effectiveObjects = (m_CurrentMode == RenderingMode::GPU_DRIVEN) ? 
+                                   m_LastFrameTiming.visibleObjects : m_LastFrameTiming.instances;
+        m_LastFrameTiming.modelDrawCallEfficiency = static_cast<double>(effectiveObjects) / static_cast<double>(m_LastFrameTiming.indirectDrawCalls);
+    }
+    else
+    {
+        m_LastFrameTiming.modelDrawCallEfficiency = 0.0;
+    }
+    
+    // 4b. Total System Efficiency (Total objects including UI and skybox per total draw calls)
+    if (m_LastFrameTiming.drawCalls > 0)
+    {
+        // Calculate total objects: models + UI + skybox
+        // UI typically has 1-2 draw calls, skybox has 1 draw call
+        uint32_t uiAndSkyboxObjects = 2; // UI + skybox objects
+        uint32_t totalObjects = (m_CurrentMode == RenderingMode::GPU_DRIVEN) ? 
+                               m_LastFrameTiming.visibleObjects + uiAndSkyboxObjects : 
+                               m_LastFrameTiming.instances + uiAndSkyboxObjects;
+        m_LastFrameTiming.totalSystemEfficiency = static_cast<double>(totalObjects) / static_cast<double>(m_LastFrameTiming.drawCalls);
+    }
+    else
+    {
+        m_LastFrameTiming.totalSystemEfficiency = 0.0;
+    }
+    
     // 5. Estimate GPU Utilization based on rendering mode and workload
     // This is a rough estimate since true GPU utilization requires vendor-specific APIs
     if (m_LastFrameTiming.cpuTime > 0.0)
