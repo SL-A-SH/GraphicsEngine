@@ -27,6 +27,7 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
+#include <fstream>
 
 PerformanceWidget::PerformanceWidget(QWidget* parent)
     : QWidget(parent)
@@ -148,13 +149,17 @@ void PerformanceWidget::CreateUI()
 void PerformanceWidget::CreateRealTimeTab()
 {
     QWidget* realTimeTab = new QWidget();
-    QVBoxLayout* layout = new QVBoxLayout(realTimeTab);
+    QHBoxLayout* mainLayout = new QHBoxLayout(realTimeTab);
+    
+    // Left side: Performance Metrics (50% width)
+    QWidget* metricsWidget = new QWidget();
+    QVBoxLayout* metricsLayout = new QVBoxLayout(metricsWidget);
     
     // Performance statistics table - expanded for efficiency metrics
-    m_StatsTable = new QTableWidget(27, 2, realTimeTab);
+    m_StatsTable = new QTableWidget(27, 2, metricsWidget);
     m_StatsTable->setHorizontalHeaderLabels(QStringList() << "Metric" << "Value");
     
-    // Set column widths to 50% each
+    // Set column widths to 50% each within the table (25% each of total screen width)
     QHeaderView* horizontalHeader = m_StatsTable->horizontalHeader();
     horizontalHeader->setSectionResizeMode(0, QHeaderView::Stretch);
     horizontalHeader->setSectionResizeMode(1, QHeaderView::Stretch);
@@ -180,14 +185,22 @@ void PerformanceWidget::CreateRealTimeTab()
         m_StatsTable->setItem(i, 1, new QTableWidgetItem("N/A"));
     }
     
-    layout->addWidget(new QLabel("Real-Time Performance Metrics"));
-    layout->addWidget(m_StatsTable);
+    metricsLayout->addWidget(new QLabel("Real-Time Performance Metrics"));
+    metricsLayout->addWidget(m_StatsTable);
+    
+    // Right side: Performance History (50% width)
+    QWidget* historyWidget = new QWidget();
+    QVBoxLayout* historyLayout = new QVBoxLayout(historyWidget);
     
     // Real-time chart (simplified as list widget)
-    m_RealTimeChartWidget = new QListWidget(realTimeTab);
-    m_RealTimeChartWidget->setMaximumHeight(200);
-    layout->addWidget(new QLabel("Performance History"));
-    layout->addWidget(m_RealTimeChartWidget);
+    m_RealTimeChartWidget = new QListWidget(historyWidget);
+    // Remove height constraint to allow it to use full available height
+    historyLayout->addWidget(new QLabel("Performance History"));
+    historyLayout->addWidget(m_RealTimeChartWidget);
+    
+    // Add both widgets to main horizontal layout with equal stretch factors
+    mainLayout->addWidget(metricsWidget, 1); // 50% width
+    mainLayout->addWidget(historyWidget, 1); // 50% width
     
     m_TabWidget->addTab(realTimeTab, "Real-Time");
 }
@@ -285,7 +298,13 @@ void PerformanceWidget::CreateBenchmarkTab()
         << "Approach" << "Objects" << "Visible" << "FPS" << "GPU Util (%)" 
         << "Culling Eff (%)" << "Model Draw Call Eff" << "Total System Eff" 
         << "Render Eff" << "Mem Throughput");
-    m_BenchmarkResultsTable->horizontalHeader()->setStretchLastSection(true);
+    
+    // Set all columns to equal width
+    QHeaderView* benchmarkHeader = m_BenchmarkResultsTable->horizontalHeader();
+    for (int i = 0; i < 10; ++i) {
+        benchmarkHeader->setSectionResizeMode(i, QHeaderView::Stretch);
+    }
+    
     m_BenchmarkResultsTable->setAlternatingRowColors(false);
     m_BenchmarkResultsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     
@@ -506,8 +525,8 @@ void PerformanceWidget::UpdateCharts()
     
     m_RealTimeChartWidget->addItem(chartText);
     
-    // Keep only last 20 items
-    while (m_RealTimeChartWidget->count() > 20) {
+    // Keep only last 30 items
+    while (m_RealTimeChartWidget->count() > 30) {
         delete m_RealTimeChartWidget->takeItem(0);
     }
     
@@ -655,7 +674,11 @@ void PerformanceWidget::OnBenchmarkFrame()
             ss.str(""); ss << std::fixed << std::setprecision(1) << (result.averageCullingEfficiency * 100.0);
             LOG("Culling Eff: " + ss.str());
             
-
+            ss.str(""); ss << std::fixed << std::setprecision(1) << result.averageModelDrawCallEfficiency;
+            LOG("Model Draw Call Eff: " + ss.str());
+            
+            ss.str(""); ss << std::fixed << std::setprecision(1) << result.averageTotalSystemEfficiency;
+            LOG("Total System Eff: " + ss.str());
             
             ss.str(""); ss << std::fixed << std::setprecision(0) << result.averageRenderingEfficiency;
             LOG("Render Eff: " + ss.str());
@@ -768,8 +791,30 @@ void PerformanceWidget::OnExportResults()
 {
     QString fileName = QFileDialog::getSaveFileName(this, "Export Results", "benchmark_results.csv", "CSV Files (*.csv)");
     if (!fileName.isEmpty()) {
-        // Export logic here
-        QMessageBox::information(this, "Export", "Results exported to " + fileName);
+        std::ofstream file(fileName.toStdString());
+        if (file.is_open()) {
+            // Write header
+            file << "Approach,Objects,Visible,FPS,GPU Util (%),Culling Eff (%),Model Draw Call Eff,Total System Eff,Render Eff,Mem Throughput\n";
+            
+            // Write all benchmark results from the table
+            for (int row = 0; row < m_BenchmarkResultsTable->rowCount(); ++row) {
+                for (int col = 0; col < m_BenchmarkResultsTable->columnCount(); ++col) {
+                    QTableWidgetItem* item = m_BenchmarkResultsTable->item(row, col);
+                    if (item) {
+                        file << item->text().toStdString();
+                    }
+                    if (col < m_BenchmarkResultsTable->columnCount() - 1) {
+                        file << ",";
+                    }
+                }
+                file << "\n";
+            }
+            
+            file.close();
+            QMessageBox::information(this, "Export Complete", "Results exported to " + fileName);
+        } else {
+            QMessageBox::warning(this, "Export Failed", "Could not create file: " + fileName);
+        }
     }
 }
 
@@ -798,9 +843,6 @@ void PerformanceWidget::OnExportComparison()
             file << "Model Draw Call Efficiency (objects/indirect call)," << timing.modelDrawCallEfficiency << "," << timing.modelDrawCallEfficiency << ",0%\n";
             file << "Total System Efficiency (objects/total call)," << timing.totalSystemEfficiency << "," << timing.totalSystemEfficiency << ",0%\n";
             file << "Memory Throughput (GB/s)," << timing.memoryThroughput << "," << timing.memoryThroughput << ",0%\n";
-            
-            file << "\nNote: To get meaningful comparison data, run benchmarks with different rendering modes\n";
-            file << "and use the benchmark export functionality instead.\n";
             
             file.close();
             QMessageBox::information(this, "Export Complete", "Comparison exported to " + fileName);

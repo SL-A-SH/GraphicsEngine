@@ -346,7 +346,16 @@ void PerformanceProfiler::ResetFrameCounters()
     m_LastFrameTiming.instances = 0;
     m_LastFrameTiming.indirectDrawCalls = 0;
     m_LastFrameTiming.computeDispatches = 0;
-    // Don't reset timing values, visible/total objects, or efficiency metrics
+    
+    // Reset efficiency metrics to ensure clean calculation
+    m_LastFrameTiming.modelDrawCallEfficiency = 0.0;
+    m_LastFrameTiming.totalSystemEfficiency = 0.0;
+    m_LastFrameTiming.drawCallEfficiency = 0.0;
+    m_LastFrameTiming.renderingEfficiency = 0.0;
+    m_LastFrameTiming.cullingEfficiency = 0.0;
+    m_LastFrameTiming.frustumCullingSpeedup = 0.0;
+    m_LastFrameTiming.gpuUtilization = 0.0;
+    m_LastFrameTiming.memoryThroughput = 0.0;
 }
 
 void PerformanceProfiler::CalculateEfficiencyMetrics()
@@ -399,15 +408,15 @@ void PerformanceProfiler::CalculateEfficiencyMetrics()
     }
     
     // 4a. Model Draw Call Efficiency (Model objects per indirect draw call ratio)
-    if (m_LastFrameTiming.indirectDrawCalls > 0)
+    // This should ONLY be non-zero for GPU-driven rendering since CPU-driven doesn't use indirect draws
+    if (m_CurrentMode == RenderingMode::GPU_DRIVEN && m_LastFrameTiming.indirectDrawCalls > 0)
     {
-        // For GPU-driven rendering, use visible objects; for CPU-driven, use total instances
-        uint32_t effectiveObjects = (m_CurrentMode == RenderingMode::GPU_DRIVEN) ? 
-                                   m_LastFrameTiming.visibleObjects : m_LastFrameTiming.instances;
+        uint32_t effectiveObjects = m_LastFrameTiming.visibleObjects;
         m_LastFrameTiming.modelDrawCallEfficiency = static_cast<double>(effectiveObjects) / static_cast<double>(m_LastFrameTiming.indirectDrawCalls);
     }
     else
     {
+        // CPU-driven rendering doesn't use indirect draw calls, so this should always be 0
         m_LastFrameTiming.modelDrawCallEfficiency = 0.0;
     }
     
@@ -415,7 +424,7 @@ void PerformanceProfiler::CalculateEfficiencyMetrics()
     if (m_LastFrameTiming.drawCalls > 0)
     {
         // Calculate total objects: models + UI + skybox
-        // UI typically has 1-2 draw calls, skybox has 1 draw call
+        // UI has 1-2 draw calls, skybox has 1 draw call
         uint32_t uiAndSkyboxObjects = 2; // UI + skybox objects
         uint32_t totalObjects = (m_CurrentMode == RenderingMode::GPU_DRIVEN) ? 
                                m_LastFrameTiming.visibleObjects + uiAndSkyboxObjects : 

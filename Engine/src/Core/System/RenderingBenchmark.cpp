@@ -1281,7 +1281,8 @@ void RenderingBenchmark::RunBenchmarkFrame(const BenchmarkConfig& config, Benchm
             
             // Simulate GPU-driven rendering performance without actual rendering calls
             // to avoid pointer corruption issues
-            PerformanceProfiler::GetInstance().IncrementDrawCalls(); // GPU uses 1 draw call
+            PerformanceProfiler::GetInstance().IncrementDrawCalls(); // Total draw calls = 1
+            PerformanceProfiler::GetInstance().IncrementIndirectDrawCalls(); // Indirect draw calls = 1 (subset of total)
             
             // Use real model triangle count if available
             int triangleCount = 20420; // Default spaceship triangle count
@@ -1566,6 +1567,19 @@ bool RenderingBenchmark::StartFrameByFrameBenchmark(const BenchmarkConfig& confi
     m_CurrentFrameIndex = 0;
     m_FrameByFrameBenchmarkRunning = true;
     
+    // CRITICAL: Completely reset performance profiler state to prevent contamination between benchmarks
+    PerformanceProfiler::GetInstance().ResetFrameCounters();
+    
+    // Set initial rendering mode to CPU_DRIVEN (will be overridden per frame as needed)
+    PerformanceProfiler::RenderingMode initialMode = (config.approach == BenchmarkConfig::RenderingApproach::CPU_DRIVEN) ? 
+                                                     PerformanceProfiler::RenderingMode::CPU_DRIVEN : 
+                                                     PerformanceProfiler::RenderingMode::GPU_DRIVEN;
+    PerformanceProfiler::GetInstance().SetRenderingMode(initialMode);
+    
+    // Perform a clean frame cycle to reset all state
+    PerformanceProfiler::GetInstance().BeginFrame();
+    PerformanceProfiler::GetInstance().EndFrame();
+    
     // Initialize the result
     m_CurrentFrameByFrameResult.approach = (config.approach == BenchmarkConfig::RenderingApproach::CPU_DRIVEN) ? "CPU-Driven" :
                                           (config.approach == BenchmarkConfig::RenderingApproach::GPU_DRIVEN) ? "GPU-Driven" : "Hybrid";
@@ -1589,6 +1603,8 @@ bool RenderingBenchmark::StartFrameByFrameBenchmark(const BenchmarkConfig& confi
     m_CurrentFrameByFrameResult.cullingEfficiency.clear();
     m_CurrentFrameByFrameResult.renderingEfficiency.clear();
     m_CurrentFrameByFrameResult.drawCallEfficiency.clear();
+    m_CurrentFrameByFrameResult.modelDrawCallEfficiency.clear();
+    m_CurrentFrameByFrameResult.totalSystemEfficiency.clear();
     m_CurrentFrameByFrameResult.memoryThroughput.clear();
     m_CurrentFrameByFrameResult.frustumCullingSpeedup.clear();
     
@@ -1671,7 +1687,14 @@ BenchmarkResult RenderingBenchmark::GetCurrentBenchmarkResult()
             m_CurrentFrameByFrameResult.averageDrawCallEfficiency = std::accumulate(m_CurrentFrameByFrameResult.drawCallEfficiency.begin(), m_CurrentFrameByFrameResult.drawCallEfficiency.end(), 0.0) / m_CurrentFrameByFrameResult.drawCallEfficiency.size();
         }
         if (!m_CurrentFrameByFrameResult.modelDrawCallEfficiency.empty()) {
-            m_CurrentFrameByFrameResult.averageModelDrawCallEfficiency = std::accumulate(m_CurrentFrameByFrameResult.modelDrawCallEfficiency.begin(), m_CurrentFrameByFrameResult.modelDrawCallEfficiency.end(), 0.0) / m_CurrentFrameByFrameResult.modelDrawCallEfficiency.size();
+            double sum = std::accumulate(m_CurrentFrameByFrameResult.modelDrawCallEfficiency.begin(), m_CurrentFrameByFrameResult.modelDrawCallEfficiency.end(), 0.0);
+            size_t count = m_CurrentFrameByFrameResult.modelDrawCallEfficiency.size();
+            m_CurrentFrameByFrameResult.averageModelDrawCallEfficiency = sum / count;
+            
+            // Debug logging for averaging calculation
+            LOG("Model Draw Call Efficiency Averaging: sum=" + std::to_string(sum) + 
+                ", count=" + std::to_string(count) + 
+                ", average=" + std::to_string(m_CurrentFrameByFrameResult.averageModelDrawCallEfficiency));
         }
         if (!m_CurrentFrameByFrameResult.totalSystemEfficiency.empty()) {
             m_CurrentFrameByFrameResult.averageTotalSystemEfficiency = std::accumulate(m_CurrentFrameByFrameResult.totalSystemEfficiency.begin(), m_CurrentFrameByFrameResult.totalSystemEfficiency.end(), 0.0) / m_CurrentFrameByFrameResult.totalSystemEfficiency.size();
